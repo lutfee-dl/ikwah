@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const response = await fetch(gasUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "text/plain;charset=utf-8",
       },
       body: JSON.stringify(body),
     });
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     let data;
     try {
       data = JSON.parse(responseText);
-    } catch (e) {
+    } catch {
       console.error("GAS Response parsing error. Raw response:", responseText);
       return NextResponse.json(
         { success: false, msg: "Invalid response from GAS Server", raw: responseText },
@@ -38,10 +38,11 @@ export async function POST(request: Request) {
     
     return NextResponse.json(data);
     
-  } catch (error: any) {
-    console.error("Proxy API Error:", error.message);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("Proxy API Error:", errorMsg);
     return NextResponse.json(
-      { success: false, msg: "Internal Server Error", error: error.message },
+      { success: false, msg: "Internal Server Error", error: errorMsg },
       { status: 500 }
     );
   }
