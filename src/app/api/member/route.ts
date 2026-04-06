@@ -24,13 +24,24 @@ export async function POST(request: Request) {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    const responseText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error("GAS Response parsing error. Raw response:", responseText);
+      return NextResponse.json(
+        { success: false, msg: "Invalid response from GAS Server", raw: responseText },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(data);
     
-  } catch (error) {
-    console.error("Proxy API Error:", error);
+  } catch (error: any) {
+    console.error("Proxy API Error:", error.message);
     return NextResponse.json(
-      { success: false, msg: "Internal Server Error" },
+      { success: false, msg: "Internal Server Error", error: error.message },
       { status: 500 }
     );
   }
