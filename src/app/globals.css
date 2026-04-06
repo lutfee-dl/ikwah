@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* ✅ เปลี่ยนตรงนี้ */
+  --font-sans: var(--font-sarabun);
+
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+
+  font-family: var(--font-sans);
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: var(--font-kanit), sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.active-tab {
+  color: #2563eb !important;
+}
+
+.active-tab i {
+  transform: translateY(-5px);
+  transition: transform 0.3s;
+}
+
+input, select, text-area {
+  font-size: 16px !important;
+}
+
+.profile-gradient {
+  background: linear-gradient(180deg, #2563eb 0%, #1e40af 100%);
+}
+
+.animate-\[fadeIn_0\.3s\] {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
