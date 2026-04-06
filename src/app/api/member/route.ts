@@ -5,7 +5,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     
     // ดึง URL ของ GAS จาก Environment Variable ที่ซ่อนไว้ในเซิร์ฟเวอร์
-    const gasUrl = process.env.GAS_API_URL;
+    const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL;
     
     if (!gasUrl) {
       console.error("GAS_API_URL is missing in environment variables.");
