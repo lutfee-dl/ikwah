@@ -1,49 +1,85 @@
 import { ApiResponse, LoanSubmission, DashboardData } from "@/types";
 
 export const gasApi = {
-  // ใช้ Generic Type <T> เพื่อระบุว่า Data ที่ส่งกลับมาจะเป็น Type อะไร
-  call: async <T>(payload: object): Promise<ApiResponse<T>> => {
+  // 1. เช็คสถานะผู้ใช้ (รับ idToken แทน userId ธรรมดาเพื่อความปลอดภัย)
+  checkStatus: async (idToken: string) => {
     try {
       const res = await fetch("/api/member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ action: "check_status", idToken }),
       });
       return await res.json();
-    } catch (_error) {
-      return { success: false, msg: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้" };
+    } catch (error) {
+      console.error("Check status error", error);
+      return { success: false, verified: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
     }
   },
 
-  checkStatus: (idToken: string) =>
-    gasApi.call<{ verified: boolean; name?: string }>({
-      action: "check_status",
-      idToken,
-    }),
+  // 2. ตรวจสอบชื่อนามสกุล ว่ามีในฐานข้อมูลหรือไม่
+  verifyName: async (fullName: string, idToken: string) => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", fullName, idToken }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Verify name error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
 
-  getDashboardData: (userId: string) =>
-    gasApi.call<DashboardData>({ action: "get_dashboard_data", userId }),
-
-  submitLoan: (loanData: LoanSubmission) =>
-    gasApi.call({ action: "submit_loan", ...loanData }),
-
-  verifyName: (fullName: string, idToken: string) =>
-    gasApi.call<{ success: boolean; msg?: string }>({
-      action: "verify",
-      fullName,
-      idToken,
-    }),
-
-  register: (payload: {
+  // 3. สมัครสมาชิก
+  register: async (payload: {
     idToken: string;
     fullName: string;
     idCard: string;
     phone: string;
     pictureUrl: string;
     lineName: string;
-  }) =>
-    gasApi.call<{ success: boolean; msg?: string }>({
-      action: "register",
-      ...payload,
-    }),
+  }) => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "register", ...payload }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Register error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
+
+  // 4. ส่งข้อมูลกู้เงิน
+  submitLoan: async (loanData: LoanSubmission) => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "submit_loan", ...loanData }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Submit loan error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
+
+  // 5. ดึงข้อมูล Dashboard
+  getDashboardData: async (userId: string) => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get_dashboard_data", userId }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Get dashboard data error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
 };

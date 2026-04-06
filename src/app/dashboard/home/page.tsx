@@ -1,58 +1,15 @@
 "use client";
-import { useState } from "react";
-import Swal from "sweetalert2";
 import Image from "next/image";
+import { useMemberData } from "@/hooks/useMemberData";
 
 export default function DashboardPage() {
-  const [balance, setBalance] = useState(50000);
+  const { memberData, isLoading } = useMemberData();
   const numberFormat = new Intl.NumberFormat("th-TH", {
     minimumFractionDigits: 2,
   });
 
-  const depositMoney = async () => {
-    const { value: amount } = await Swal.fire({
-      title: "ฝากเงินเพิ่ม",
-      input: "number",
-      confirmButtonText: "ยืนยัน",
-      confirmButtonColor: "#2563eb",
-      showCancelButton: true,
-      cancelButtonText: "ยกเลิก",
-      customClass: { popup: "rounded-[2rem]", input: "rounded-xl" },
-    });
-    if (amount > 0) {
-      setBalance((prev) => prev + parseFloat(amount));
-      Swal.fire({
-        icon: "success",
-        title: "สำเร็จ",
-        text: "ยอดเงินเพิ่มขึ้นแล้ว",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-    }
-  };
-
-  const withdrawMoney = async () => {
-    const { value: amount } = await Swal.fire({
-      title: "ถอนเงิน",
-      input: "number",
-      confirmButtonText: "ยืนยัน",
-      confirmButtonColor: "#dc2626",
-      showCancelButton: true,
-      cancelButtonText: "ยกเลิก",
-      customClass: { popup: "rounded-[2rem]" },
-    });
-    if (amount > 0 && amount <= balance) {
-      setBalance((prev) => prev - parseFloat(amount));
-      Swal.fire({
-        icon: "success",
-        title: "ถอนเงินสำเร็จ",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-    } else if (amount > balance) {
-      Swal.fire("ยอดไม่พอ", "เงินในบัญชีไม่พอสำหรับการถอน", "error");
-    }
-  };
+  const displayBalance = memberData?.accumulatedShares ?? 0;
+  const displayAccountName = memberData?.fullName ?? "กำลังโหลด...";
 
   return (
     <div className="animate-[fadeIn_0.3s] max-w-md mx-auto">
@@ -83,15 +40,21 @@ export default function DashboardPage() {
         </div>
 
         <div className="mb-4 text-center relative z-10">
-          <p className="text-blue-100 text-xs mt-1 font-light tracking-widest">
-            ชื่อบัญชี อิลยาส อาแวนิ
-          </p>
-          <h2 className="text-4xl font-bold tracking-tight">
-            {numberFormat.format(balance)}
-          </h2>
-          <p className="text-blue-100 text-xs mt-1 font-light tracking-widest">
-            THB
-          </p>
+          {isLoading ? (
+             <div className="h-8 w-8 animate-spin rounded-full border-4 border-white border-t-transparent mx-auto my-4"></div>
+          ) : (
+            <>
+              <p className="text-blue-100 text-xs mt-1 font-light tracking-widest">
+                ชื่อบัญชี {displayAccountName}
+              </p>
+              <h2 className="text-4xl font-bold tracking-tight">
+                {numberFormat.format(displayBalance)}
+              </h2>
+              <p className="text-blue-100 text-xs mt-1 font-light tracking-widest">
+                THB
+              </p>
+            </>
+          )}
         </div>
 
         <div className="flex gap-2 mt-6 relative z-10">

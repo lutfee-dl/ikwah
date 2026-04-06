@@ -50,3 +50,10 @@ export const getLiffIdToken = async () => {
     return null;
   }
 };
+
+// ปิดหน้าต่าง LIFF
+export const liffCloseWindow = () => {
+  if (liff.isInClient()) {
+    liff.closeWindow();
+  }
+};

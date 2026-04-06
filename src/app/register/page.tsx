@@ -1,40 +1,43 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { IMaskInput } from "react-imask";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { gasApi } from "@/services/gasApi";
+import { initLiff, getLiffProfile, getLiffIdToken, liffCloseWindow } from "@/services/liff";
 
 export default function RegisterPage() {
   const router = useRouter();
   
-  // mock state สำหรับการพรีวิว (เมื่อทำของจริงจะต้องดึงจาก liff.getProfile())
   const [profileData, _setProfileData] = useState({
-    userId: "mock-user-id",
-    lineName: "Mock User",
-    pictureUrl: "https://lh3.googleusercontent.com/d/1UZwuV3B2SAOv2rCafeY7rne-22I1EulQ",
+    userId: "",
+    lineName: "",
+    pictureUrl: "",
+    idToken: "",
   });
 
-  /* โค้ดของจริงสำหรับดึงข้อมูล LINE Profile
   useEffect(() => {
     const fetchLineProfile = async () => {
       try {
-        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID || "YOUR_LIFF_ID" });
-        if (liff.isLoggedIn()) {
-          const profile = await liff.getProfile();
+        await initLiff();
+        const profile = await getLiffProfile();
+        const token = await getLiffIdToken();
+        
+        if (profile && token) {
           _setProfileData({
             userId: profile.userId,
             lineName: profile.displayName,
             pictureUrl: profile.pictureUrl || "",
+            idToken: token,
           });
         }
       } catch (error) {
-        console.error("LIFF get profile failed", error);
+        console.error("LIFF setup failed on register page", error);
       }
     };
     fetchLineProfile();
   }, []);
-  */
 
   const [step, setStep] = useState(1);
   const [fullName, setFullName] = useState("");
@@ -78,30 +81,70 @@ export default function RegisterPage() {
       Swal.fire("แจ้งเตือน", "กรุณากรอกชื่อ-นามสกุล", "warning");
       return;
     }
+    
+    if (!profileData.idToken) {
+      Swal.fire("แจ้งเตือน", "ไม่พบข้อมูลยืนยันตัวตนจาก LINE กรุณาเข้าสู่ระบบใหม่", "error");
+      return;
+    }
+
     setIsVerifying(true);
 
-    // Mock API call
-    setTimeout(() => {
+    try {
+      const res = await gasApi.verifyName(fullName, profileData.idToken);
       setIsVerifying(false);
-      // สมมติว่า verify เลสร็จแล้วผ่าน
-      setStep(2);
-    }, 1500);
+      
+      if (res.success) {
+        setStep(2);
+      } else {
+        Swal.fire("ไม่พบข้อมูล", res.msg || "ไม่พบรายชื่อในระบบ", "error");
+      }
+    } catch (error) {
+      setIsVerifying(false);
+      Swal.fire("ข้อผิดพลาด", "ติดต่อเซิร์ฟเวอร์ไม่ได้", "error");
+    }
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
-    // Mock API Submit
-    setTimeout(() => {
-      setIsSubmitting(false);
-      Swal.fire({
-        icon: "success",
-        title: "สำเร็จ!",
-        text: "ยืนยันตัวตนสำเร็จแล้ว (Mock)",
-      }).then(() => {
-        router.push("/dashboard");
+    // Format ให้มีขีดแบบที่ GAS ต้องการ (17 และ 12 ตัวอักษร)
+    const formattedIdCard = idCard.length === 13 
+      ? `${idCard.slice(0, 1)}-${idCard.slice(1, 5)}-${idCard.slice(5, 10)}-${idCard.slice(10, 12)}-${idCard.slice(12)}` 
+      : idCard;
+      
+    const formattedPhone = phone.length === 10 
+      ? `${phone.slice(0, 2)}-${phone.slice(2, 6)}-${phone.slice(6)}` 
+      : phone;
+
+    try {
+      const res = await gasApi.register({
+        idToken: profileData.idToken,
+        fullName,
+        idCard: formattedIdCard,
+        phone: formattedPhone,
+        pictureUrl: profileData.pictureUrl,
+        lineName: profileData.lineName,
       });
-    }, 1500);
+      
+      setIsSubmitting(false);
+
+      if (res.success) {
+        Swal.fire({
+          icon: "success",
+          title: "สำเร็จ!",
+          text: res.msg || "ลงทะเบียนสำเร็จ",
+        }).then(() => {
+          // เก็บชื่อลง localStorage หรือ redirect ไปหน้า home
+          liffCloseWindow();
+          router.push("/dashboard/home");
+        });
+      } else {
+        Swal.fire("เกิดข้อผิดพลาด", res.msg || "บันทึกข้อมูลไม่สำเร็จ", "error");
+      }
+    } catch (error) {
+      setIsSubmitting(false);
+      Swal.fire("ข้อผิดพลาด", "บันทึกข้อมูลไม่สำเร็จ", "error");
+    }
   };
 
   return (
@@ -157,8 +200,8 @@ export default function RegisterPage() {
         )}
 
         {step === 2 && (
-          <div className="animate-fade-in">
-            <div className="text-center mb-6">
+          <div id="step2" className="animate-fade-in text-center">
+            <div className="mb-6">
               {profileData.pictureUrl && (
                 <Image 
                   src={profileData.pictureUrl} 
@@ -170,7 +213,7 @@ export default function RegisterPage() {
                 />
               )}
               <h2 className="text-xl font-bold text-gray-800">กรอกข้อมูลสมาชิก</h2>
-              <p className="text-blue-600 font-semibold mt-1">คุณ <span>{fullName}</span></p>
+              <p className="text-blue-600 font-semibold mt-1">คุณ <span id="showName">{fullName}</span></p>
               <p className="text-gray-400 text-sm mt-1 leading-tight">ระบุข้อมูลเพิ่มเติม เพื่อความปลอดภัย</p>
             </div>
             <div className="space-y-4 mb-6">
