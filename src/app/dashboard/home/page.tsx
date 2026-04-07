@@ -41,7 +41,7 @@ export default function DashboardPage() {
 
         <div className="mb-4 text-center relative z-10">
           {isLoading ? (
-             <div className="h-8 w-8 animate-spin rounded-full border-4 border-white border-t-transparent mx-auto my-4"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-white border-t-transparent mx-auto my-4"></div>
           ) : (
             <>
               <p className="text-blue-100 text-xs mt-1 font-light tracking-widest">
@@ -77,20 +77,19 @@ export default function DashboardPage() {
         เมนูแนะนำ
       </h3>
       <div className="grid grid-cols-2 gap-4">
-        <button
-          disabled
-          className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 opacity-50 cursor-not-allowed"
+        <a
+          href="/dashboard/loan"
+          className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 hover:shadow-md transition-shadow"
         >
           <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
             <i className="fas fa-file-invoice-dollar text-xl"></i>
           </div>
           <div className="text-left">
             <p className="font-semibold text-sm text-slate-800">
-              ทำเรื่องสินเชื่อ
+              ยื่นขอสินเชื่อ
             </p>
-            <p className="text-[10px] text-slate-400">เร็วๆ นี้</p>
           </div>
-        </button>
+        </a>
         <button
           disabled
           className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 opacity-50 cursor-not-allowed"

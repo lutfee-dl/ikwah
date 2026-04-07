@@ -62,7 +62,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="animate-[fadeIn_0.3s] max-w-md mx-auto pt-6">
+    <div className="animate-[fadeIn_0.3s] max-w-md mx-auto pt-6 pb-24">
       <div className="text-center mb-8">
         <div className="relative inline-block">
           {member.pictureUrl ? (
