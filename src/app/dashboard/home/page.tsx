@@ -1,8 +1,10 @@
 "use client";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useMemberData } from "@/hooks/useMemberData";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { memberData, isLoading } = useMemberData();
   const numberFormat = new Intl.NumberFormat("th-TH", {
     minimumFractionDigits: 2,
@@ -79,11 +81,10 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-4">
         <button
           onClick={() => {
-            // เซฟข้อมูลที่จำเป็นสำหรับการขอสินเชื่อ เพื่อไม่ให้โหลดใหม่
             if (memberData) {
               localStorage.setItem("memberData", JSON.stringify(memberData));
             }
-            window.location.href = "/dashboard/loan"; // ใช้ window.location เพื่อไปหน้าใหม่แบบ Hard redirect เล็กน้อยถ้าจำเป็น หรือใช้ useRouter ก็ได้
+            router.push("/dashboard/loan");
           }}
           className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 hover:shadow-md transition-shadow text-left"
         >
