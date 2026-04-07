@@ -77,19 +77,28 @@ export default function DashboardPage() {
         เมนูแนะนำ
       </h3>
       <div className="grid grid-cols-2 gap-4">
-        <a
-          href="/dashboard/loan"
-          className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 hover:shadow-md transition-shadow"
+        <button
+          onClick={() => {
+            // เซฟข้อมูลที่จำเป็นสำหรับการขอสินเชื่อ เพื่อไม่ให้โหลดใหม่
+            if (memberData) {
+              localStorage.setItem("memberData", JSON.stringify(memberData));
+            }
+            window.location.href = "/dashboard/loan"; // ใช้ window.location เพื่อไปหน้าใหม่แบบ Hard redirect เล็กน้อยถ้าจำเป็น หรือใช้ useRouter ก็ได้
+          }}
+          className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 hover:shadow-md transition-shadow text-left"
         >
           <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
             <i className="fas fa-file-invoice-dollar text-xl"></i>
           </div>
-          <div className="text-left">
+          <div>
             <p className="font-semibold text-sm text-slate-800">
               ยื่นขอสินเชื่อ
             </p>
+            <p className="text-[10px] text-blue-500 font-medium mt-1 tracking-wide">
+              คลิกเพื่อใช้บริการ
+            </p>
           </div>
-        </a>
+        </button>
         <button
           disabled
           className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 opacity-50 cursor-not-allowed"
