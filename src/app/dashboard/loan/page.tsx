@@ -18,12 +18,26 @@ export default function LoanRequestPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  const [loanType, setLoanType] = useState("ฉุกเฉิน");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || parseInt(amount) <= 0) {
+    const amountNum = parseInt(amount);
+
+    if (!amount || amountNum <= 0) {
       setErrorMsg("กรุณาระบุจำนวนเงินให้ถูกต้อง");
       return;
     }
+
+    if (loanType === "ฉุกเฉิน" && amountNum > 10000) {
+      setErrorMsg("สินเชื่อฉุกเฉิน ระบุได้ไม่เกิน 10,000 บาท");
+      return;
+    }
+    if ((loanType === "ก้อดฮาซัน" || loanType === "ซื้อขาย") && amountNum > 200000) {
+      setErrorMsg(`สินเชื่อ${loanType} ระบุได้ไม่เกิน 200,000 บาท`);
+      return;
+    }
+
     if (!reason) {
       setErrorMsg("กรุณาระบุวัตถุประสงค์การกู้ยืม");
       return;
@@ -46,7 +60,9 @@ export default function LoanRequestPage() {
         memberNo: memberData?.memberNo,
         fullName: memberData?.fullName,
         phone: memberData?.phone,
-        amount: parseInt(amount),
+        lineName: memberData?.lineName || "ไม่ระบุ", // ส่ง lineName ให้ GAS
+        loanType: loanType,
+        amount: amountNum,
         duration: parseInt(duration),
         reason: reason,
       };
@@ -122,7 +138,33 @@ export default function LoanRequestPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              ประเภทสินเชื่อ
+            </label>
+            <select
+              value={loanType}
+              onChange={(e) => {
+                setLoanType(e.target.value);
+                // Reset duration logic based on type rules
+                if (e.target.value === "ฉุกเฉิน") setDuration("3");
+                else setDuration("12");
+              }}
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none transition custom-select"
+            >
+              <option value="ฉุกเฉิน">ฉุกเฉิน (ไม่เกิน 10,000 บาท)</option>
+              <option value="ก้อดฮาซัน">ก้อดฮาซัน (ไม่เกิน 200,000 บาท)</option>
+              <option value="ซื้อขาย">ซื้อขาย (ไม่เกิน 200,000 บาท)</option>
+            </select>
+            {loanType === "ฉุกเฉิน" && (
+              <p className="text-[11px] text-orange-500 mt-1.5 ml-1 leading-snug">
+                * มีค่าธรรมเนียมบริการ 30 บาท/สัญญา <br/>
+                * ชำระคืนภายใน 3 เดือน (ชำระไม่เกินวันที่ 5 ของเดือน)
+              </p>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
               จำนวนเงินที่ต้องการกู้ (บาท)
@@ -144,12 +186,22 @@ export default function LoanRequestPage() {
             <select
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none transition"
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none transition custom-select"
             >
-              <option value="6">6 เดือน</option>
-              <option value="12">12 เดือน</option>
-              <option value="24">24 เดือน</option>
-              <option value="36">36 เดือน</option>
+              {loanType === "ฉุกเฉิน" ? (
+                <>
+                  <option value="1">1 เดือน</option>
+                  <option value="2">2 เดือน</option>
+                  <option value="3">3 เดือน</option>
+                </>
+              ) : (
+                <>
+                  <option value="6">6 เดือน</option>
+                  <option value="12">12 เดือน</option>
+                  <option value="24">24 เดือน</option>
+                  <option value="36">36 เดือน</option>
+                </>
+              )}
             </select>
           </div>
 

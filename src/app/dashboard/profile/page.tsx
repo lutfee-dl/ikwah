@@ -62,8 +62,8 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="animate-[fadeIn_0.3s] max-w-md mx-auto pt-6 pb-24">
-      <div className="text-center mb-8">
+    <div className="animate-[fadeIn_0.3s] max-w-md mx-auto pt-2 pb-24 flex flex-col justify-start min-h-[calc(100vh-80px)]">
+      <div className="text-center mb-6">
         <div className="relative inline-block">
           {member.pictureUrl ? (
              <div className="w-24 h-24 rounded-full mx-auto shadow-xl border-4 border-white overflow-hidden bg-white">
@@ -93,7 +93,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-      <div className="px-5 space-y-6 max-w-md mx-auto">
+      <div className="px-5 space-y-4 max-w-md mx-auto w-full">
         {/* PERSONAL INFO */}
         <div>
           <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 ml-1 tracking-wider">
@@ -124,14 +124,14 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-      <div className="mt-5 mb-15 flex flex-col items-center justify-center animate-[fadeIn_0.5s]">
-        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+      <div className="mt-8 mb-5 flex flex-col items-center justify-center animate-[fadeIn_0.5s]">
+        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
           ติดต่อด่วน
         </span>
 
         <a
           href="tel:0812345678"
-          className="group relative inline-flex items-center gap-3 px-8 py-4
+          className="group relative inline-flex items-center gap-3 px-8 py-3
       bg-gradient-to-r from-blue-500 via-sky-500 to-cyan-400
       text-white text-base font-semibold rounded-3xl
       shadow-lg shadow-blue-400/30

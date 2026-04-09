@@ -12,6 +12,7 @@ export interface MemberProfile {
   phone: string;
   accumulatedShares: number;
   pictureUrl?: string;
+  lineName?: string; // เพิ่ม lineName เข้ามาใน profile
 }
 
 export function useMemberData() {
