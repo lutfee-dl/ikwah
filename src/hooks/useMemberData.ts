@@ -12,7 +12,7 @@ export interface MemberProfile {
   phone: string;
   accumulatedShares: number;
   pictureUrl?: string;
-  lineName?: string; // เพิ่ม lineName เข้ามาใน profile
+  lineName?: string; 
 }
 
 export function useMemberData() {
@@ -24,15 +24,12 @@ export function useMemberData() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. เช็ค localStorage ก่อนเพื่อความเร็ว (กรณีรีเฟรชหรือเปลี่ยนหน้าใน Dashboard)
         const cachedData = localStorage.getItem("memberData");
         if (cachedData) {
           setMemberData(JSON.parse(cachedData));
           setIsLoading(false);
-          // ทำงานต่อเบื้องหลังเพื่ออัพเดตค่าเป็นปัจจุบัน (Revalidate in background)
         }
 
-        // 2. ดึงจาก API ผ่าน GAS อีกครั้งเพื่อความสดใหม่
         const isLiffOpen = await initLiff();
         if (!isLiffOpen) {
            setError("ไม่สามารถเปิด LIFF ได้");
@@ -42,19 +39,16 @@ export function useMemberData() {
         const token = await getLiffIdToken();
         if (!token) {
            setError("ไม่พบ Token");
-           // ถ้าของเก่าไม่มีในแคชเลย แปลว่าไม่ได้ล็อกอินจริง
            if (!cachedData) router.push("/register");
            return;
         }
 
         const res = await gasApi.checkStatus(token);
         
-        // 3. ยืนยันสำเร็จก็เซฟลงแคชและเข้าอัพเดต State
         if (res.verified && res.profileData) {
           setMemberData(res.profileData);
           localStorage.setItem("memberData", JSON.stringify(res.profileData));
         } else {
-          // ไม่พบข้อมูลยืนยันตัวตน เด้งไปสมัครสมาชิก
           localStorage.removeItem("memberData");
           router.push("/register");
         }

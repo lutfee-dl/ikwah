@@ -13,30 +13,25 @@ export default function BottomNav() {
       <Link
         href="/dashboard/home"
         className={`tab-btn py-3 px-6 flex flex-col items-center gap-1 transition-all ${isActive(
-          "/dashboard/home"
+          "/dashboard/home",
         )}`}
       >
         <i className="fas fa-house-chimney text-lg"></i>
         <span className="text-[10px] font-semibold">หน้าหลัก</span>
       </Link>
-      <button
-        disabled
-        className="tab-btn py-3 px-6 flex flex-col items-center gap-1 text-slate-200 transition-all opacity-50 cursor-not-allowed"
+      <Link
+        href="/dashboard/loan"
+        className={`tab-btn py-3 px-6 flex flex-col items-center gap-1 transition-all ${isActive(
+          "/dashboard/loan",
+        )}`}
       >
         <i className="fas fa-file-signature text-lg"></i>
         <span className="text-[10px] font-semibold">ขอกู้</span>
-      </button>
-      <button
-        disabled
-        className="tab-btn py-3 px-6 flex flex-col items-center gap-1 text-slate-200 transition-all opacity-50 cursor-not-allowed"
-      >
-        <i className="fas fa-chart-line text-lg"></i>
-        <span className="text-[10px] font-semibold">ประวัติ</span>
-      </button>
+      </Link>
       <Link
         href="/dashboard/profile"
         className={`tab-btn py-3 px-6 flex flex-col items-center gap-1 transition-all ${isActive(
-          "/dashboard/profile"
+          "/dashboard/profile",
         )}`}
       >
         <i className="fas fa-user-circle text-lg"></i>
