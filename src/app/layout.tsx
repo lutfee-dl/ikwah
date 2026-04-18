@@ -9,8 +9,8 @@ const kanit = Kanit({
 });
 
 export const metadata: Metadata = {
-  title: "Ikuwah - กองทุนอิควะฮฺ สา’สุข ยะรัง",
-  description: "Ikuwah - กองทุนอิควะฮฺ สา’สุข ยะรัง",
+  title: "Ikwah - กองทุนอิควะฮฺ สา’สุข ยะรัง",
+  description: "Ikwah - กองทุนอิควะฮฺ สา’สุข ยะรัง",
 };
 
 export default function RootLayout({

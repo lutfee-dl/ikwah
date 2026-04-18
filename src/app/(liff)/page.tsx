@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { initLiff, getLiffIdToken, isLiffInClient } from "@/services/liff";
 import { AlertCircle } from "lucide-react";
+import liff from "@line/liff";
 import { gasApi } from "@/services/gasApi";
 
 export default function RootPage() {
@@ -17,6 +18,12 @@ export default function RootPage() {
       if (isLiffInitialized) {
         if (!isLiffInClient()) {
           setIsExternalBrowser(true);
+          return;
+        }
+
+        // ถ้าอยู่ใน LINE ให้ตรวจสอบการล็อกอิน
+        if (!liff.isLoggedIn()) {
+          liff.login();
           return;
         }
 

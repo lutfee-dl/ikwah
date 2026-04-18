@@ -12,9 +12,8 @@ export const initLiff = async () => {
     await liff.init({ liffId: LIFF_ID });
     
     // ตรวจสอบสถานะการล็อกอิน
-    if (!liff.isLoggedIn()) {
-      liff.login();
-    }
+    // เอาการบังคับล็อกอินออก ถ้าเกิดว่าเราไม่อยู่ใน Liff หรือ Client 
+    // ควรจัดการสิทธิ์การเด้งไป login ที่ระดับหน้า Page ดีกว่า
     
     return true;
   } catch (error) {
