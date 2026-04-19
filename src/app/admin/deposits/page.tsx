@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2, FileClock } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 
 type Deposit = {
@@ -73,9 +73,12 @@ export default function DepositsPage() {
 		// 1. กรองข้อมูล (Filter)
 		const result = deposits.filter((d) => {
 			const matchStatus =
-				filterStatus === "all" || d.status === filterStatus;
+				filterStatus === "all" || d.status === filterStatus || 
+				(filterStatus === "pending" && String(d.status).includes("pending"));
 			const matchSearch =
-				(d.name || "").includes(searchQuery) || (d.id || "").includes(searchQuery);
+				(d.name || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+				(d.id || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+				(d.amount?.toString() || "").includes(searchQuery);
 			return matchStatus && matchSearch;
 		});
 
@@ -207,18 +210,97 @@ export default function DepositsPage() {
 		setIsModalOpen(true);
 	};
 
+	// --- STATS CALCULATIONS ---
+	const stats = useMemo(() => {
+		const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+		return deposits.reduce((acc, d) => {
+			if (d.status === "pending" || d.status.includes("(ซ้ำ!)")) {
+				acc.pendingAmount += (Number(d.amount) || 0);
+				acc.pendingCount++;
+			} else if (d.status === "approved") {
+				acc.totalApproved += (Number(d.amount) || 0);
+				const dDate = new Date(d.date).toLocaleDateString('en-CA');
+				if (dDate === today) {
+					acc.approvedToday += (Number(d.amount) || 0);
+				}
+			}
+			return acc;
+		}, { pendingAmount: 0, pendingCount: 0, approvedToday: 0, totalApproved: 0 });
+	}, [deposits]);
+
 	return (
 		<div className="space-y-6 relative">
-			{/* Header & Controls */}
-			<div className="flex flex-col gap-4">
+			{/* 1. Header & Controls */}
+			<div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
 				<div>
-					<h1 className="text-2xl font-bold text-slate-800">ระบบเงินฝาก</h1>
+					<h1 className="text-3xl font-black text-slate-800 tracking-tight">ระบบจัดการเงินฝาก</h1>
 					<p className="text-slate-500 text-sm mt-1">
-						ตรวจสอบสลิปและอนุมัติการฝากเงิน (ค่าเริ่มต้น: แสดงเฉพาะรายการที่รอตรวจสอบ)
+						ตรวจสอบและอนุมัติหลักฐานการโอนเงินกองทุนทั้งหมด
 					</p>
 				</div>
+				<button 
+					onClick={fetchDeposits} 
+					className="group flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all hover:border-slate-300"
+				>
+					<Loader2 size={16} className={`${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+					รีเฟรชข้อมูล
+				</button>
+			</div>
 
-				<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+			{/* 2. SUMMARY CARDS */}
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+				{/* Pending Amount */}
+				<div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl p-5 text-white shadow-lg shadow-amber-200 relative overflow-hidden group">
+					<div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
+						<Loader2 size={80} />
+					</div>
+					<div className="relative z-10">
+						<p className="text-amber-100 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-1">
+							<FileClock size={12} /> ยอดรอตรวจสอบ
+						</p>
+						<h2 className="text-2xl font-black tracking-tight">{stats.pendingAmount.toLocaleString()} <span className="text-xs font-medium opacity-70">฿</span></h2>
+						<p className="text-[10px] bg-white/20 inline-block px-2 py-0.5 rounded-full mt-2 font-bold">{stats.pendingCount} รายการ</p>
+					</div>
+				</div>
+
+				{/* Approved Today */}
+				<div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex items-center gap-4 hover:border-emerald-200 transition-all">
+					<div className="bg-emerald-50 p-4 rounded-2xl text-emerald-500">
+						<CheckCircle2 size={24} />
+					</div>
+					<div>
+						<p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-0.5">อนุมัติแล้ว (วันนี้)</p>
+						<h2 className="text-xl font-black text-slate-700">{stats.approvedToday.toLocaleString()} <span className="text-xs font-medium text-slate-400">฿</span></h2>
+					</div>
+				</div>
+
+				{/* Total Approved */}
+				<div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex items-center gap-4 hover:border-blue-200 transition-all">
+					<div className="bg-blue-50 p-4 rounded-2xl text-blue-500">
+						<Search size={24} />
+					</div>
+					<div>
+						<p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-0.5">ยอดรวมทั้งหมด</p>
+						<h2 className="text-xl font-black text-slate-700">{stats.totalApproved.toLocaleString()} <span className="text-xs font-medium text-slate-400">฿</span></h2>
+					</div>
+				</div>
+
+				{/* Rejected Stats (Simplified) */}
+				<div className="bg-slate-50 border border-slate-200 border-dashed rounded-3xl p-5 flex items-center gap-4">
+					<div className="bg-white p-4 rounded-2xl text-slate-400 border border-slate-100">
+						<XCircle size={24} />
+					</div>
+					<div>
+						<p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-0.5">ถูกปฏิเสธ</p>
+						<h2 className="text-xl font-black text-slate-400">
+							{deposits.filter(d => d.status === 'rejected').length} <span className="text-xs font-medium">รายการ</span>
+						</h2>
+					</div>
+				</div>
+			</div>
+
+			{/* 3. CONTROLS (TABS & SEARCH) */}
+			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
 					{/* Tabs for Filtering */}
 					<div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
 						{[
@@ -264,7 +346,6 @@ export default function DepositsPage() {
 							placeholder="ค้นหาชื่อ, รหัส..."
 							className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
 						/>
-					</div>
 				</div>
 			</div>
 
@@ -328,18 +409,18 @@ export default function DepositsPage() {
 										</td>
 										<td className="py-4 px-6 text-center">
 											<span
-												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${item.status === "pending"
-														? "bg-amber-100 text-amber-700"
-														: item.status === "approved"
-															? "bg-emerald-100 text-emerald-700"
-															: "bg-rose-100 text-rose-700"
+												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${item.status === "approved"
+														? "bg-emerald-100 text-emerald-700"
+														: item.status === "rejected"
+															? "bg-rose-100 text-rose-700"
+															: item.status.includes("(ซ้ำ!)")
+																? "bg-rose-500 text-white shadow-sm animate-pulse" // เด่นเป็นพิเศษถ้าซ้ำ
+																: "bg-amber-100 text-amber-700"
 													}`}
 											>
-												{item.status === "pending"
-													? "รอตรวจสอบ"
-													: item.status === "approved"
-														? "อนุมัติแล้ว"
-														: "ปฏิเสธ"}
+												{item.status.includes("(ซ้ำ!)") ? "⚠️ สลิปซ้ำ!" : 
+												 item.status === "pending" ? "รอตรวจสอบ" : 
+												 item.status === "approved" ? "อนุมัติแล้ว" : "ปฏิเสธ"}
 											</span>
 										</td>
 										<td className="py-4 px-6 text-center">

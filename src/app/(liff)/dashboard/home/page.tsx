@@ -101,8 +101,8 @@ export default function DashboardPage() {
           </div>
         </button>
         <button
-          disabled
-          className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 opacity-50 cursor-not-allowed"
+          onClick={() => router.push("/dashboard/history")}
+          className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 hover:shadow-md transition-shadow text-left"
         >
           <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center">
             <i className="fas fa-clock-rotate-left text-xl"></i>
@@ -111,7 +111,7 @@ export default function DashboardPage() {
             <p className="font-semibold text-sm text-slate-800">
               ประวัติธุรกรรม
             </p>
-            <p className="text-[10px] text-slate-400">เร็วๆ นี้</p>
+            <p className="text-[10px] text-blue-500 font-medium mt-1 tracking-wide">ดูย้อนหลัง</p>
           </div>
         </button>
       </div>

@@ -137,4 +137,18 @@ export const gasApi = {
       return { success: false, msg: "บันทึกข้อมูลไม่สำเร็จ" };
     }
   },
+  // 7. ดึงประวัติธุรกรรมของสมาชิก
+  getHistory: async (idToken: string) => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get_member_history", idToken }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Get history error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
 };
