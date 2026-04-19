@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemberData } from "@/hooks/useMemberData";
 import { getLiffIdToken } from "@/services/liff";
 import { ArrowLeft, Send, AlertCircle, CheckCircle } from "lucide-react";
+import { NumericFormat } from "react-number-format";
 
 export default function LoanRequestPage() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function LoanRequestPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  const [loanType, setLoanType] = useState(""); // เปลี่ยนค่าเริ่มต้นเป็นค่าว่าง
+  const [loanType, setLoanType] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +64,9 @@ export default function LoanRequestPage() {
     try {
       const token = await getLiffIdToken();
       if (!token) {
-        setErrorMsg("เซสชันหมดอายุ หรือ Liff API Error กรุณาเข้าแอปใหม่อีกครั้ง");
+        setErrorMsg(
+          "เซสชันหมดอายุ หรือ Liff API Error กรุณาเข้าแอปใหม่อีกครั้ง",
+        );
         setIsSubmitting(false);
         return;
       }
@@ -165,12 +168,14 @@ export default function LoanRequestPage() {
               value={loanType}
               onChange={(e) => {
                 setLoanType(e.target.value);
-                setDuration(""); // ล้างค่าเมื่อเปลี่ยนประเภท เพื่อให้ต้องเลือกใหม่เสมอ
+                setDuration("");
               }}
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none transition custom-select"
               required
             >
-              <option value="" disabled>-- กรุณาเลือกประเภทสินเชื่อ --</option>
+              <option value="" disabled>
+                -- กรุณาเลือกประเภทสินเชื่อ --
+              </option>
               <option value="ฉุกเฉิน">ฉุกเฉิน (ไม่เกิน 10,000 บาท)</option>
               <option value="ก้อดฮาซัน">ก้อดฮาซัน (ไม่เกิน 200,000 บาท)</option>
               <option value="ซื้อขาย">ซื้อขาย (ไม่เกิน 200,000 บาท)</option>
@@ -187,19 +192,29 @@ export default function LoanRequestPage() {
             <label className="block text-sm font-semibold text-slate-700 mb-2">
               จำนวนเงินที่ต้องการกู้ (บาท)
             </label>
-            <input
-              type="number"
+            <NumericFormat
               value={amount}
-              onChange={(e) => {
-                const val = e.target.value;
-                setAmount(val);
-                if (val) {
-                  const num = parseInt(val);
-                  if (loanType === "ฉุกเฉิน" && num > 10000) {
+              thousandSeparator=","
+              allowNegative={false}
+              inputMode="numeric"
+              placeholder="ระบุจำนวนเงิน"
+              className={`w-full bg-slate-50 border ${
+                errorMsg &&
+                (errorMsg.includes("เกิน") || errorMsg.includes("จำนวนเงิน"))
+                  ? "border-red-500 focus:ring-red-500/50"
+                  : "border-slate-200 focus:ring-blue-500/50"
+              } rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 transition`}
+              onValueChange={(values) => {
+                const num = values.value;
+                setAmount(num);
+
+                if (num) {
+                  const number = parseInt(num);
+                  if (loanType === "ฉุกเฉิน" && number > 10000) {
                     setErrorMsg("สินเชื่อฉุกเฉิน ระบุได้ไม่เกิน 10,000 บาท");
                   } else if (
                     (loanType === "ก้อดฮาซัน" || loanType === "ซื้อขาย") &&
-                    num > 200000
+                    number > 200000
                   ) {
                     setErrorMsg(
                       `สินเชื่อ${loanType} ระบุได้ไม่เกิน 200,000 บาท`,
@@ -211,10 +226,6 @@ export default function LoanRequestPage() {
                   setErrorMsg("");
                 }
               }}
-              max={loanType === "ฉุกเฉิน" ? 10000 : 200000}
-              placeholder="ระบุจำนวนเงิน"
-              className={`w-full bg-slate-50 border ${errorMsg && (errorMsg.includes("เกิน") || errorMsg.includes("จำนวนเงิน")) ? "border-red-500 focus:ring-red-500/50" : "border-slate-200 focus:ring-blue-500/50"} rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:border-blue-500 transition`}
-              required
             />
           </div>
 
@@ -230,7 +241,9 @@ export default function LoanRequestPage() {
               disabled={!loanType}
             >
               <option value="" disabled>
-                {loanType ? "-- กรุณาเลือกระยะเวลาผ่อนชำระ --" : "-- โปรดเลือกประเภทสินเชื่อก่อน --"}
+                {loanType
+                  ? "-- กรุณาเลือกระยะเวลาผ่อนชำระ --"
+                  : "-- โปรดเลือกประเภทสินเชื่อก่อน --"}
               </option>
               {loanType === "ฉุกเฉิน" ? (
                 <>

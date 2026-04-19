@@ -120,6 +120,38 @@ export async function POST(request: Request) {
       return NextResponse.json(data);
     }
 
+    if (body.action === "admin_get_deposits") {
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_get_deposits",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    if (body.action === "admin_update_deposit") {
+      const { depositId, status, amount } = body;
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_update_deposit",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+          depositId,
+          status,
+          amount
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
     // Normal registration path (or other proxy actions)
     // We shouldn't strictly require these if action != 'register'
     if (body.action === "register") {

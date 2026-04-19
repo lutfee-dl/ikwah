@@ -24,7 +24,7 @@ const SortIcon = ({ column, sortConfig }: { column: SortColumn, sortConfig: { co
 		<ArrowDown size={14} className="inline ml-1 text-sky-500" />;
 };
 
-const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "URL_WEB_APP_ของ_GAS"; 
+const API_URL = "/api/member";
 
 export default function DepositsPage() {
 	const [deposits, setDeposits] = useState<Deposit[]>([]);
@@ -37,7 +37,34 @@ export default function DepositsPage() {
 	});
 
 	const [selectedDeposit, setSelectedDeposit] = useState<Deposit | null>(null);
+	const [editAmount, setEditAmount] = useState<number>(0);
 	const [isModalOpen, setIsModalOpen] = useState(false);
+	const [isUpdating, setIsUpdating] = useState(false);
+
+	// Helper to convert Google Drive link to direct display link
+	const getDriveImageUrl = (url: string) => {
+		if (!url) return "";
+		// Regex patterns for different Drive URL formats
+		const patterns = [
+			/\/d\/([^/?]+)/,
+			/[?&]id=([^&]+)/,
+			/\/file\/d\/([^/]+)/
+		];
+
+		let fileId = "";
+		for (const pattern of patterns) {
+			const match = url.match(pattern);
+			if (match && match[1]) {
+				fileId = match[1];
+				break;
+			}
+		}
+
+		if (fileId) {
+			return `https://lh3.googleusercontent.com/u/0/d/${fileId}=w1000`;
+		}
+		return url;
+	};
 
 	const sortedAndFilteredDeposits = useMemo(() => {
 		// Ensure deposits is an array before filtering
@@ -91,12 +118,15 @@ export default function DepositsPage() {
 	const fetchDeposits = async () => {
 		setLoading(true);
 		try {
-			const res = await fetch(GAS_URL, {
+			const res = await fetch(API_URL, {
 				method: "POST",
-				body: JSON.stringify({ action: "get_deposits" })
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ action: "admin_get_deposits" })
 			});
-			const data = await res.json();
-			setDeposits(data);
+			const result = await res.json();
+			if (result.success) {
+				setDeposits(result.data);
+			}
 		} catch (error) {
 			console.error("Fetch error:", error);
 		} finally {
@@ -111,12 +141,16 @@ export default function DepositsPage() {
 	const handleApprove = async (id: string) => {
 		if (!confirm("ยืนยันการอนุมัติยอดฝากนี้?")) return;
 
+		setIsUpdating(true);
 		try {
-			const res = await fetch(GAS_URL, {
+			const res = await fetch(API_URL, {
 				method: "POST",
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					action: "approve_deposit",
-					depositId: id
+					action: "admin_update_deposit",
+					status: "approved",
+					depositId: id,
+					amount: editAmount // ส่งยอดที่อาจจะถูกแก้ไขไปด้วย
 				})
 			});
 			
@@ -126,22 +160,27 @@ export default function DepositsPage() {
 				fetchDeposits(); // รีเฟรชตารางใหม่
 				setIsModalOpen(false);
 			} else {
-				alert("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: " + (result.message || ""));
+				alert("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: " + (result.msg || ""));
 			}
 		} catch (error) {
 			alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
 			console.error(error);
+		} finally {
+			setIsUpdating(false);
 		}
 	};
 
 	const handleReject = async (id: string) => {
 		if (!confirm("ยืนยันการ 'ไม่อนุมัติ' ยอดฝากนี้?")) return;
 
+		setIsUpdating(true);
 		try {
-			const res = await fetch(GAS_URL, {
+			const res = await fetch(API_URL, {
 				method: "POST",
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					action: "reject_deposit",
+					action: "admin_update_deposit",
+					status: "rejected",
 					depositId: id
 				})
 			});
@@ -152,16 +191,19 @@ export default function DepositsPage() {
 				fetchDeposits(); // รีเฟรชตารางใหม่
 				setIsModalOpen(false);
 			} else {
-				alert("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: " + (result.message || ""));
+				alert("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: " + (result.msg || ""));
 			}
 		} catch (error) {
 			alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
 			console.error(error);
+		} finally {
+			setIsUpdating(false);
 		}
 	};
 
 	const openDetails = (deposit: Deposit) => {
 		setSelectedDeposit(deposit);
+		setEditAmount(deposit.amount);
 		setIsModalOpen(true);
 	};
 
@@ -362,10 +404,17 @@ export default function DepositsPage() {
 									</p>
 								</div>
 								<div className="col-span-2">
-									<p className="text-slate-500 mb-1">จำนวนเงินที่ต้องได้รับ</p>
-									<p className="font-bold text-sky-600 text-2xl">
-										{selectedDeposit.amount.toLocaleString()} ฿
-									</p>
+									<p className="text-slate-500 mb-1">จำนวนเงินที่ได้รับในสลิป (ตรวจสอบ/แก้ไขได้)</p>
+									<div className="relative">
+										<input 
+											type="tel"
+											value={editAmount}
+											onChange={(e) => setEditAmount(Number(e.target.value.replace(/[^0-9]/g, "")))}
+											className="w-full text-2xl font-black text-sky-600 bg-white border-2 border-sky-100 rounded-xl px-4 py-2 focus:outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 transition-all text-right"
+										/>
+										<span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">฿</span>
+									</div>
+									<p className="text-[10px] text-slate-400 mt-1 italic">* หากบอทอ่านยอดมาผิด คุณสามารถแก้ไขตัวเลขตรงนี้ก่อนกดยืนยันได้ครับ</p>
 								</div>
 							</div>
 
@@ -373,12 +422,20 @@ export default function DepositsPage() {
 								<p className="text-slate-600 font-medium mb-3 text-center">
 									แนบรูปสลิปจากสมาชิก
 								</p>
-								<div className="bg-slate-100 rounded-xl p-2 border border-slate-200 flex justify-center">
-									<img
-										src={selectedDeposit.slipUrl}
-										alt="Slip Image"
-										className="max-w-full w-full h-auto max-h-80 rounded-lg object-contain bg-white shadow-sm"
-									/>
+								<div className="bg-slate-100 rounded-xl p-2 border border-slate-200 flex justify-center min-h-[200px] items-center">
+									{selectedDeposit.slipUrl ? (
+										<img
+											src={getDriveImageUrl(selectedDeposit.slipUrl)}
+											alt="Slip Image"
+											className="max-w-full w-full h-auto max-h-[500px] rounded-lg object-contain bg-white shadow-sm transition-opacity duration-300"
+											onError={(e) => {
+												// Fallback if direct link fails
+												(e.target as HTMLImageElement).src = 'https://placehold.co/400x600?text=ErrorLoadingImage';
+											}}
+										/>
+									) : (
+										<p className="text-slate-400">ไม่พบรูปสลิป</p>
+									)}
 								</div>
 							</div>
 						</div>
@@ -387,16 +444,18 @@ export default function DepositsPage() {
 							{selectedDeposit.status === "pending" ? (
 								<div className="grid grid-cols-2 gap-3">
 									<button
+										disabled={isUpdating}
 										onClick={() => handleReject(selectedDeposit.id)}
-										className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all"
+										className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all disabled:opacity-50"
 									>
-										<XCircle size={18} /> ไม่อนุมัติ
+										{isUpdating ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />} ไม่อนุมัติ
 									</button>
 									<button
+										disabled={isUpdating}
 										onClick={() => handleApprove(selectedDeposit.id)}
-										className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-all shadow-sm shadow-emerald-200"
+										className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-all shadow-sm shadow-emerald-200 disabled:opacity-50"
 									>
-										<CheckCircle2 size={18} /> อนุมัติยอดฝาก
+										{isUpdating ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} อนุมัติยอดฝาก
 									</button>
 								</div>
 							) : (

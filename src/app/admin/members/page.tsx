@@ -119,11 +119,63 @@ export default function MembersPage() {
 				</div>
 			</div>
 
+			{/* Loading Skeletons */}
 			{loading && (
-				<div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-4">
-					<div className="w-10 h-10 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin"></div>
-					<p className="font-medium animate-pulse">กำลังโหลดข้อมูลสมาชิก...</p>
-				</div>
+				<>
+					<div className="grid grid-cols-3 md:grid-cols-3 gap-2 md:gap-6 mb-8 mt-6">
+						{[1, 2, 3].map((i) => (
+							<div key={i} className="bg-white p-3 md:p-6 rounded-xl md:rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-2 md:gap-5 animate-pulse">
+								<div className="w-10 h-10 md:w-14 md:h-14 bg-slate-200 rounded-xl md:rounded-2xl shrink-0"></div>
+								<div className="w-full flex flex-col space-y-2 items-center md:items-start">
+									<div className="h-3 bg-slate-200 rounded-md w-16 md:w-24"></div>
+									<div className="h-6 bg-slate-200 rounded-md w-12 md:w-20"></div>
+								</div>
+							</div>
+						))}
+					</div>
+					<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mb-8">
+						<div className="p-4 border-b border-slate-200 h-14 bg-slate-50/50"></div>
+						<div className="overflow-x-auto">
+							<table className="w-full text-left border-collapse whitespace-nowrap">
+								<thead>
+									<tr className="bg-slate-50 border-b border-slate-200 animate-pulse">
+										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-24"></div></th>
+										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-32"></div></th>
+										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-20 ml-auto"></div></th>
+										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-20 ml-auto"></div></th>
+										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-16 mx-auto"></div></th>
+										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-20 mx-auto"></div></th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-slate-100">
+									{[1, 2, 3, 4, 5].map((i) => (
+										<tr key={i} className="animate-pulse">
+											<td className="py-4 px-6">
+												<div className="flex items-center gap-4">
+													<div className="w-12 h-12 rounded-full bg-slate-200 shrink-0"></div>
+													<div className="space-y-2">
+														<div className="h-4 bg-slate-200 rounded-md w-24"></div>
+														<div className="h-3 bg-slate-100 rounded-md w-16"></div>
+													</div>
+												</div>
+											</td>
+											<td className="py-4 px-6">
+												<div className="space-y-2">
+													<div className="h-4 bg-slate-200 rounded-md w-32"></div>
+													<div className="h-3 bg-slate-100 rounded-md w-24"></div>
+												</div>
+											</td>
+											<td className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-16 ml-auto"></div></td>
+											<td className="py-4 px-6"><div className="h-6 bg-slate-200 rounded-lg w-20 ml-auto"></div></td>
+											<td className="py-4 px-6"><div className="h-6 bg-slate-200 rounded-full w-20 mx-auto"></div></td>
+											<td className="py-4 px-6 flex justify-center gap-2"><div className="h-8 bg-slate-200 rounded-lg w-16"></div><div className="h-8 bg-slate-200 rounded-lg w-16"></div></td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</>
 			)}
 			
 			{error && (
