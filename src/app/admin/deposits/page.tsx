@@ -409,6 +409,7 @@ export default function DepositsPage() {
 										</td>
 										<td className="py-4 px-6 text-center">
 											<span
+<<<<<<< HEAD
 												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${item.status === "approved"
 														? "bg-emerald-100 text-emerald-700"
 														: item.status === "rejected"
@@ -421,6 +422,20 @@ export default function DepositsPage() {
 												{item.status.includes("(ซ้ำ!)") ? "⚠️ สลิปซ้ำ!" : 
 												 item.status === "pending" ? "รอตรวจสอบ" : 
 												 item.status === "approved" ? "อนุมัติแล้ว" : "ปฏิเสธ"}
+=======
+												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${item.status === "pending"
+														? "bg-amber-100 text-amber-700"
+														: item.status === "approved"
+															? "bg-emerald-100 text-emerald-700"
+															: "bg-rose-100 text-rose-700"
+													}`}
+											>
+												{item.status === "pending"
+													? "รอตรวจสอบ"
+													: item.status === "approved"
+														? "อนุมัติแล้ว"
+														: "ปฏิเสธ"}
+>>>>>>> e22dd2c142cce5be574f4ce32b033ea62d44c5fb
 											</span>
 										</td>
 										<td className="py-4 px-6 text-center">
