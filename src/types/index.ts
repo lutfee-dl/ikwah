@@ -17,3 +17,45 @@ export interface DashboardData {
   totalDebt: number;
   updatedAt: string;
 }
+
+export interface ProfileData {
+  memberNo?: string;
+  prefix?: string;
+  fullName?: string;
+  idCard?: string;
+  phone?: string;
+  accumulatedShares?: number;
+  pictureUrl?: string; // Add if available
+  lineName?: string;
+}
+
+export type LoanSchedule = {
+	period: number;
+	month: string;
+	amount: number;
+	status: string;
+	payDate: string;
+};
+
+export type Member = {
+	lineUserId: string;
+	lineName: string;
+	prefix: string;
+	fullName: string;
+	accountName: string;
+	idCard: string;
+	phone: string;
+	accumulatedShares: number;
+	pictureUrl: string;
+	status: string;
+	hasActiveLoan: boolean;
+	loanData: {
+		id: string;
+		type: string;
+		totalAmount: number;
+		paidAmount: number;
+		remainingAmount: number;
+		duration: number;
+		schedule: LoanSchedule[];
+	} | null;
+};

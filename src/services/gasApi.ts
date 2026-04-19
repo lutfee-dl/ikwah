@@ -1,4 +1,23 @@
-import { ApiResponse, LoanSubmission, DashboardData } from "@/types";
+import { LoanSubmission } from "@/types";
+
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL;
+const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "";
+
+export const fetchGasData = async <T,>(action: string, data: Record<string, unknown> = {}): Promise<T> => {
+  if (!GAS_URL) {
+    throw new Error("GAS_URL is not defined in environment variables.");
+  }
+
+  const response = await fetch(GAS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, data }),
+  });
+
+  const result = await response.json();
+  if (!result.success) throw new Error(result.msg || "Error from GAS");
+  return result.data;
+};
 
 export const gasApi = {
   // 1. เช็คสถานะผู้ใช้ (รับ idToken แทน userId ธรรมดาเพื่อความปลอดภัย)
@@ -81,5 +100,25 @@ export const gasApi = {
       console.error("Get dashboard data error", error);
       return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
     }
+  },
+
+  // 6. ดึงข้อมูลสมาชิกทั้งหมด (Admin)
+  getAdminMembers: async () => {
+    const payload = {
+        action: "admin_get_members",
+        adminSecret: ADMIN_SECRET
+    };
+    
+    if (!GAS_URL) throw new Error("GAS Environment Variables are missing!");
+    
+    const response = await fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (!result.success) throw new Error(result.msg || "Error from GAS");
+    return result.data;
   },
 };

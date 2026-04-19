@@ -12,7 +12,7 @@ export default function LoanRequestPage() {
 
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
-  const [duration, setDuration] = useState(""); // เปลี่ยนค่าเริ่มต้นเป็นค่าว่าง
+  const [duration, setDuration] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -63,7 +63,7 @@ export default function LoanRequestPage() {
     try {
       const token = await getLiffIdToken();
       if (!token) {
-        setErrorMsg("เซสชันหมดอายุ กรุณาเข้าแอปใหม่อีกครั้ง");
+        setErrorMsg("เซสชันหมดอายุ หรือ Liff API Error กรุณาเข้าแอปใหม่อีกครั้ง");
         setIsSubmitting(false);
         return;
       }

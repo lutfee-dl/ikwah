@@ -1,80 +1,15 @@
 "use client";
 
+import { Member, LoanSchedule } from "@/types";
 import { useState } from "react";
-import { Search, Filter, Eye, X, Wallet, CreditCard, CheckCircle2, UserCircle } from "lucide-react";
+import { Search, Eye, X, Wallet, CreditCard, CheckCircle2, UserCircle } from "lucide-react";
 import Image from "next/image";
-
-// ข้อมูลจำลองสำหรับภาพรวมสมาชิก (อิงตามคอลัมน์ Google Sheets: LINE_UserID, LineName, Prefix, FullName, AccountName, IDCard, Phone, AccumulatedShares, Picture_URL)
-const mockMembers = [
-	{
-		lineUserId: "U1234567890abcdef1234567890",
-		lineName: "Sudteeruk",
-		prefix: "นาย",
-		fullName: "สุดที่รัก พิทักษ์ไทย",
-		accountName: "สุดที่รัก พิทักษ์ไทย",
-		idCard: "1102003004005",
-		phone: "081-234-5678",
-		accumulatedShares: 15000,
-		pictureUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sudteeruk",
-		status: "active",
-		hasActiveLoan: true,
-		loanData: {
-			id: "L002",
-			type: "กัรฏฮะซัน",
-			totalAmount: 30000,
-			paidAmount: 5000,
-			remainingAmount: 25000,
-			duration: 12,
-			schedule: [
-				{ period: 1, month: "พ.ย. 66", amount: 2500, status: "paid", payDate: "15/11/2023" },
-				{ period: 2, month: "ธ.ค. 66", amount: 2500, status: "paid", payDate: "15/12/2023" },
-				{ period: 3, month: "ม.ค. 67", amount: 2500, status: "pending", payDate: "-" },
-				{ period: 4, month: "ก.พ. 67", amount: 2500, status: "pending", payDate: "-" },
-				{ period: 5, month: "มี.ค. 67", amount: 2500, status: "pending", payDate: "-" },
-				{ period: 6, month: "เม.ย. 67", amount: 2500, status: "pending", payDate: "-" },
-				{ period: 7, month: "พ.ค. 67", amount: 2500, status: "pending", payDate: "-" },
-				{ period: 8, month: "มิ.ย. 67", amount: 2500, status: "pending", payDate: "-" },
-				{ period: 9, month: "ก.ค. 67", amount: 2500, status: "pending", payDate: "-" },
-				{ period: 10, month: "ส.ค. 67", amount: 2500, status: "pending", payDate: "-" },
-				{ period: 11, month: "ก.ย. 67", amount: 2500, status: "pending", payDate: "-" },
-				{ period: 12, month: "ต.ค. 67", amount: 2500, status: "pending", payDate: "-" },
-			]
-		}
-	},
-	{
-		lineUserId: "U0987654321fedcba0987654321",
-		lineName: "Anucha.R",
-		prefix: "นาย",
-		fullName: "อนุชา รักสงบ",
-		accountName: "อนุชา รักสงบ",
-		idCard: "1102003004006",
-		phone: "089-876-5432",
-		accumulatedShares: 8000,
-		pictureUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anucha",
-		status: "active",
-		hasActiveLoan: false,
-		loanData: null
-	},
-	{
-		lineUserId: "U5555555555ccccc55555555555",
-		lineName: "Somchai DD",
-		prefix: "นาย",
-		fullName: "สมชาย ใจดี",
-		accountName: "สมชาย ใจดี",
-		idCard: "1102003004007",
-		phone: "085-555-1234",
-		accumulatedShares: 25000,
-		pictureUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Somchai",
-		status: "inactive",
-		hasActiveLoan: false,
-		loanData: null
-	},
-];
+import { useAdminMembers } from "@/hooks/useAdminMembers";
 
 export default function MembersPage() {
-	const [members] = useState(mockMembers);
+	const { members, loading, error, refetch: fetchMembers } = useAdminMembers();
 	const [searchQuery, setSearchQuery] = useState("");
-	const [selectedMember, setSelectedMember] = useState<typeof mockMembers[0] | null>(null);
+	const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
 	const filteredMembers = members.filter(
 		m => (m.fullName?.includes(searchQuery) || false) || 
@@ -93,22 +28,51 @@ export default function MembersPage() {
 					</p>
 				</div>
 				<div className="flex gap-3 w-full md:w-auto">
+					<button 
+						onClick={fetchMembers}
+						className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium whitespace-nowrap"
+					>
+						🔄 รีเฟรชข้อมูล
+					</button>
 					<div className="relative flex-1 md:w-64">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
 						<input
 							type="text"
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							placeholder="ค้นหาชื่อ, รหัส..."
-							className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm"
+							placeholder="ค้นหาระบุชื่อสมาชิก / เลขบัตรประชาชน / ชื่อไลน์"
+							className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-sans"
 						/>
 					</div>
-					<button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors text-sm">
-						<Filter size={18} />
-						<span className="hidden sm:inline">กรอง</span>
-					</button>
 				</div>
 			</div>
+
+			{loading && <div className="text-center py-10 text-gray-500 animate-pulse">กำลังโหลดข้อมูล...</div>}
+			{error && <div className="text-center py-10 text-red-500 bg-red-50 rounded-lg">{error}</div>}
+
+			{/* Status Cards */}
+			{!loading && !error && (
+				<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+					<div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
+						<div className="flex-1">
+							<p className="text-sm font-medium text-slate-500 mb-1">สมาชิกทั้งหมด</p>
+							<p className="text-2xl font-bold text-slate-800">{members.length} คน</p>
+						</div>
+						<div className="flex-1">
+							<p className="text-sm font-medium text-slate-500 mb-1">สถานะปกติ</p>
+							<p className="text-2xl font-bold text-slate-800">
+								{members.filter(m => m.status === "active").length} คน
+							</p>
+						</div>
+						<div className="flex-1">
+							<p className="text-sm font-medium text-slate-500 mb-1">พ้นสภาพ</p>
+							<p className="text-2xl font-bold text-slate-800">
+								{members.filter(m => m.status !== "active").length} คน
+							</p>
+						</div>
+					</div>
+				</div>
+			)}
 
 			{/* Main Table */}
 			<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -273,23 +237,23 @@ export default function MembersPage() {
 												</tr>
 											</thead>
 											<tbody className="divide-y divide-slate-100">
-												{selectedMember.loanData.schedule.map((st) => (
-													<tr key={st.period} className="hover:bg-slate-50">
-														<td className="py-3 px-4 font-bold text-slate-700"> {st.period} / {selectedMember.loanData?.duration}</td>
-														<td className="py-3 px-4 font-medium text-slate-600">{st.month}</td>
-														<td className="py-3 px-4 text-right tabular-nums text-slate-800">{st.amount.toLocaleString()}</td>
-														<td className="py-3 px-4 text-center">
-															{st.status === "paid" ? (
-																<span className="inline-flex items-center justify-center min-w-[100px] gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded">
+												{selectedMember.loanData.schedule.map((st: LoanSchedule) => (
+													<tr key={st.period} className="hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
+														<td className="p-3 text-center text-slate-500 text-sm font-medium">{st.period}</td>
+														<td className="p-3 text-center text-slate-500 text-sm font-medium">{st.month}</td>
+														<td className="p-3 text-right tabular-nums text-slate-800">{st.amount.toLocaleString()}</td>
+														<td className="p-3 text-center">
+															{st.status === 'paid' ? (
+																<span className="inline-flex items-center justify-center min-w-25 gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded">
 																	<CheckCircle2 size={14} /> ชำระแล้ว
 																</span>
 															) : (
-																<span className="inline-flex items-center justify-center min-w-[100px] gap-1 text-slate-400 font-medium">
-																	รอดำเนินการ
+																<span className="inline-flex items-center justify-center min-w-25 gap-1 text-slate-400 font-medium">
+																	-
 																</span>
 															)}
 														</td>
-														<td className="py-3 px-4 text-center text-slate-500">
+														<td className="p-3 text-center text-slate-500">
 															{st.payDate}
 														</td>
 													</tr>

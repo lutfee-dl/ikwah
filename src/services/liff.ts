@@ -43,7 +43,11 @@ export const isLiffInClient = () => {
 export const getLiffIdToken = async () => {
   try {
     await liff.ready;
-    return liff.getIDToken();
+    const token = await liff.getIDToken();
+    if (!token) {
+      console.warn("LIFF getIDToken returned null");
+    }
+    return token;
   } catch (error) {
     console.error("LIFF getIDToken failed", error);
     return null;

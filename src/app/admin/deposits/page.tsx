@@ -1,42 +1,16 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
 import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
 
-const mockDeposits = [
-	{
-		id: "DEP001",
-		name: "สมชาย ใจดี",
-		amount: 1500,
-		date: "2023-11-10T14:30:00",
-		status: "pending",
-		slipUrl: "https://placehold.co/400x600/e2e8f0/64748b.png?text=Slip+Image+1",
-	},
-	{
-		id: "DEP002",
-		name: "สมหมาย สุดหล่อ",
-		amount: 2000,
-		date: "2023-11-09T09:15:00",
-		status: "approved",
-		slipUrl: "https://placehold.co/400x600/e2e8f0/64748b.png?text=Slip+Image+2",
-	},
-	{
-		id: "DEP003",
-		name: "สมศรี มีสุข",
-		amount: 500,
-		date: "2023-11-08T16:45:00",
-		status: "rejected",
-		slipUrl: "https://placehold.co/400x600/e2e8f0/64748b.png?text=Slip+Image+3",
-	},
-	{
-		id: "DEP004",
-		name: "มานี ดีใจ",
-		amount: 1000,
-		date: "2023-11-11T10:05:00",
-		status: "pending",
-		slipUrl: "https://placehold.co/400x600/e2e8f0/64748b.png?text=Slip+Image+4",
-	},
-];
+type Deposit = {
+	id: string;
+	name: string;
+	amount: number;
+	date: string;
+	status: "pending" | "approved" | "rejected";
+	slipUrl: string;
+};
 
 type FilterStatus = "pending" | "approved" | "rejected" | "all";
 type SortColumn = "id" | "name" | "amount" | "date" | "status";
@@ -50,30 +24,31 @@ const SortIcon = ({ column, sortConfig }: { column: SortColumn, sortConfig: { co
 		<ArrowDown size={14} className="inline ml-1 text-sky-500" />;
 };
 
-const GAS_URL = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL || "URL_WEB_APP_ของ_GAS"; 
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "URL_WEB_APP_ของ_GAS"; 
 
 export default function DepositsPage() {
-	const [deposits, setDeposits] = useState<typeof mockDeposits>([]);
+	const [deposits, setDeposits] = useState<Deposit[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [filterStatus, setFilterStatus] = useState<FilterStatus>("pending");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [sortConfig, setSortConfig] = useState<{column: SortColumn, direction: SortDirection}>({
 		column: "date",
-		direction: "asc"
+		direction: "asc" // เก่า-ใหม่ (Ascending)
 	});
 
-	const [selectedDeposit, setSelectedDeposit] = useState<
-		typeof mockDeposits[0] | null
-	>(null);
+	const [selectedDeposit, setSelectedDeposit] = useState<Deposit | null>(null);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 
 	const sortedAndFilteredDeposits = useMemo(() => {
+		// Ensure deposits is an array before filtering
+		if (!Array.isArray(deposits)) return [];
+		
 		// 1. กรองข้อมูล (Filter)
 		const result = deposits.filter((d) => {
 			const matchStatus =
 				filterStatus === "all" || d.status === filterStatus;
 			const matchSearch =
-				d.name.includes(searchQuery) || d.id.includes(searchQuery);
+				(d.name || "").includes(searchQuery) || (d.id || "").includes(searchQuery);
 			return matchStatus && matchSearch;
 		});
 
@@ -124,8 +99,6 @@ export default function DepositsPage() {
 			setDeposits(data);
 		} catch (error) {
 			console.error("Fetch error:", error);
-			// หากดึงข้อมูลไม่ได้ ให้แสดง mock data สำรองไว้ก่อน
-			setDeposits(mockDeposits);
 		} finally {
 			setLoading(false);
 		}
@@ -158,12 +131,6 @@ export default function DepositsPage() {
 		} catch (error) {
 			alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
 			console.error(error);
-			
-			// สำหรับทดสอบ: เปลี่ยนสถานะใน Local State ถ้าไม่มีเชื่อมต่อจริง
-			setDeposits((prev) =>
-				prev.map((d) => (d.id === id ? { ...d, status: "approved" } : d))
-			);
-			setIsModalOpen(false);
 		}
 	};
 
@@ -190,16 +157,10 @@ export default function DepositsPage() {
 		} catch (error) {
 			alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
 			console.error(error);
-
-			// สำหรับทดสอบ: เปลี่ยนสถานะใน Local State ถ้าไม่มีเชื่อมต่อจริง
-			setDeposits((prev) =>
-				prev.map((d) => (d.id === id ? { ...d, status: "rejected" } : d))
-			);
-			setIsModalOpen(false);
 		}
 	};
 
-	const openDetails = (deposit: typeof mockDeposits[0]) => {
+	const openDetails = (deposit: Deposit) => {
 		setSelectedDeposit(deposit);
 		setIsModalOpen(true);
 	};
@@ -235,6 +196,7 @@ export default function DepositsPage() {
 							>
 								{tab.label}
 								{tab.id === "pending" &&
+									Array.isArray(deposits) &&
 									deposits.filter((d) => d.status === "pending").length >
 										0 && (
 										<span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-rose-500 rounded-full">
