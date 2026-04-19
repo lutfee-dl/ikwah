@@ -68,6 +68,57 @@ export async function POST(request: Request) {
       const data = await response.json();
       return NextResponse.json(data);
     }
+    
+    if (body.action === "admin_get_contracts") {
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_get_contracts",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    if (body.action === "admin_get_repayments") {
+      const { contractId } = body;
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_get_repayments",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+          contractId
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    if (body.action === "admin_add_repayment") {
+      const { contractId, lineUserId, amountPaid, installmentNo, slipUrl, status } = body;
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_add_repayment",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+          contractId,
+          lineUserId,
+          amountPaid,
+          installmentNo,
+          slipUrl: slipUrl || "",
+          status
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
 
     // Normal registration path (or other proxy actions)
     // We shouldn't strictly require these if action != 'register'

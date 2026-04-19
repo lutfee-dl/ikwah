@@ -44,7 +44,7 @@ export default function LoanDetailModal({
 					<div className="flex justify-between pb-4 border-b border-dashed border-slate-200">
 						<div>
 							<p className="text-slate-500 text-sm mb-1">รหัสคำขอ</p>
-							<p className="font-bold text-slate-700 text-xs">{loan.lineUserId}</p>
+							<p className="font-bold text-slate-700 text-xs">{loan.id}</p>
 						</div>
 						<div className="text-right">
 							<p className="text-slate-500 text-sm mb-1">วันที่แจ้ง</p>

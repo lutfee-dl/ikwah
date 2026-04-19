@@ -17,6 +17,7 @@ import {
   Bell,
   Receipt,
   Wallet,
+  Briefcase,
 } from "lucide-react";
 import "@/app/globals.css";
 
@@ -28,6 +29,7 @@ const sidebarLinks = [
   },
   { name: "ระบบเงินฝาก", href: "/admin/deposits", icon: PiggyBank },
   { name: "ระบบคำขอกู้เงิน", href: "/admin/loans", icon: CreditCard },
+  { name: "ทะเบียนสัญญา / ซื้อขาย", href: "/admin/contracts", icon: Briefcase },
   { name: "ตรวจสอบชำระค่างวด", href: "/admin/repayments", icon: Receipt },
   { name: "ทะเบียนสมาชิก", href: "/admin/members", icon: Users },
   { name: "สรุปยอดหุ้นสัจจะ", href: "/admin/shares", icon: Wallet },

@@ -46,23 +46,24 @@ export default function LoansPage() {
 			const result = await res.json();
 			if ((result.status === "success" || result.success === true) && Array.isArray(result.data)) {
 				// Map backend data which comes as an array of arrays or objects.
-				// Based on headers: วันที่ยื่นขอ, LINE_UserID, LineName, ชื่อ-นามสกุล, เบอร์โทร, ประเภทสินเชื่อ, จำนวนเงิน (บาท), ผ่อนชำระ (เดือน), เหตุผล, สถานะ
+				// Based on headers: Request_ID, Timestamp, LINE_UserID, LineName, FullName, Phone, Loan_Type, Amount, Duration_Months, Reason, Status, Admin_Remark
 				const mappedLoans = result.data.map((row: Record<string, string | number> | string[], index: number) => {
 					// Handle whether result.data is an array of arrays or objects
 					const isArray = Array.isArray(row);
-					const lineUserIdStr = isArray ? String(row[1] || "") : String(row.lineUserId || row.lineId || "-");
+					const reqId = isArray ? String(row[0] || "") : String(row.id || row.loanId || `REQ-${index}`);
+					const lineUserIdStr = isArray ? String(row[2] || "") : String(row.lineUserId || row.lineId || "-");
 					return {
-						id: isArray ? String(row[1]) : String(row.id || row.loanId || lineUserIdStr || `L-${index}`),
-						date: isArray ? String(row[0] || "") : String(row.date || row.createdAt || "-"),
+						id: reqId,
+						date: isArray ? String(row[1] || "") : String(row.date || row.createdAt || "-"),
 						lineUserId: lineUserIdStr,
-						lineName: isArray ? String(row[2] || "") : String(row.lineName || "-"),
-						name: isArray ? String(row[3] || "") : String(row.name || row.fullName || "-"),
-						phone: isArray ? String(row[4] || "") : String(row.phone || "-"),
-						type: isArray ? String(row[5] || "") : String(row.type || row.loanType || "-"),
-						amount: Number(isArray ? row[6] : row.amount || 0),
-						duration: Number(isArray ? row[7] : row.duration || 0),
-						reason: isArray ? String(row[8] || "") : String(row.reason || "-"),
-						status: isArray ? String(row[9] || "รอตรวจสอบ") : String(row.status || "รอตรวจสอบ"),
+						lineName: isArray ? String(row[3] || "") : String(row.lineName || "-"),
+						name: isArray ? String(row[4] || "") : String(row.name || row.fullName || "-"),
+						phone: isArray ? String(row[5] || "") : String(row.phone || "-"),
+						type: isArray ? String(row[6] || "") : String(row.type || row.loanType || "-"),
+						amount: Number(isArray ? row[7] : row.amount || 0),
+						duration: Number(isArray ? row[8] : row.duration || 0),
+						reason: isArray ? String(row[9] || "") : String(row.reason || "-"),
+						status: isArray ? String(row[10] || "รอตรวจสอบ") : String(row.status || "รอตตรวจสอบ"),
 					};
 				});
 				setLoans(mappedLoans);
