@@ -9,8 +9,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, msg: "Missing imageUrl" }, { status: 400 });
     }
 
+    let finalUrl = imageUrl;
+
+    // 🔄 แปลงลิงก์ Google Drive ให้เป็น Direct Link ก่อน Fetch
+    if (finalUrl.includes("drive.google.com")) {
+      const driveMatch = finalUrl.match(/\/d\/([^/]+)/) || finalUrl.match(/[?&]id=([^&]+)/);
+      if (driveMatch && driveMatch[1]) {
+        finalUrl = `https://lh3.googleusercontent.com/u/0/d/${driveMatch[1]}`;
+      }
+    }
+
     // 1. Fetch image
-    const response = await fetch(imageUrl);
+    const response = await fetch(finalUrl);
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
