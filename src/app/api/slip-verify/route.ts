@@ -1,7 +1,67 @@
 import { NextResponse } from "next/server";
-import { createWorker } from "tesseract.js";
+import jsQR from "jsqr";
+import sharp from "sharp";
+
+// ฟังก์ชันถอดรหัส PromptPay EMV QR
+function parsePromptPayQR(data: string) {
+  let amount = 0;
+  let promptPayId = "";
+  let currency = "";
+  let country = "";
+  let ref1 = "";
+  let ref2 = "";
+  let slipId = "";
+  let initiationMethod = "";
+
+  try {
+    let i = 0;
+    while (i < data.length - 3) {
+      const tag = data.substring(i, i + 2);
+      const len = parseInt(data.substring(i + 2, i + 4), 10);
+      if (isNaN(len) || len < 0) break;
+      const value = data.substring(i + 4, i + 4 + len);
+      i += 4 + len;
+
+      if (tag === "01") initiationMethod = value === "12" ? "dynamic" : "static";
+      if (tag === "53") currency = value === "764" ? "THB" : value;
+      if (tag === "54") amount = parseFloat(value) || 0;
+      if (tag === "58") country = value;
+
+      // Merchant Account Info (PromptPay ID อยู่ใน subfield 01)
+      if (tag === "26" || tag === "29" || tag === "30") {
+        let j = 0;
+        while (j < value.length - 3) {
+          const stag = value.substring(j, j + 2);
+          const slen = parseInt(value.substring(j + 2, j + 4), 10);
+          if (isNaN(slen)) break;
+          const sval = value.substring(j + 4, j + 4 + slen);
+          j += 4 + slen;
+          if (stag === "01") promptPayId = sval;
+        }
+      }
+
+      // Additional Data (ref1, ref2, slipId)
+      if (tag === "62") {
+        let j = 0;
+        while (j < value.length - 3) {
+          const stag = value.substring(j, j + 2);
+          const slen = parseInt(value.substring(j + 2, j + 4), 10);
+          if (isNaN(slen)) break;
+          const sval = value.substring(j + 4, j + 4 + slen);
+          j += 4 + slen;
+          if (stag === "01") ref1 = sval;
+          if (stag === "02") ref2 = sval;
+          if (stag === "05") slipId = sval;
+        }
+      }
+    }
+  } catch (_) { /* ignore parse errors */ }
+
+  return { amount, promptPayId, currency, country, ref1, ref2, slipId, initiationMethod };
+}
 
 export async function POST(request: Request) {
+  const startTime = Date.now();
   try {
     const { imageUrl } = await request.json();
 
@@ -9,75 +69,75 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, msg: "Missing imageUrl" }, { status: 400 });
     }
 
+    // แปลงลิงก์ Google Drive → Direct link
     let finalUrl = imageUrl;
-
-    // 🔄 แปลงลิงก์ Google Drive ให้เป็น Direct Link ก่อน Fetch
     if (finalUrl.includes("drive.google.com")) {
-      const driveMatch = finalUrl.match(/\/d\/([^/]+)/) || finalUrl.match(/[?&]id=([^&]+)/);
-      if (driveMatch && driveMatch[1]) {
-        finalUrl = `https://lh3.googleusercontent.com/u/0/d/${driveMatch[1]}`;
+      const match = finalUrl.match(/\/d\/([^/]+)/) || finalUrl.match(/[?&]id=([^&]+)/);
+      if (match?.[1]) {
+        finalUrl = `https://drive.google.com/uc?export=download&id=${match[1]}`;
       }
     }
 
-    // 1. Fetch image
-    const response = await fetch(finalUrl);
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // 1. Fetch รูปภาพ
+    const imageRes = await fetch(finalUrl, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+    });
+    if (!imageRes.ok) throw new Error(`Image fetch failed: ${imageRes.status} ${imageRes.statusText}`);
 
-    // 2. Perform OCR
-    const worker = await createWorker("tha+eng");
-    const { data: { text } } = await worker.recognize(buffer);
-    await worker.terminate();
+    const arrayBuffer = await imageRes.arrayBuffer();
 
-    // 3. ปรับจูนข้อความและค้นหาข้อมูยอดเงิน (Advanced Parsing)
-    const cleanText = text 
-      .replace(/[^\u0E00-\u0E7Fa-zA-Z0-9\s\.\,\:\-\/\(\)\฿]/g, ' ') 
-      .replace(/\s+/g, ' ') 
-      .trim(); 
+    // 2. แปลงรูปเป็น raw pixel ด้วย sharp
+    const sharpImg = sharp(Buffer.from(arrayBuffer));
+    const { width, height } = await sharpImg.metadata();
+    const { data } = await sharpImg
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
 
-    let amount = 0;
-    
-    // Amount patterns จากโปรเจกต์อ้างอิง
-    const amountPatterns = [ 
-      /(?:จำนวนเงิน|จ่าย|ยอดเงิน|โอน|จำนวนเงินทั้งสิ้น)[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i, 
-      /(?:Amount|Total|Pay|Net\s*Amount)[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i, 
-      /THB[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i, 
-      /฿[:\s]*([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/, 
-      /([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})\s*(?:บาท|Baht)/i, 
-      /\b([1-9][0-9]{0,2}(?:,?[0-9]{3})*\.[0-9]{2})\b/, 
-    ]; 
+    // 3. ใช้ jsQR อ่าน QR code
+    const qrResult = jsQR(
+      new Uint8ClampedArray(data.buffer),
+      width!,
+      height!,
+      { inversionAttempts: "dontInvert" }
+    );
 
-    for (const pattern of amountPatterns) { 
-      const match = cleanText.match(pattern); 
-      if (match) { 
-        const amountStr = match[1].replace(/,/g, ''); 
-        const numAmount = parseFloat(amountStr); 
-        if (!isNaN(numAmount) && numAmount >= 1) { // ยอดโอนปกติควร >= 1 บาท
-          amount = numAmount; 
-          break; 
-        } 
-      } 
-    } 
+    const elapsed = Date.now() - startTime;
 
-    // fallback: ถ้าหาไม่ได้จริงๆ ให้ลองดึงตัวเลขที่ดูน่าจะเป็นยอดเงินที่สุด (ตัวเลขที่ใหญ่ที่สุดที่เจอมีทศนิยม)
-    if (amount === 0) {
-        const allMatches = cleanText.replace(/,/g, "").match(/\d+\.\d{2}/g);
-        if (allMatches) {
-            const numbers = allMatches.map(m => parseFloat(m)).filter(n => n > 0);
-            if (numbers.length > 0) {
-                amount = Math.max(...numbers); 
-            }
-        }
+    if (qrResult) {
+      const qrData = qrResult.data;
+      const { amount, promptPayId, currency, country, ref1, ref2, slipId, initiationMethod } = parsePromptPayQR(qrData);
+
+      return NextResponse.json({
+        success: true,
+        amount,            // ยอดเงิน (0 = QR ไม่ฝังยอด ให้ user กรอก)
+        promptPayId,       // PromptPay ID ปลายทาง (เบอร์/เลขบัตร)
+        currency,          // THB
+        country,           // TH
+        ref1,              // Bill Reference 1 (เลขอ้างอิง)
+        ref2,              // Bill Reference 2
+        slipId,            // Slip ID / Reference Label
+        initiationMethod,  // static / dynamic
+        qrRaw: qrData,
+        elapsedMs: elapsed,
+        method: "qr",
+      });
     }
 
+    // 4. ถ้าหา QR ไม่เจอ → ส่งกลับแบบ success=false + rawText ว่าง
     return NextResponse.json({
-      success: true,
-      amount: amount,
-      rawText: text, // เก็บไว้ debug
+      success: false,
+      amount: 0,
+      msg: "ไม่พบ QR Code ในรูปสลิป กรุณาตรวจสอบรูปหรือกรอกยอดเงินด้วยตนเอง",
+      elapsedMs: elapsed,
+      method: "qr",
     });
 
   } catch (error: any) {
-    console.error("OCR Error:", error);
-    return NextResponse.json({ success: false, msg: "OCR Failed", error: error.message }, { status: 500 });
+    console.error("slip-verify error:", error.message);
+    return NextResponse.json(
+      { success: false, msg: "ประมวลผลไม่สำเร็จ", error: error.message },
+      { status: 500 }
+    );
   }
 }
