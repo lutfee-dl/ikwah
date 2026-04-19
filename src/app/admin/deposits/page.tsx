@@ -19,8 +19,8 @@ type SortDirection = "asc" | "desc";
 // นำ SortIcon ออกมาประกาศข้างนอกเพื่อป้องกัน Error: Cannot create components during render
 const SortIcon = ({ column, sortConfig }: { column: SortColumn, sortConfig: { column: SortColumn, direction: SortDirection } }) => {
 	if (sortConfig.column !== column) return <ArrowUpDown size={14} className="inline ml-1 text-slate-300" />;
-	return sortConfig.direction === "asc" ? 
-		<ArrowUp size={14} className="inline ml-1 text-sky-500" /> : 
+	return sortConfig.direction === "asc" ?
+		<ArrowUp size={14} className="inline ml-1 text-sky-500" /> :
 		<ArrowDown size={14} className="inline ml-1 text-sky-500" />;
 };
 
@@ -31,7 +31,7 @@ export default function DepositsPage() {
 	const [loading, setLoading] = useState(true);
 	const [filterStatus, setFilterStatus] = useState<FilterStatus>("pending");
 	const [searchQuery, setSearchQuery] = useState("");
-	const [sortConfig, setSortConfig] = useState<{column: SortColumn, direction: SortDirection}>({
+	const [sortConfig, setSortConfig] = useState<{ column: SortColumn, direction: SortDirection }>({
 		column: "date",
 		direction: "asc" // เก่า-ใหม่ (Ascending)
 	});
@@ -69,7 +69,7 @@ export default function DepositsPage() {
 	const sortedAndFilteredDeposits = useMemo(() => {
 		// Ensure deposits is an array before filtering
 		if (!Array.isArray(deposits)) return [];
-		
+
 		// 1. กรองข้อมูล (Filter)
 		const result = deposits.filter((d) => {
 			const matchStatus =
@@ -153,7 +153,7 @@ export default function DepositsPage() {
 					amount: editAmount // ส่งยอดที่อาจจะถูกแก้ไขไปด้วย
 				})
 			});
-			
+
 			const result = await res.json();
 			if (result.success) {
 				alert("อนุมัติสำเร็จ และส่งข้อความแจ้งสมาชิกแล้ว ✅");
@@ -184,7 +184,7 @@ export default function DepositsPage() {
 					depositId: id
 				})
 			});
-			
+
 			const result = await res.json();
 			if (result.success) {
 				alert("ปฏิเสธยอดฝากเรียบร้อยแล้ว");
@@ -230,17 +230,16 @@ export default function DepositsPage() {
 							<button
 								key={tab.id}
 								onClick={() => setFilterStatus(tab.id as FilterStatus)}
-								className={`cursor-pointer flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-									filterStatus === tab.id
+								className={`cursor-pointer flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${filterStatus === tab.id
 										? "bg-white text-sky-600 shadow-sm"
 										: "text-slate-500 hover:text-slate-700"
-								}`}
+									}`}
 							>
 								{tab.label}
 								{tab.id === "pending" &&
 									Array.isArray(deposits) &&
 									deposits.filter((d) => d.status === "pending").length >
-										0 && (
+									0 && (
 										<span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-rose-500 rounded-full">
 											{
 												deposits.filter((d) => d.status === "pending")
@@ -329,29 +328,27 @@ export default function DepositsPage() {
 										</td>
 										<td className="py-4 px-6 text-center">
 											<span
-												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-													item.status === "pending"
+												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${item.status === "pending"
 														? "bg-amber-100 text-amber-700"
 														: item.status === "approved"
-														? "bg-emerald-100 text-emerald-700"
-														: "bg-rose-100 text-rose-700"
-												}`}
+															? "bg-emerald-100 text-emerald-700"
+															: "bg-rose-100 text-rose-700"
+													}`}
 											>
 												{item.status === "pending"
 													? "รอตรวจสอบ"
 													: item.status === "approved"
-													? "อนุมัติแล้ว"
-													: "ปฏิเสธ"}
+														? "อนุมัติแล้ว"
+														: "ปฏิเสธ"}
 											</span>
 										</td>
 										<td className="py-4 px-6 text-center">
 											<button
 												onClick={() => openDetails(item)}
-												className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-													item.status === "pending"
+												className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${item.status === "pending"
 														? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100 hover:border-sky-500"
 														: "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
-												}`}
+													}`}
 											>
 												<Eye size={16} />
 												{item.status === "pending"
@@ -367,86 +364,107 @@ export default function DepositsPage() {
 				</div>
 			</div>
 
-			{/* Modal ดูรายละเอียดและอนุมัติ (แยกจากตารางชัดเจน) */}
+			{/* Modal - Mobile-first Bottom Sheet */}
 			{isModalOpen && selectedDeposit && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-					<div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-						<div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50">
-							<h3 className="font-bold text-lg text-slate-800">
-								ตรวจสอบการฝากเงิน
-							</h3>
+				<div
+					className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+					onClick={() => setIsModalOpen(false)}
+				>
+					<div
+						className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[95svh] sm:max-h-[90vh] overflow-hidden"
+						onClick={e => e.stopPropagation()}
+					>
+						{/* Handle bar for mobile */}
+						<div className="flex justify-center pt-3 pb-1 sm:hidden">
+							<div className="w-10 h-1 bg-slate-300 rounded-full" />
+						</div>
+
+						{/* Header */}
+						<div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+							<div>
+								<h3 className="font-bold text-base text-slate-800">ตรวจสอบสลิปฝากเงิน</h3>
+								<p className="text-xs text-slate-500 mt-0.5">{selectedDeposit.id}</p>
+							</div>
 							<button
 								onClick={() => setIsModalOpen(false)}
-								className="text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-200 transition-colors"
+								className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 transition-colors"
 							>
 								<X size={20} />
 							</button>
 						</div>
 
-						<div className="p-5 space-y-5">
-							<div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-100">
-								<div>
-									<p className="text-slate-500 mb-1">รหัสรายการ</p>
-									<p className="font-semibold text-slate-700">
-										{selectedDeposit.id}
-									</p>
-								</div>
-								<div>
-									<p className="text-slate-500 mb-1">วันที่แจ้งฝาก</p>
-									<p className="font-semibold text-slate-700">
-										{formatDate(selectedDeposit.date)}
-									</p>
-								</div>
-								<div className="col-span-2">
-									<p className="text-slate-500 mb-1">ชื่อสมาชิก</p>
-									<p className="font-semibold text-slate-800 text-base">
-										{selectedDeposit.name}
-									</p>
-								</div>
-								<div className="col-span-2">
-									<p className="text-slate-500 mb-1">จำนวนเงินที่ได้รับในสลิป (ตรวจสอบ/แก้ไขได้)</p>
-									<div className="relative">
-										<input 
-											type="tel"
-											value={editAmount}
-											onChange={(e) => setEditAmount(Number(e.target.value.replace(/[^0-9]/g, "")))}
-											className="w-full text-2xl font-black text-sky-600 bg-white border-2 border-sky-100 rounded-xl px-4 py-2 focus:outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 transition-all text-right"
-										/>
-										<span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">฿</span>
+						{/* Scrollable Content */}
+						<div className="overflow-y-auto flex-1">
+							{/* Member Info */}
+							<div className="px-5 pt-4 pb-3 bg-slate-50 border-b border-slate-100">
+								<div className="flex items-start justify-between gap-3">
+									<div>
+										<p className="text-xs text-slate-500">สมาชิก</p>
+										<p className="font-bold text-slate-800 text-sm mt-0.5">{selectedDeposit.name}</p>
+										<p className="text-xs text-slate-500 mt-0.5">{formatDate(selectedDeposit.date)}</p>
 									</div>
-									<p className="text-[10px] text-slate-400 mt-1 italic">* หากบอทอ่านยอดมาผิด คุณสามารถแก้ไขตัวเลขตรงนี้ก่อนกดยืนยันได้ครับ</p>
+									<span className={`shrink-0 inline-flex px-3 py-1 rounded-full text-xs font-bold ${selectedDeposit.status === "pending"
+											? "bg-amber-100 text-amber-700"
+											: selectedDeposit.status === "approved"
+												? "bg-emerald-100 text-emerald-700"
+												: "bg-rose-100 text-rose-700"
+										}`}>
+										{selectedDeposit.status === "pending" ? "รอตรวจสอบ" : selectedDeposit.status === "approved" ? "อนุมัติแล้ว" : "ปฏิเสธ"}
+									</span>
 								</div>
 							</div>
 
-							<div>
-								<p className="text-slate-600 font-medium mb-3 text-center">
-									แนบรูปสลิปจากสมาชิก
-								</p>
-								<div className="bg-slate-100 rounded-xl p-2 border border-slate-200 flex justify-center min-h-[200px] items-center">
+							{/* Slip Image */}
+							<div className="px-5 pt-4">
+								<p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">รูปสลิป</p>
+								<div className="bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex justify-center items-center min-h-[220px]">
 									{selectedDeposit.slipUrl ? (
 										<img
 											src={getDriveImageUrl(selectedDeposit.slipUrl)}
-											alt="Slip Image"
-											className="max-w-full w-full h-auto max-h-[500px] rounded-lg object-contain bg-white shadow-sm transition-opacity duration-300"
+											alt="Slip"
+											className="w-full h-auto max-h-[60svh] object-contain"
 											onError={(e) => {
-												// Fallback if direct link fails
-												(e.target as HTMLImageElement).src = 'https://placehold.co/400x600?text=ErrorLoadingImage';
+												(e.target as HTMLImageElement).src = "https://placehold.co/400x600?text=ไม่สามารถโหลดได้";
 											}}
 										/>
 									) : (
-										<p className="text-slate-400">ไม่พบรูปสลิป</p>
+										<p className="text-slate-400 text-sm py-8">ไม่พบรูปสลิป</p>
 									)}
 								</div>
 							</div>
+
+							{/* Amount */}
+							{selectedDeposit.status === "pending" ? (
+								<div className="px-5 pt-4 pb-2">
+									<p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">ยอดเงิน (แก้ไขได้)</p>
+									<div className="relative">
+										<span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-lg">฿</span>
+										<input
+											type="tel"
+											value={editAmount}
+											onChange={(e) => setEditAmount(Number(e.target.value.replace(/[^0-9]/g, "")))}
+											className="w-full text-3xl font-black text-sky-600 bg-white border-2 border-sky-200 rounded-2xl pl-10 pr-4 py-3.5 focus:outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 transition-all text-right"
+										/>
+									</div>
+									<p className="text-[11px] text-slate-400 mt-1.5 text-right">* แก้ไขได้ถ้ายอดไม่ตรงกับสลิป</p>
+								</div>
+							) : (
+								<div className="px-5 pt-4 pb-2">
+									<p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ยอดเงิน</p>
+									<p className="text-3xl font-black text-sky-600">฿{selectedDeposit.amount.toLocaleString()}</p>
+								</div>
+							)}
+							<div className="h-4" />
 						</div>
 
-						<div className="p-5 border-t border-slate-100 bg-white">
+						{/* Sticky Action Buttons */}
+						<div className="p-4 border-t border-slate-100 bg-white">
 							{selectedDeposit.status === "pending" ? (
-								<div className="grid grid-cols-2 gap-3">
+								<div className="flex gap-3">
 									<button
 										disabled={isUpdating}
 										onClick={() => handleReject(selectedDeposit.id)}
-										className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all disabled:opacity-50"
+										className="cursor-pointer flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl transition-all disabled:opacity-50 active:scale-95"
 									>
 										{isUpdating ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />} ไม่อนุมัติ
 									</button>
