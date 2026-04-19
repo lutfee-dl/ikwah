@@ -1,8 +1,26 @@
 "use client";
 
-import { CreditCard, Users, FileText, CheckCircle, Clock, AlertTriangle, ArrowUpRight, TrendingUp } from "lucide-react";
+import {
+  CreditCard,
+  Users,
+  FileText,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  ArrowUpRight,
+  TrendingUp,
+} from "lucide-react";
+import { toast } from "react-hot-toast";
+import { useEffect } from "react";
 
 export default function AdminDashboardPage() {
+  useEffect(() => {
+    const success = sessionStorage.getItem("login_success");
+    if (success) {
+      toast.success("เข้าสู่ระบบสำเร็จ");
+      sessionStorage.removeItem("login_success");
+    }
+  }, []);
   return (
     <div className="space-y-6 animate-[fadeIn_0.5s]">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
@@ -24,13 +42,14 @@ export default function AdminDashboardPage() {
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        
         {/* Stat 1 */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 group hover:shadow-md transition-shadow relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-sky-50 rounded-full group-hover:scale-150 transition-transform duration-500 ease-out"></div>
           <div className="relative z-10 flex justify-between">
             <div className="space-y-3">
-              <p className="text-sm font-medium text-slate-500">สมาชิกทั้งหมด</p>
+              <p className="text-sm font-medium text-slate-500">
+                สมาชิกทั้งหมด
+              </p>
               <div>
                 <p className="text-3xl font-bold text-slate-800">124</p>
                 <p className="text-xs font-medium text-emerald-500 flex items-center mt-1">
@@ -49,7 +68,9 @@ export default function AdminDashboardPage() {
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-amber-50 mx-auto rounded-full group-hover:scale-150 transition-transform duration-500 ease-out"></div>
           <div className="relative z-10 flex justify-between">
             <div className="space-y-3">
-              <p className="text-sm font-medium text-slate-500">รออนุมัติสินเชื่อ</p>
+              <p className="text-sm font-medium text-slate-500">
+                รออนุมัติสินเชื่อ
+              </p>
               <div>
                 <p className="text-3xl font-bold text-amber-500">8</p>
                 <p className="text-xs font-medium text-slate-400 mt-1">
@@ -68,15 +89,19 @@ export default function AdminDashboardPage() {
           <div className="absolute -right-6 -top-6 w-32 h-32 bg-emerald-50 rounded-full group-hover:scale-125 transition-transform duration-500 ease-out"></div>
           <div className="relative z-10 flex justify-between h-full items-center">
             <div className="space-y-3 flex-1 flex flex-col justify-center">
-              <p className="text-sm font-medium text-slate-500">ยอดเงินอนุมัติแล้ว (สะสม)</p>
+              <p className="text-sm font-medium text-slate-500">
+                ยอดเงินอนุมัติแล้ว (สะสม)
+              </p>
               <div>
                 <p className="text-3xl font-bold text-emerald-600">฿45,000</p>
                 <div className="flex gap-4 mt-2">
                   <p className="text-xs font-medium text-slate-500 flex items-center">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 line-clamp-1"></span> สินเชื่อฉุกเฉิน: 15,000
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 line-clamp-1"></span>{" "}
+                    สินเชื่อฉุกเฉิน: 15,000
                   </p>
                   <p className="text-xs font-medium text-slate-500 flex items-center">
-                    <span className="w-2 h-2 rounded-full bg-sky-400 mr-1.5 line-clamp-1"></span> ก้อดฮาซัน: 30,000
+                    <span className="w-2 h-2 rounded-full bg-sky-400 mr-1.5 line-clamp-1"></span>{" "}
+                    ก้อดฮาซัน: 30,000
                   </p>
                 </div>
               </div>
@@ -86,20 +111,20 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </div>
-
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
-        
         {/* Recent Transactions List */}
         <div className="bg-white shadow-sm rounded-2xl border border-slate-100 lg:col-span-2 overflow-hidden flex flex-col">
           <div className="px-6 py-5 border-b border-slate-50/80 flex justify-between items-center bg-white/50">
-            <h2 className="text-base font-bold text-slate-800">รายการขอสินเชื่อล่าสุด</h2>
+            <h2 className="text-base font-bold text-slate-800">
+              รายการขอสินเชื่อล่าสุด
+            </h2>
             <button className="text-sm font-semibold text-sky-600 hover:text-sky-700 transition">
               ดูทั้งหมด
             </button>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse whitespace-nowrap">
               <thead>
@@ -112,13 +137,16 @@ export default function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                
                 {/* Mock Row 1 */}
                 <tr className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="font-medium text-slate-800">สมชาย ใจดี</span>
-                      <span className="text-slate-400 text-xs">วันนี้, 10:24</span>
+                      <span className="font-medium text-slate-800">
+                        สมชาย ใจดี
+                      </span>
+                      <span className="text-slate-400 text-xs">
+                        วันนี้, 10:24
+                      </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -126,7 +154,9 @@ export default function AdminDashboardPage() {
                       ฉุกเฉิน
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-medium text-slate-700">฿8,000</td>
+                  <td className="px-6 py-4 font-medium text-slate-700">
+                    ฿8,000
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-amber-600 font-medium">
                       <Clock size={14} />
@@ -144,8 +174,12 @@ export default function AdminDashboardPage() {
                 <tr className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="font-medium text-slate-800">มานี มีสุข</span>
-                      <span className="text-slate-400 text-xs">เมื่อวาน, 15:30</span>
+                      <span className="font-medium text-slate-800">
+                        มานี มีสุข
+                      </span>
+                      <span className="text-slate-400 text-xs">
+                        เมื่อวาน, 15:30
+                      </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -153,7 +187,9 @@ export default function AdminDashboardPage() {
                       ก้อดฮาซัน
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-medium text-slate-700">฿150,000</td>
+                  <td className="px-6 py-4 font-medium text-slate-700">
+                    ฿150,000
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
                       <CheckCircle size={14} />
@@ -167,12 +203,16 @@ export default function AdminDashboardPage() {
                   </td>
                 </tr>
 
-                 {/* Mock Row 3 */}
-                 <tr className="hover:bg-slate-50/50 transition-colors group">
+                {/* Mock Row 3 */}
+                <tr className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="font-medium text-slate-800">เอกชัย สายลม</span>
-                      <span className="text-slate-400 text-xs">เมื่อวาน, 09:15</span>
+                      <span className="font-medium text-slate-800">
+                        เอกชัย สายลม
+                      </span>
+                      <span className="text-slate-400 text-xs">
+                        เมื่อวาน, 09:15
+                      </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -180,7 +220,9 @@ export default function AdminDashboardPage() {
                       ซื้อขาย
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-medium text-slate-700">฿45,000</td>
+                  <td className="px-6 py-4 font-medium text-slate-700">
+                    ฿45,000
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-rose-500 font-medium">
                       <AlertTriangle size={14} />
@@ -193,7 +235,6 @@ export default function AdminDashboardPage() {
                     </button>
                   </td>
                 </tr>
-
               </tbody>
             </table>
           </div>
@@ -203,14 +244,14 @@ export default function AdminDashboardPage() {
         <div className="bg-linear-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-white shadow-lg border border-slate-700 relative overflow-hidden">
           <div className="absolute right-0 top-0 w-32 h-32 bg-sky-500/20 blur-3xl rounded-full"></div>
           <div className="absolute left-0 bottom-0 w-24 h-24 bg-sky-400/20 blur-2xl rounded-full"></div>
-          
+
           <h2 className="text-lg font-semibold mb-6 flex items-center relative z-10">
             <span className="bg-sky-500/20 p-2 rounded-xl mr-3 text-sky-400">
               <FileText size={18} />
             </span>
             ภาพรวมรายเดือน
           </h2>
-          
+
           <div className="space-y-5 relative z-10">
             <div>
               <div className="flex justify-between text-sm mb-1.5">
@@ -218,17 +259,23 @@ export default function AdminDashboardPage() {
                 <span className="font-semibold text-sky-400">85%</span>
               </div>
               <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden shadow-inner">
-                <div className="bg-sky-500 h-2 rounded-full" style={{ width: '85%' }}></div>
+                <div
+                  className="bg-sky-500 h-2 rounded-full"
+                  style={{ width: "85%" }}
+                ></div>
               </div>
             </div>
-            
+
             <div>
               <div className="flex justify-between text-sm mb-1.5">
                 <span className="text-slate-300">สัดส่วนสินเชื่อฉุกเฉิน</span>
                 <span className="font-semibold text-amber-400">60%</span>
               </div>
               <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden shadow-inner">
-                <div className="bg-amber-400 h-2 rounded-full" style={{ width: '60%' }}></div>
+                <div
+                  className="bg-amber-400 h-2 rounded-full"
+                  style={{ width: "60%" }}
+                ></div>
               </div>
             </div>
 
@@ -238,18 +285,20 @@ export default function AdminDashboardPage() {
                 <span className="font-semibold text-emerald-400">30%</span>
               </div>
               <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden shadow-inner">
-                <div className="bg-emerald-400 h-2 rounded-full" style={{ width: '30%' }}></div>
+                <div
+                  className="bg-emerald-400 h-2 rounded-full"
+                  style={{ width: "30%" }}
+                ></div>
               </div>
             </div>
           </div>
-          
+
           <div className="mt-8 pt-6 border-t border-slate-700/50 relative z-10">
             <button className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
               ดูรายงานฉบับเต็ม <ArrowUpRight size={16} />
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );

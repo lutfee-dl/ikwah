@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Toaster, toast } from "react-hot-toast";
+import Cookies from "js-cookie";
 import {
   LayoutDashboard,
   Users,
@@ -14,14 +16,16 @@ import {
   PiggyBank,
   Bell,
   Receipt,
-  ClipboardCheck,
   Wallet,
 } from "lucide-react";
-import Cookies from "js-cookie";
 import "@/app/globals.css";
 
 const sidebarLinks = [
-  { name: "ภาพรวม (Dashboard)", href: "/admin/dashboard", icon: LayoutDashboard },
+  {
+    name: "ภาพรวม",
+    href: "/admin/dashboard",
+    icon: LayoutDashboard,
+  },
   { name: "ระบบเงินฝาก", href: "/admin/deposits", icon: PiggyBank },
   { name: "ระบบคำขอกู้เงิน", href: "/admin/loans", icon: CreditCard },
   { name: "ตรวจสอบชำระค่างวด", href: "/admin/repayments", icon: Receipt },
@@ -33,24 +37,70 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
 
+  useEffect(() => {
+    // Check if there is a 'login_success' flag in sessionStorage
+    if (sessionStorage.getItem("login_success") === "true") {
+      toast.success("เข้าสู่ระบบสำเร็จ");
+      sessionStorage.removeItem("login_success");
+    }
+  }, []);
+
   const handleLogout = () => {
-    Cookies.remove("adminToken");
-    window.location.href = "/auth/login";
+    // เคลียร์ค่า Auth ออกทั้งหมด
+    try {
+      localStorage.removeItem("adminToken");
+      sessionStorage.removeItem("adminToken");
+      Cookies.remove("adminToken");
+    } catch {
+      // ignore
+    }
+
+    setTimeout(() => {
+      window.location.href = "/admin/login";
+      toast.success("ออกจากระบบสำเร็จ");
+    }, 1000);
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  // อย่าครอบ Sidebar และ Header ให้หน้า Login
   if (pathname === "/admin/login") {
     return (
       <div className="font-sans min-h-screen">
+        <Toaster
+          position="top-right"
+          toastOptions={{ duration: 3000, className: "text-sm font-bold" }}
+        />
         {children}
       </div>
     );
   }
 
   return (
-    <div className="font-sans bg-slate-50 min-h-screen relative flex">
+    <div className="font-sans bg-slate-50 h-screen overflow-hidden flex flex-col md:flex-row relative">
+      <Toaster
+        position="top-right"
+        toastOptions={{ duration: 3000, className: "text-sm font-bold" }}
+      />
+      {/* Mobile Header */}
+      <div className="md:hidden shrink-0 bg-slate-900 text-white p-4 flex justify-between items-center z-40 shadow-md">
+        <div className="flex items-center gap-2">
+          <Image
+            src="/LOGO-Ikwah.png"
+            alt="Ikuwah"
+            width={32}
+            height={32}
+            className="rounded-md"
+          />
+          <span className="font-bold text-lg">Ikuwah Admin</span>
+        </div>
+        <button
+          onClick={toggleSidebar}
+          className="p-2 cursor-pointer hover:bg-slate-800 rounded-lg"
+        >
+          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div
@@ -62,13 +112,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside
         className={`
-        fixed md:relative z-30 flex flex-col w-64 h-screen 
+        fixed md:relative z-50 flex flex-col w-64 h-screen shrink-0
         bg-sky-900 border-r border-sky-950 text-sky-50
         transition-transform duration-300 ease-in-out
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        absolute md:static top-0 left-0
       `}
       >
-        <div className="h-24 flex items-center justify-between px-6 border-b border-sky-800 bg-sky-950 relative">
+        <div className="h-24 shrink-0 flex items-center justify-between px-6 border-b border-sky-800 bg-sky-950 relative">
           <Link
             href="/admin/dashboard"
             className="flex items-center justify-center w-full h-full pt-2"
@@ -92,7 +143,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        <div className="px-6 py-4">
+        <div className="px-6 py-4 shrink-0">
           <p className="text-xs font-semibold text-sky-300 uppercase tracking-wider mb-2">
             ระบบจัดการกองทุน
           </p>
@@ -124,10 +175,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-sky-800 bg-sky-950/50 mt-auto">
+        <div className="p-4 shrink-0 border-t border-sky-800 bg-sky-950/50 mt-auto">
           <button
-            onClick={handleLogout}
-            className="cursor-pointer flex w-full items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md text-sky-50 bg-sky-800 hover:bg-red-500 hover:text-white transition-colors border border-sky-700 hover:border-red-400"
+            onClick={() => handleLogout()}
+            className="cursor-pointer flex w-full items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md text-sky-50 bg-sky-800 hover:bg-red-500 hover:text-white transition-colors border border-sky-700 hover:border-red-400 z-50 pointer-events-auto"
           >
             <LogOut className="w-4 h-4" />
             ออกจากระบบ
@@ -136,9 +187,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden w-full transition-all bg-slate-100">
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-slate-100 relative">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10 sticky top-0 shadow-sm">
+        <header className="h-16 shrink-0 bg-white border-b border-slate-200 hidden md:flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10 shadow-sm">
           <div className="flex items-center gap-3">
             <button
               onClick={toggleSidebar}

@@ -1,67 +1,87 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import {
-	Search,
-	Eye,
-	X,
-	CheckCircle2,
-	XCircle,
-	Calculator,
-	CalendarClock,
-	CreditCard,
-} from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Search, Eye } from "lucide-react";
+import { toast } from "react-hot-toast";
+import LoanDetailModal from "./LoanDetailModal";
 
-const mockLoans = [
-	{
-		id: "L001",
-		name: "อนุชา รักสงบ",
-		type: "ฉุกเฉิน",
-		amount: 15000,
-		duration: 6,
-		date: "12/11/2023",
-		status: "pending",
-	},
-	{
-		id: "L002",
-		name: "สุดที่รัก พิทักษ์ไทย",
-		type: "กัรฏฮะซัน",
-		amount: 30000,
-		duration: 12,
-		date: "11/11/2023",
-		status: "approved",
-	},
-	{
-		id: "L003",
-		name: "สมชาย ใจดี",
-		type: "ซื้อขาย",
-		amount: 100000,
-		duration: 24,
-		date: "10/11/2023",
-		status: "rejected",
-	},
-	{
-		id: "L004",
-		name: "มานี มีสุข",
-		type: "ฉุกเฉิน",
-		amount: 5000,
-		duration: 3,
-		date: "13/11/2023",
-		status: "pending",
-	},
-];
+type FilterStatus = "รอตรวจสอบ" | "อนุมัติ" | "ไม่อนุมัติ" | "all";
 
-type FilterStatus = "pending" | "approved" | "rejected" | "all";
+export interface LoanData {
+	id: string;           // รหัสคำขอ (ใช้ Timestamp หรือ ID อื่นๆ)
+	date: string;         // วันที่ยื่นขอ (Column A)
+	lineUserId: string;   // LINE_UserID ตัวเต็ม ใช้เป็น Foreign Key (Column B)
+	lineName: string;     // LineName (Column C)
+	name: string;         // ชื่อ-นามสกุล (Column D)
+	phone: string;        // เบอร์โทร (Column E)
+	type: string;         // ประเภทสินเชื่อ (Column F)
+	amount: number;       // จำนวนเงิน (บาท) (Column G)
+	duration: number;     // ผ่อนชำระ (เดือน) (Column H)
+	reason: string;       // เหตุผล (Column I)
+	status: string;       // สถานะ (Column J)
+}
 
 export default function LoansPage() {
-	const [loans, setLoans] = useState(mockLoans);
-	const [filterStatus, setFilterStatus] = useState<FilterStatus>("pending");
+	const [loans, setLoans] = useState<LoanData[]>([]);
+	const [filterStatus, setFilterStatus] = useState<FilterStatus>("รอตรวจสอบ");
 	const [searchQuery, setSearchQuery] = useState("");
+	const [isFetching, setIsFetching] = useState(true);
 
-	const [selectedLoan, setSelectedLoan] = useState<typeof mockLoans[0] | null>(
-		null
-	);
+	const [selectedLoan, setSelectedLoan] = useState<LoanData | null>(null);
 	const [isModalOpen, setIsModalOpen] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
+
+	useEffect(() => {
+		fetchLoans();
+	}, []);
+
+	const fetchLoans = async () => {
+		setIsFetching(true);
+		try {
+			const res = await fetch("/api/member", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ action: "admin_get_loans" }),
+			});
+			const result = await res.json();
+			if ((result.status === "success" || result.success === true) && Array.isArray(result.data)) {
+				// Map backend data which comes as an array of arrays or objects.
+				// Based on headers: วันที่ยื่นขอ, LINE_UserID, LineName, ชื่อ-นามสกุล, เบอร์โทร, ประเภทสินเชื่อ, จำนวนเงิน (บาท), ผ่อนชำระ (เดือน), เหตุผล, สถานะ
+				const mappedLoans = result.data.map((row: Record<string, string | number> | string[], index: number) => {
+					// Handle whether result.data is an array of arrays or objects
+					const isArray = Array.isArray(row);
+					const lineUserIdStr = isArray ? String(row[1] || "") : String(row.lineUserId || row.lineId || "-");
+					return {
+						id: isArray ? String(row[1]) : String(row.id || row.loanId || lineUserIdStr || `L-${index}`),
+						date: isArray ? String(row[0] || "") : String(row.date || row.createdAt || "-"),
+						lineUserId: lineUserIdStr,
+						lineName: isArray ? String(row[2] || "") : String(row.lineName || "-"),
+						name: isArray ? String(row[3] || "") : String(row.name || row.fullName || "-"),
+						phone: isArray ? String(row[4] || "") : String(row.phone || "-"),
+						type: isArray ? String(row[5] || "") : String(row.type || row.loanType || "-"),
+						amount: Number(isArray ? row[6] : row.amount || 0),
+						duration: Number(isArray ? row[7] : row.duration || 0),
+						reason: isArray ? String(row[8] || "") : String(row.reason || "-"),
+						status: isArray ? String(row[9] || "รอตรวจสอบ") : String(row.status || "รอตรวจสอบ"),
+					};
+				});
+				setLoans(mappedLoans);
+			} else {
+				console.error("Failed to load loans:", result);
+				// If error but it returned successfully from API, assume no data
+				if (Object.keys(result).length === 0) {
+				  setLoans([]);
+				} else {
+				  toast.error("ไม่สามารถโหลดข้อมูลคำขอกู้เงินได้");
+				}
+			}
+		} catch (error) {
+			console.error("Fetch loans error:", error);
+			toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+		} finally {
+			setIsFetching(false);
+		}
+	};
 
 	const filteredLoans = useMemo(() => {
 		return loans.filter((l) => {
@@ -75,21 +95,63 @@ export default function LoansPage() {
 		});
 	}, [loans, filterStatus, searchQuery]);
 
-	const handleApprove = (id: string) => {
-		setLoans((prev) =>
-			prev.map((l) => (l.id === id ? { ...l, status: "approved" } : l))
-		);
-		setIsModalOpen(false);
+	const handleApprove = async (id: string) => {
+		setIsLoading(true);
+		const toastId = toast.loading("กำลังอนุมัติ...");
+		try {
+			const response = await fetch("/api/member", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					action: "admin_update_loan",
+					loanId: id,
+					status: "อนุมัติ",
+				}),
+			});
+			if (!response.ok) throw new Error("Failed to update loan status");
+
+			setLoans((prev) =>
+				prev.map((l) => (l.id === id ? { ...l, status: "อนุมัติ" } : l))
+			);
+			toast.success("อนุมัติเรียบร้อย", { id: toastId });
+			setIsModalOpen(false);
+		} catch (error) {
+			console.error(error);
+			toast.error("เกิดข้อผิดพลาดในการอนุมัติ", { id: toastId });
+		} finally {
+			setIsLoading(false);
+		}
 	};
 
-	const handleReject = (id: string) => {
-		setLoans((prev) =>
-			prev.map((l) => (l.id === id ? { ...l, status: "rejected" } : l))
-		);
-		setIsModalOpen(false);
+	const handleReject = async (id: string) => {
+		setIsLoading(true);
+		const toastId = toast.loading("กำลังบันทึก...");
+		try {
+			const response = await fetch("/api/member", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					action: "admin_update_loan",
+					loanId: id,
+					status: "ไม่อนุมัติ",
+				}),
+			});
+			if (!response.ok) throw new Error("Failed to update loan status");
+
+			setLoans((prev) =>
+				prev.map((l) => (l.id === id ? { ...l, status: "ไม่อนุมัติ" } : l))
+			);
+			toast.success("ปฏิเสธคำขอเรียบร้อย", { id: toastId });
+			setIsModalOpen(false);
+		} catch (error) {
+			console.error(error);
+			toast.error("เกิดข้อผิดพลาดในการปฏิเสธ", { id: toastId });
+		} finally {
+			setIsLoading(false);
+		}
 	};
 
-	const openDetails = (loan: typeof mockLoans[0]) => {
+	const openDetails = (loan: LoanData) => {
 		setSelectedLoan(loan);
 		setIsModalOpen(true);
 	};
@@ -112,9 +174,9 @@ export default function LoansPage() {
 					{/* Tabs for Filtering */}
 					<div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
 						{[
-							{ id: "pending", label: "รอพิจารณา" },
-							{ id: "approved", label: "อนุมัติแล้ว" },
-							{ id: "rejected", label: "ไม่อนุมัติ" },
+							{ id: "รอตรวจสอบ", label: "รอตรวจสอบ" },
+							{ id: "อนุมัติ", label: "อนุมัติแล้ว" },
+							{ id: "ไม่อนุมัติ", label: "ไม่อนุมัติ" },
 							{ id: "all", label: "ทั้งหมด" },
 						].map((tab) => (
 							<button
@@ -127,12 +189,12 @@ export default function LoansPage() {
 								}`}
 							>
 								{tab.label}
-								{tab.id === "pending" &&
-									loans.filter((l) => l.status === "pending").length >
+								{tab.id === "รอตรวจสอบ" &&
+									loans.filter((l) => l.status === "รอตตรวจสอบ").length >
 										0 && (
 										<span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-rose-500 rounded-full">
 											{
-												loans.filter((l) => l.status === "pending")
+												loans.filter((l) => l.status === "รอตตรวจสอบ")
 													.length
 											}
 										</span>
@@ -185,20 +247,26 @@ export default function LoansPage() {
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-slate-100">
-							{filteredLoans.length === 0 ? (
+							{isFetching ? (
+								<tr>
+									<td colSpan={6} className="py-12 text-center text-slate-400">
+										กำลังโหลดข้อมูล...
+									</td>
+								</tr>
+							) : filteredLoans.length === 0 ? (
 								<tr>
 									<td colSpan={6} className="py-12 text-center text-slate-400">
 										ไม่พบคำขอที่ตรงกับเงื่อนไข
 									</td>
 								</tr>
 							) : (
-								filteredLoans.map((item) => (
+								filteredLoans.map((item, idx) => (
 									<tr
-										key={item.id}
+										key={`${item.id}-${idx}`}
 										className="hover:bg-slate-50 transition-colors"
 									>
-										<td className="py-4 px-6 text-slate-700 font-medium whitespace-nowrap">
-											{item.id}
+										<td className="py-4 px-6 text-slate-700 font-medium whitespace-nowrap truncate max-w-[120px] font-mono text-xs">
+											{item.lineUserId.length > 8 ? `${item.lineUserId.substring(0,8)}...` : item.lineUserId}
 										</td>
 										<td className="py-4 px-6 text-slate-600 font-medium">
 											{item.name}
@@ -229,32 +297,28 @@ export default function LoansPage() {
 										<td className="py-4 px-6 text-center">
 											<span
 												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-													item.status === "pending"
+													item.status === "รอตตรวจสอบ"
 														? "bg-amber-100 text-amber-700"
-														: item.status === "approved"
+														: item.status === "อนุมัติ"
 														? "bg-emerald-100 text-emerald-700"
 														: "bg-rose-100 text-rose-700"
 												}`}
 											>
-												{item.status === "pending"
-													? "รอพิจารณา"
-													: item.status === "approved"
-													? "อนุมัติแล้ว"
-													: "ไม่อนุมัติ"}
+												{item.status}
 											</span>
 										</td>
 										<td className="py-4 px-6 text-center">
 											<button
 												onClick={() => openDetails(item)}
 												className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-													item.status === "pending"
+													item.status === "รอตตรวจสอบ"
 														? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100 hover:border-sky-500"
 														: "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
 												}`}
 											>
 												<Eye size={16} />
-												{item.status === "pending"
-													? "พิจารณา"
+												{item.status === "รอตตรวจสอบ"
+													? "ตรวจสอบ"
 													: "ดูข้อมูล"}
 											</button>
 										</td>
@@ -268,134 +332,13 @@ export default function LoansPage() {
 
 			{/* Modal ดูรายละเอียดคำขอกู้ */}
 			{isModalOpen && selectedLoan && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-					<div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-						<div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50">
-							<h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-								<CreditCard className="text-sky-500" size={20} />
-								ตรวจสอบคำขอกู้เงิน
-							</h3>
-							<button
-								onClick={() => setIsModalOpen(false)}
-								className="text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-200 transition-colors"
-							>
-								<X size={20} />
-							</button>
-						</div>
-
-						<div className="p-6 space-y-6">
-							{/* Request ID & Date */}
-							<div className="flex justify-between pb-4 border-b border-dashed border-slate-200">
-								<div>
-									<p className="text-slate-500 text-sm mb-1">รหัสคำขอ</p>
-									<p className="font-bold text-slate-700">
-										{selectedLoan.id}
-									</p>
-								</div>
-								<div className="text-right">
-									<p className="text-slate-500 text-sm mb-1">วันที่แจ้ง</p>
-									<p className="font-medium text-slate-700">
-										{selectedLoan.date}
-									</p>
-								</div>
-							</div>
-
-							{/* Borrower Info */}
-							<div>
-								<p className="text-slate-500 text-sm mb-2">ข้อมูลผู้กู้</p>
-								<div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
-									<p className="font-bold text-slate-800 text-lg">
-										{selectedLoan.name}
-									</p>
-									<span
-										className={`px-3 py-1 rounded-md text-xs font-bold border ${
-											selectedLoan.type === "ฉุกเฉิน"
-												? "bg-red-50 text-red-600 border-red-100"
-												: selectedLoan.type === "กัรฏฮะซัน"
-												? "bg-emerald-50 text-emerald-600 border-emerald-100"
-												: "bg-blue-50 text-blue-600 border-blue-100"
-										}`}
-									>
-										ประเภท: {selectedLoan.type}
-									</span>
-								</div>
-							</div>
-
-							{/* Loan Details Grid */}
-							<div className="grid grid-cols-2 gap-4">
-								<div className="bg-sky-50 p-4 rounded-xl border border-sky-100">
-									<p className="text-sky-600/80 text-sm mb-1 font-medium flex items-center gap-1">
-										<CreditCard size={14} /> วงเงินที่ขอกู้
-									</p>
-									<p className="font-bold text-sky-700 text-2xl">
-										{selectedLoan.amount.toLocaleString()}{" "}
-										<span className="text-sm">฿</span>
-									</p>
-								</div>
-								<div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-									<p className="text-amber-600/80 text-sm mb-1 font-medium flex items-center gap-1">
-										<CalendarClock size={14} /> ระยะเวลาเช่าซื้อ
-									</p>
-									<p className="font-bold text-amber-700 text-2xl">
-										{selectedLoan.duration}{" "}
-										<span className="text-sm font-medium">
-											งวด (เดือน)
-										</span>
-									</p>
-								</div>
-							</div>
-
-							{/* Installment Calculator Estimate */}
-							<div className="bg-slate-800 text-white p-4 rounded-xl flex justify-between items-center shadow-inner">
-								<div className="flex items-center gap-3">
-									<div className="p-2 bg-white/10 rounded-lg">
-										<Calculator size={20} className="text-sky-300" />
-									</div>
-									<div>
-										<p className="text-slate-300 text-xs font-medium">
-											ยอดผ่อนชำระต่อเดือน (โดยประมาณ)
-										</p>
-										<p className="font-bold text-lg tracking-wide text-amber-300">
-											{Math.ceil(
-												selectedLoan.amount / selectedLoan.duration
-											)
-												.toLocaleString()
-												.replace(",", ".")}{" "}
-											บาท/เดือน
-										</p>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						{/* Actions */}
-						<div className="p-5 border-t border-slate-100 bg-white">
-							{selectedLoan.status === "pending" ? (
-								<div className="grid grid-cols-2 gap-4">
-									<button
-										onClick={() => handleReject(selectedLoan.id)}
-										className="flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all"
-									>
-										<XCircle size={18} /> ไม่อนุมัติคำขอ
-									</button>
-									<button
-										onClick={() => handleApprove(selectedLoan.id)}
-										className="flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-all shadow-sm shadow-emerald-200"
-									>
-										<CheckCircle2 size={18} /> อนุมัติสินเชื่อ
-									</button>
-								</div>
-							) : (
-								<button
-									onClick={() => setIsModalOpen(false)}
-									className="w-full py-3.5 text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
-								>
-									ปิดหน้าต่าง
-								</button>
-							)}
-						</div>
-					</div>
-				</div>
+				<LoanDetailModal
+					loan={selectedLoan}
+					isLoading={isLoading}
+					onApprove={handleApprove}
+					onReject={handleReject}
+					onClose={() => setIsModalOpen(false)}
+				/>
 			)}
 		</div>
 	);

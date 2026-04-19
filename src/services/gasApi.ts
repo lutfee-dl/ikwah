@@ -104,21 +104,37 @@ export const gasApi = {
 
   // 6. ดึงข้อมูลสมาชิกทั้งหมด (Admin)
   getAdminMembers: async () => {
-    const payload = {
-        action: "admin_get_members",
-        adminSecret: ADMIN_SECRET
-    };
-    
-    if (!GAS_URL) throw new Error("GAS Environment Variables are missing!");
-    
-    const response = await fetch(GAS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "admin_get_members", ADMIN_SECRET }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Admin Members fetch error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
 
-    const result = await response.json();
-    if (!result.success) throw new Error(result.msg || "Error from GAS");
-    return result.data;
+  // ++ 5. แอดมินแก้ไขข้อมูลสมาชิก
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  updateAdminMember: async (memberId: string, updateData: Record<string, any>) => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "admin_update_member",
+          ADMIN_SECRET,
+          memberId,
+          updateData
+        }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Admin update member error", error);
+      return { success: false, msg: "บันทึกข้อมูลไม่สำเร็จ" };
+    }
   },
 };

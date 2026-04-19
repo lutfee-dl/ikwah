@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Lock, Mail, ShieldAlert, LogIn } from "lucide-react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase"; // Adjust if your firebase path is different
+import { auth } from "@/lib/firebase";
 import Cookies from "js-cookie";
 
 export default function AdminLogin() {
@@ -29,8 +29,8 @@ export default function AdminLogin() {
       const token = await userCredential.user.getIdToken();
 
       Cookies.set("adminToken", token, { expires: 1 });
-
-      router.push("/admin/deposits");
+      sessionStorage.setItem("login_success", "true");
+      router.replace("/admin/dashboard");
       router.refresh();
     } catch (err: unknown) {
       console.error("Login Error:", err);

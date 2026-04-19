@@ -4,6 +4,83 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
+    // Check if it's admin making an edit vs normal user login
+    if (body.action === "updateAdminMember") {
+      const { memberId, updateData } = body;
+      // When inside the server API route, we shouldn't use gasApi to call back into ourselves 
+      // via /api/member. We should call GAS directly.
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_update_member",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+          memberId,
+          updateData
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    if (body.action === "admin_get_members") {
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_get_members",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+    
+    if (body.action === "admin_update_loan") {
+      const { loanId, status } = body;
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_update_loan",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+          loanId,
+          status
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    if (body.action === "admin_get_loans") {
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_get_loans",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    // Normal registration path (or other proxy actions)
+    // We shouldn't strictly require these if action != 'register'
+    if (body.action === "register") {
+      const { lineUserId, displayName, pictureUrl } = body;
+      if (!lineUserId || !displayName || !pictureUrl) {
+        return NextResponse.json(
+          { success: false, msg: "Missing required fields" },
+          { status: 400 }
+        );
+      }
+    }
+
     // ดึง URL ของ GAS จาก Environment Variable ที่ซ่อนไว้ในเซิร์ฟเวอร์
     const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL;
     

@@ -11,7 +11,16 @@ export const useAdminMembers = () => {
     try {
       setLoading(true);
       setError("");
-      const data = await gasApi.getAdminMembers();
+      const response = await gasApi.getAdminMembers();
+      
+      const data = response.data || response; // fallback in case api wraps in { success: true, data: [...] }
+      
+      // Ensure data is an array before calling map
+      if (!Array.isArray(data)) {
+        console.error("Expected array from gasApi.getAdminMembers, got:", response);
+        setMembers([]);
+        return;
+      }
       
       const mappedMembers = data.map((m: Partial<Member>) => ({
         ...m,
