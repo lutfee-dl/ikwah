@@ -28,7 +28,7 @@ export default function UploadSlipPage() {
   const [profile, setProfile] = useState<ProfileToken | null>(null);
 
   const [amount, setAmount] = useState<number | undefined>(undefined);
-  const [category, setCategory] = useState("ฝากหุ้นสะสม");
+  const [category, setCategory] = useState("เงินฝากสะสม");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,7 +48,7 @@ export default function UploadSlipPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("คัดลอกเลขบัญชีแล้ว", {
+    toast.success("คัดลอกลงคลิปบอร์ดแล้ว", {
       icon: "📋",
       style: { borderRadius: '15px', fontWeight: 'bold' }
     });
@@ -56,11 +56,9 @@ export default function UploadSlipPage() {
 
   useEffect(() => {
     const fetchLoans = async () => {
-      if (category === "ชำระยอดสินเชื่อ" && profile?.lineUserId) {
+      if (category === "ชำระงวดเงินกู้" && profile?.lineUserId) {
         setIsLoadingLoans(true);
         try {
-          // Note: In a real app, you might want to call a specific endpoint for member loans 
-          // but we'll use getDashboardData which historically should include debt/contract info
           const res = await gasApi.getDashboardData(profile.lineUserId);
           if (res.success && res.activeLoans) {
             setLoans(res.activeLoans);
@@ -94,7 +92,6 @@ export default function UploadSlipPage() {
         }
       } catch (e) {
         console.error("LIFF init failed", e);
-        // Fallback for testing
         const localData = localStorage.getItem("memberData");
         if (localData) {
           const p = JSON.parse(localData);
@@ -108,44 +105,36 @@ export default function UploadSlipPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const selectedFile = e.target.files[0];
-
-      // Validate type
       const validTypes = ["image/jpeg", "image/png", "image/webp"];
       if (!validTypes.includes(selectedFile.type)) {
-        toast.error("รองรับเฉพาะไฟล์รูปภาพ (JPG, PNG, WEBP) เท่านั้น");
+        toast.error("ไฟล์ไม่รองรับ (JPG, PNG, WEBP) เท่านั้น");
         return;
       }
-
-      // Validate size (5MB)
       if (selectedFile.size > 5 * 1024 * 1024) {
-        toast.error("ไฟล์ขนาดใหญ่เกิน 5MB");
+        toast.error("ขนาดไฟล์ห้ามเกิน 5MB");
         return;
       }
-
-      // RESET Scanner State for new file
       setAiData(null);
       setAmount(undefined);
       setFile(selectedFile);
       const url = URL.createObjectURL(selectedFile);
       setPreviewUrl(url);
-
-      // Start AI Scanning (QR + OCR) in background
       processImage(selectedFile, url);
     }
   };
 
   const processImage = async (selectedFile: File, url: string) => {
     setIsScanning(true);
-    setScanProgress({ message: 'วิเคราะห์สลิป...', percent: 0 });
+    setScanProgress({ message: 'เริ่มการตรวจสอบ...', percent: 0 });
     setAiData(null);
 
     try {
-      // 1. Scan QR Code
-      setScanProgress({ message: 'อ่าน QR Code...', percent: 20 });
+      setScanProgress({ message: 'หา QR Code...', percent: 20 });
       const qr = await scanQRCode(selectedFile);
 
-      // 2. Scan OCR (Parallel/Fallback)
-      setScanProgress({ message: 'อ่านข้อความจากสลิป...', percent: 40 });
+      setScanProgress({
+        message: 'วิเคราะห์ข้อมูล...', percent: 40
+      });
       const ocr = await performOCR(url);
 
       const finalAiData = {
@@ -157,14 +146,13 @@ export default function UploadSlipPage() {
 
       setAiData(finalAiData);
 
-      // Super Feature: Auto-fill amount if detected and not already entered
       const detectedAmount = parseFloat(qr?.amount || ocr?.amount || "0");
       if (detectedAmount > 0 && (!amount || amount === 0)) {
         setAmount(detectedAmount);
-        toast.success(`พบยอดเงิน ฿${detectedAmount.toLocaleString()} ในสลิป`, { icon: '💰' });
+        toast.success(`พบยอดเงิน ฿${detectedAmount.toLocaleString()} ในสลิป`, { icon: '✨' });
       }
 
-      setScanProgress({ message: 'เสร็จสิ้น!', percent: 100 });
+      setScanProgress({ message: 'ตรวจสอบเสร็จสิ้น!', percent: 100 });
     } catch (err) {
       console.error("Scanning error:", err);
     } finally {
@@ -198,168 +186,41 @@ export default function UploadSlipPage() {
     });
   };
 
-  const performOCR = async (imageUrl: string): Promise<any | null> => {
+  const parsePromptPayData = (data: string) => {
+    // Basic detection for PromptPay QR amount (Tag 54)
+    const amountMatch = data.match(/54(\d{2})(\d+\.\d{2})/);
+    return amountMatch ? { amount: amountMatch[2], raw: data } : { raw: data };
+  };
+
+  const performOCR = async (imgUrl: string) => {
     try {
-      const result = await Tesseract.recognize(imageUrl, 'tha+eng', {
-        logger: (m) => {
-          if (m.status === 'recognizing text') {
-            const p = Math.round(m.progress * 100);
-            setScanProgress({ message: `วิเคราะห์สลิป... ${p}%`, percent: 40 + p * 0.6 });
-          }
-        },
-      });
-      return extractSlipInfo(result.data.text);
+      const { data: { text } } = await Tesseract.recognize(imgUrl, 'tha+eng');
+      // Simple regex to find money amount patterns like 1,234.56
+      const moneyMatch = text.match(/(\d{1,3}(,\d{3})*(\.\d{2}))/);
+      return {
+        amount: moneyMatch ? moneyMatch[1].replace(/,/g, '') : null,
+        text
+      };
     } catch (err) {
-      console.error('OCR Error:', err);
+      console.error("OCR Error:", err);
       return null;
     }
   };
 
-  // --- Accurate Parsing Logic ---
-  const parsePromptPayData = (data: string): any | null => {
-    try {
-      const info: any = { merchantID: '', amount: '', reference: '', billPaymentRef1: '', billPaymentRef2: '' };
-      let i = 0;
-      while (i < data.length) {
-        const tag = data.substring(i, i + 2); i += 2;
-        const length = parseInt(data.substring(i, i + 2)); i += 2;
-        const value = data.substring(i, i + length); i += length;
-        if (tag === '29' && value.length > 0) {
-          let j = 0;
-          while (j < value.length) {
-            const subTag = value.substring(j, j + 2); j += 2;
-            const subLength = parseInt(value.substring(j, j + 2)); j += 2;
-            const subValue = value.substring(j, j + subLength); j += subLength;
-            if (subTag === '01') info.merchantID = formatPromptPayID(subValue);
-          }
-        }
-        if (tag === '54') info.amount = value;
-        if (tag === '62' && value.length > 0) {
-          let j = 0;
-          while (j < value.length) {
-            const subTag = value.substring(j, j + 2); j += 2;
-            const subLength = parseInt(value.substring(j, j + 2)); j += 2;
-            const subValue = value.substring(j, j + subLength); j += subLength;
-            if (subTag === '05') info.reference = subValue;
-            if (subTag === '01') info.billPaymentRef1 = subValue;
-            if (subTag === '02') info.billPaymentRef2 = subValue;
-          }
-        }
-      }
-      return info;
-    } catch { return null; }
-  };
-
-  const formatPromptPayID = (id: string): string => {
-    if (id.length === 15 && id.startsWith('00')) return id.substring(2).replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{1})/, '$1-$2-$3-$4-$5');
-    if (id.length === 13 && id.startsWith('66')) return '0' + id.substring(2).replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
-    return id;
-  };
-
-  const extractSlipInfo = (text: string): any => {
-    const info: any = { amount: null, date: null, time: null, reference: null };
-    const cleanText = text.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9\s\.\,\:\-\/\(\)\฿]/g, ' ').replace(/\s+/g, ' ').trim();
-    const amountPatterns = [
-      /(?:จำนวนเงิน|จ่าย|ยอดเงิน|โอน)[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i,
-      /(?:Amount|Total|Pay)[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i,
-      /THB[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i,
-      /([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})\s*(?:บาท|Baht)/i,
-      /\b([1-9][0-9]{0,2}(?:,?[0-9]{3})*\.[0-9]{2})\b/,
-    ];
-    for (const pattern of amountPatterns) {
-      const match = cleanText.match(pattern);
-      if (match) {
-        const val = match[1].replace(/,/g, '');
-        if (!isNaN(parseFloat(val))) { info.amount = val; break; }
-      }
-    }
-    const refPatterns = [/(?:เลขที่อ้างอิง|Reference|Ref\s*No\.?)[:\s]*([A-Z0-9]{10,})/i, /\b([A-Z]{3}[0-9]{10,})\b/];
-    for (const p of refPatterns) { const m = text.match(p); if (m) { info.reference = m[1] || m[0]; break; } }
-    return info;
-  };
-
-  const toBase64 = (f: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(f);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) {
-      toast.error("กรุณาระบุจำนวนเงินให้ถูกต้อง");
-      return;
-    }
-    if (!category) {
-      toast.error("กรุณาเลือกหมวดหมู่รายการ");
-      return;
-    }
-    if (category === "ชำระยอดสินเชื่อ" && !selectedLoanId && loans.length > 0) {
-      toast.error("กรุณาเลือกบัตรสินเชื่อที่ต้องการชำระ");
-      return;
-    }
-    if (!file) {
-      toast.error("กรุณาอัปโหลดรูปภาพสลิปโอนเงิน");
-      return;
-    }
-    if (!profile?.lineUserId) {
-      toast.error("ไม่พบข้อมูลผู้ใช้งาน LINE");
-      return;
-    }
+    if (!file || !amount || !profile) return;
 
-    // --- Confirmation Logic ---
-    const result = await Swal.fire({
-      title: 'แจ้งโอนเงิน',
-      html: `
-        <div class="text-left space-y-1.5 px-1 py-1">
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
-            <div class="flex justify-between items-center mb-2">
-               <span class="text-[9px] font-bold text-slate-400 uppercase">ยอดเงิน</span>
-               <span class="text-xl font-black text-sky-600">฿${amount.toLocaleString()}</span>
-            </div>
-            <div class="flex justify-between items-center">
-               <span class="text-[9px] font-bold text-slate-400 uppercase">ประเภท</span>
-               <span class="text-[11px] font-bold text-slate-700">${category}</span>
-            </div>
-            ${category === "ชำระยอดสินเชื่อ" && selectedLoanId ? `
-              <div class="flex justify-between items-center mt-1 pt-1 border-t border-slate-200/50">
-                <span class="text-[9px] font-bold text-slate-400 uppercase">ID สัญญา</span>
-                <span class="text-[10px] font-bold text-violet-600">${selectedLoanId.slice(-6).toUpperCase()}</span>
-              </div>
-            ` : ""}
-          </div>
-        </div>
-      `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'ยืนยันแจ้งโอน',
-      cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#0f172a',
-      cancelButtonColor: '#94a3b8',
-      reverseButtons: true,
-      customClass: {
-        popup: 'rounded-[2.5rem]',
-        confirmButton: 'rounded-full px-6 py-2.5 font-bold',
-        cancelButton: 'rounded-full px-6 py-2.5 font-bold'
-      }
-    });
-
-    if (!result.isConfirmed) return;
-
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
+      const reader = new FileReader();
+      const base64Data = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
 
-      const base64Image = await toBase64(file);
-      const base64DataStr = base64Image.split(",")[1];
-      const mimeType = file.type;
-
-      let idToken = "";
-      if (typeof window !== "undefined" && liff.isLoggedIn()) {
-        idToken = liff.getIDToken() || "";
-      }
+      const [mimeInfo, base64DataStr] = base64Data.split(",");
+      const mimeType = mimeInfo.split(":")[1].split(";")[0];
 
       const payload = {
         action: "member_upload_slip",
@@ -367,12 +228,11 @@ export default function UploadSlipPage() {
         name: profile.name,
         amount: Number(amount),
         category: category,
-        loanId: category === "ชำระยอดสินเชื่อ" ? selectedLoanId : "",
+        loanId: category === "ชำระงวดเงินกู้" ? selectedLoanId : "",
         filename: file.name,
         mimeType: mimeType,
         fileBase64: base64DataStr,
-        idToken: idToken,
-        aiData: JSON.stringify(aiData) // Pass findings to backend
+        aiData: JSON.stringify(aiData)
       };
 
       const res = await fetch("/api/member", {
@@ -380,23 +240,22 @@ export default function UploadSlipPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-
       const data = await res.json();
 
       if (data.success) {
         setSuccess(true);
-        toast.success("อัปโหลดสลิปเรียบร้อยแล้ว");
+        toast.success("ส่งหลักฐานสำเร็จ");
       } else {
         Swal.fire({
-          title: "อัปโหลดไม่สำเร็จ",
-          text: data.msg || "เกิดข้อผิดพลาดในการอัปโหลดสลิป",
+          title: "ส่งหลักฐานไม่สำเร็จ",
+          text: data.msg || "เกิดข้อผิดพลาดในการส่งหลักฐาน",
           icon: "error",
           confirmButtonColor: "#3b82f6"
         });
       }
     } catch (err) {
       console.error(err);
-      toast.error("ไม่สามารถเชื่อมต่อระบบได้");
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
       setIsSubmitting(false);
     }
@@ -404,17 +263,15 @@ export default function UploadSlipPage() {
 
   if (success) {
     return (
-      <div className="flex flex-col items-center justify-center py-6 text-center animate-in fade-in duration-300">
-        <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mb-4">
-          <CheckCircle2 size={40} />
+      <div className="flex flex-col items-center justify-center py-12 text-center animate-in fade-in zoom-in duration-500">
+        <div className="w-24 h-24 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mb-6 shadow-xl shadow-emerald-100">
+          <CheckCircle2 size={48} />
         </div>
-        <h2 className="text-xl font-black text-slate-800 mb-1">แจ้งโอนสำเร็จ!</h2>
-        <p className="text-slate-500 text-xs mb-6 max-w-[240px]">
-          ส่งข้อมูลเรียบร้อยแล้ว แอดมินจะตรวจสอบยอดในไม่ช้า
-        </p>
+        <h2 className="text-3xl font-black text-slate-800 mb-2">ส่งหลักฐานเรียบร้อย!</h2>
+        <p className="text-slate-500 font-medium mb-8">เราจะตรวจสอบและดำเนินการให้เร็วที่สุด</p>
         <button
           onClick={() => router.push("/dashboard/home")}
-          className="bg-slate-900 text-white font-bold px-8 py-3 rounded-full text-sm shadow-lg overflow-hidden"
+          className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-black shadow-lg active:scale-95 transition-all"
         >
           กลับหน้าหลัก
         </button>
@@ -423,67 +280,56 @@ export default function UploadSlipPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100svh-80px)] max-h-[800px] gap-4 animate-in fade-in duration-500 overflow-hidden">
-      {/* HEADER (Compact) */}
-      <div className="flex items-center gap-3 shrink-0">
-        <button onClick={() => router.back()} className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-slate-600 active:scale-90 transition-transform">
-          <ArrowLeft size={18} />
-        </button>
-        <h1 className="text-xl font-black text-slate-800 -tracking-wide">แจ้งโอนเงิน</h1>
-      </div>
-
-      {/* 🏦 BANK INFORMATION HEADER (40% Area) */}
+    <div className="min-h-full flex flex-col gap-6 animate-in fade-in duration-500">
       {!previewUrl && (
-        <div className="flex-[0.4] min-h-[180px] bg-sky-50 rounded-[2rem] border border-sky-100 p-5 flex flex-col justify-between relative overflow-hidden animate-in slide-in-from-top-4 duration-500">
-          <div className="absolute right-[-20px] top-[-20px] text-sky-100/50 rotate-12">
-            <CreditCard size={140} />
+        <div className="flex-[0.4] min-h-[200px] bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2.5rem] p-7 flex flex-col justify-between relative overflow-hidden animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-slate-200">
+          <div className="absolute right-[-10%] top-[-10%] opacity-10 rotate-12">
+            <CreditCard size={170} />
           </div>
 
           <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-1.5 h-4 bg-sky-500 rounded-full" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-sky-600/70">ช่องทางการโอนเงิน</span>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-2 h-4 bg-sky-400 rounded-full" />
+              <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">ข้อมูลบัญชีธนาคาร</span>
             </div>
 
-            <div className="space-y-0.5">
-              <p className="text-xs text-slate-400 font-black uppercase tracking-tighter">ธนาคารอิสลามแห่งประเทศไทย</p>
+            <div className="space-y-1.5">
+              <p className="text-sm text-slate-400 font-bold uppercase tracking-tight opacity-80">กองทุนสวัสดิการสมาชิก</p>
               <div className="flex items-center justify-between">
-                <span className="text-1xl font-black tracking-tight text-slate-900 tabular-nums">087-1-20839-3</span>
+                <span className="text-3xl font-black tracking-wider text-sky-400 tabular-nums">087-1-20839-3</span>
                 <button
                   onClick={() => copyToClipboard("0871208393")}
-                  className="p-2.5 bg-white shadow-sm border border-sky-100 text-sky-600 rounded-xl active:scale-90 transition-all"
+                  className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl active:scale-95 transition-all border border-white/5 shadow-inner"
                 >
-                  <Copy size={16} />
+                  <Copy size={20} />
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="relative z-10 pt-3 border-t border-sky-200/50">
-            <p className="text-[9px] text-sky-600/50 font-black uppercase tracking-widest mb-0.5">ชื่อบัญชีรับโอน</p>
-            <p className="text-xs font-black text-slate-800 leading-[1.3]">
-              กองทุนสะสมอิควะห์ยะรัง <br />
-              <span className="text-xs font-bold text-slate-400">โดย น.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง</span>
+          <div className="relative z-10 pt-5 border-t border-white/5">
+            <p className="text-xs text-slate-500 font-black uppercase tracking-widest mb-1">ชื่อบัญชี</p>
+            <p className="text-sm font-bold text-slate-200 leading-relaxed">
+              รพ.สมเด็จพระยุพราช ด่านซ้าย <br />
+              <span className="text-xs font-medium text-slate-500 italic">โดย น.พ.ภักดี สืบนุการณ์ และ น.พ.พรชัย อมรเกื้อกูล</span>
             </p>
           </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className={`flex flex-col gap-2 ${!previewUrl ? 'flex-[0.6]' : ''}`}>
-
-        {/* STEP 1: HERO FILE UPLOAD (Micro Tight when preview exists) */}
-        <div className={`bg-white p-1 rounded-[1.2rem] shadow-lg shadow-slate-200/50 border border-slate-100 flex-shrink-0 ${!previewUrl ? 'h-full' : 'h-[100px]'}`}>
+      <form onSubmit={handleSubmit} className={`flex flex-col gap-4 ${!previewUrl ? 'flex-[0.6]' : 'flex-1 overflow-y-auto pb-6 pr-1'}`}>
+        <div className={`bg-white p-2 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 flex-shrink-0 ${!previewUrl ? 'h-full' : 'h-[240px]'}`}>
           <div
             onClick={() => fileInputRef.current?.click()}
-            className={`relative w-full h-full min-h-[80px] rounded-[1rem] flex flex-col items-center justify-center cursor-pointer transition-all duration-500 overflow-hidden ${previewUrl
-              ? 'bg-slate-900 ring-2 ring-sky-500/10'
-              : 'bg-white border-2 border-dashed border-slate-200 hover:bg-slate-50'
+            className={`relative w-full h-full min-h-[180px] rounded-[2rem] flex flex-col items-center justify-center cursor-pointer transition-all duration-500 overflow-hidden ${previewUrl
+              ? 'bg-slate-900 ring-4 ring-sky-500/10'
+              : 'bg-slate-50 border-2 border-dashed border-slate-200 hover:bg-slate-100/50'
               }`}
           >
             {previewUrl ? (
               <>
-                <img src={previewUrl} alt="Slip Preview" className="absolute inset-0 w-full h-full object-contain opacity-40 blur-lg scale-110" />
-                <img src={previewUrl} alt="Slip Preview" className="relative z-10 max-h-[80px] rounded shadow-2xl border border-white/20 animate-in zoom-in duration-500" />
+                <img src={previewUrl} alt="Slip Preview" className="absolute inset-0 w-full h-full object-contain opacity-30 blur-xl scale-125" />
+                <img src={previewUrl} alt="Slip Preview" className="relative z-10 max-h-[200px] rounded-xl shadow-2xl border border-white/20 animate-in zoom-in duration-500" />
 
                 {isScanning && (
                   <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-white text-center animate-in fade-in">
@@ -497,7 +343,7 @@ export default function UploadSlipPage() {
 
                 <div className="absolute top-4 right-4 z-20">
                   <span className="bg-white/90 backdrop-blur-md text-slate-800 font-black p-2 rounded-xl shadow-lg flex items-center gap-1 text-[10px] uppercase">
-                    <UploadCloud size={14} className="text-sky-500" /> เปลี่ยนรูป
+                    <UploadCloud size={14} className="text-sky-500" /> แก้ไขรูปภาพ
                   </span>
                 </div>
               </>
@@ -507,8 +353,8 @@ export default function UploadSlipPage() {
                   <FileImage size={28} />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-800 text-base">แตะเพื่อเลือกรูปสลิป</h3>
-                  <p className="text-xs text-slate-400 mt-1 font-medium">ระบบจะแกะข้อมูลยอดเงินให้อัตโนมัติ</p>
+                  <h3 className="font-black text-slate-800 text-base">กดเพื่ออัปโหลดสลิป</h3>
+                  <p className="text-xs text-slate-400 mt-1 font-medium">รองรับไฟล์ JPG, PNG และ WEBP</p>
                 </div>
                 <div className="px-4 py-1.5 bg-slate-900 text-white text-[9px] font-black rounded-full uppercase tracking-widest shadow-lg active:scale-95 transition-transform">
                   Upload Now
@@ -525,80 +371,97 @@ export default function UploadSlipPage() {
           </div>
         </div>
 
-        {/* STEP 2: REVEAL FIELDS (Only show when file is picked) */}
         {(previewUrl || file) && (
-          <div className="space-y-2 animate-in slide-in-from-bottom-10 fade-in duration-700 fill-mode-both pb-2">
-
-            {/* Amount Input */}
-            <div className="bg-white p-3 rounded-[1rem] border border-slate-100 flex flex-col shadow-sm">
-              <div className="flex justify-between items-center mb-0.5">
-                <label className="text-[8px] font-black uppercase tracking-widest text-slate-400">จำนวนเงินโอน</label>
-                {aiData && <span className="text-[8px] font-black text-emerald-500 flex items-center gap-1"><CheckCircle2 size={8} /> AI Verified</span>}
+          <div className="space-y-5 animate-in slide-in-from-bottom-10 fade-in duration-700 fill-mode-both pb-10">
+            <div className="bg-white p-7 rounded-[2.5rem] border border-slate-100 flex flex-col shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-center mb-3">
+                <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">จำนวนเงินฝาก (THB)</label>
+                {aiData && (
+                  <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full flex items-center gap-2">
+                    <CheckCircle2 size={12} /> ระบบตรวจสอบอัตโนมัติ
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-1.5 focus-within:translate-x-1 transition-transform">
-                <span className="text-xl font-black text-sky-500">฿</span>
+              <div className="flex items-center gap-4">
+                <span className="text-4xl font-black text-slate-300">฿</span>
                 <NumericFormat
                   thousandSeparator={true}
                   inputMode="decimal"
                   value={amount}
                   onValueChange={(values) => setAmount(values.floatValue)}
-                  className="w-full bg-transparent text-2xl font-black text-slate-900 focus:outline-none"
+                  className="w-full bg-transparent text-5xl font-black text-slate-900 focus:outline-none placeholder:text-slate-100"
                   placeholder="0.00"
                 />
               </div>
             </div>
 
-            {/* Category Select */}
-            <div className="bg-white p-3 rounded-[1rem] border border-slate-100 flex flex-col shadow-sm">
-              <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-2 text-center">ประเภทรายการ</label>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="bg-white p-7 rounded-[2.5rem] border border-slate-100 flex flex-col shadow-sm">
+              <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-5 text-center">เลือกประเภทการทำรายการ</label>
+              <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
-                  onClick={() => setCategory("ฝากหุ้นสะสม")}
-                  className={`py-2 px-3 rounded-lg font-black text-[10px] transition-all ${category === "ฝากหุ้นสะสม" ? "bg-sky-500 text-white shadow-md active:scale-95" : "bg-slate-50 text-slate-400"}`}
+                  onClick={() => setCategory("เงินฝากสะสม")}
+                  className={`py-5 px-4 rounded-3xl font-black text-sm transition-all flex flex-col items-center gap-3 ${category === "เงินฝากสะสม" ? "bg-sky-500 text-white shadow-xl shadow-sky-200" : "bg-slate-50 text-slate-400 hover:bg-slate-100"}`}
                 >
-                  ฝากหุ้น
+                  <FileImage size={24} />
+                  <span>เงินฝากสะสม</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCategory("ชำระยอดสินเชื่อ")}
-                  className={`py-2 px-3 rounded-lg font-black text-[10px] transition-all ${category === "ชำระยอดสินเชื่อ" ? "bg-violet-500 text-white shadow-md active:scale-95" : "bg-slate-50 text-slate-400"}`}
+                  onClick={() => setCategory("ชำระงวดเงินกู้")}
+                  className={`py-5 px-4 rounded-3xl font-black text-sm transition-all flex flex-col items-center gap-3 ${category === "ชำระงวดเงินกู้" ? "bg-violet-500 text-white shadow-xl shadow-violet-200" : "bg-slate-50 text-slate-400 hover:bg-slate-100"}`}
                 >
-                  ชำระสินเชื่อ
+                  <CreditCard size={24} />
+                  <span>ชำระรายงวด</span>
                 </button>
               </div>
             </div>
 
-            {/* Smart Loan Selector (If Repayment) */}
-            {category === "ชำระยอดสินเชื่อ" && (
-              <div className="bg-violet-50/50 p-2.5 rounded-[1rem] border border-violet-100 animate-in fade-in duration-300">
-                <label className="block text-[8px] font-black uppercase tracking-widest text-violet-400 mb-1 text-center">สัญญาที่ชำระ</label>
+            {category === "ชำระงวดเงินกู้" && (
+              <div className="bg-violet-50/40 p-7 rounded-[2.5rem] border border-violet-100 animate-in fade-in duration-300 shadow-inner">
+                <label className="block text-[11px] font-black uppercase tracking-widest text-violet-400 mb-4 text-center">เลือกสัญญาที่ต้องการชำระ</label>
                 {isLoadingLoans ? (
-                  <div className="flex items-center justify-center py-1 gap-2 text-violet-400 font-bold text-[9px]"><Loader2 size={10} className="animate-spin" /> โหลด...</div>
+                  <div className="flex items-center justify-center py-4 gap-3 text-violet-500 font-black">
+                    <Loader2 size={20} className="animate-spin" />
+                    <span>กำลังโหลดข้อมูลสัญญา...</span>
+                  </div>
                 ) : (
-                  <select
-                    value={selectedLoanId}
-                    onChange={(e) => setSelectedLoanId(e.target.value)}
-                    className="w-full bg-white border border-violet-200 rounded-md py-1.5 px-2 text-[10px] font-black text-slate-800 focus:outline-none shadow-sm"
-                  >
-                    <option value="">เลือกสัญญา...</option>
-                    {loans.map(loan => (
-                      <option key={loan.id} value={loan.id}>{loan.loanType} (ยอด: {loan.balance.toLocaleString()})</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={selectedLoanId}
+                      onChange={(e) => setSelectedLoanId(e.target.value)}
+                      className="w-full bg-white border-2 border-violet-100 rounded-2xl py-4 px-5 text-base font-black text-slate-800 focus:outline-none focus:border-violet-500 transition-all appearance-none shadow-sm"
+                    >
+                      <option value="">เลือกสัญญาจากรายการที่มี...</option>
+                      {loans.map(loan => (
+                        <option key={loan.id} value={loan.id}>{loan.loanType} (ยอดคงเหลือ: {loan.balance.toLocaleString()})</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-violet-400">
+                      <ChevronDown size={24} />
+                    </div>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting || !file || !amount}
-              className={`w-full py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 shadow-lg ${isSubmitting ? 'bg-slate-900 text-white' :
-                !file || !amount ? 'bg-slate-100 text-slate-400 shadow-none' : 'bg-slate-900 text-white active:scale-[0.98] active:bg-black hover:shadow-xl'}`}
-            >
-              {isSubmitting ? <Loader2 className="animate-spin w-4 h-4" /> : <>ส่งข้อมูลแจ้งโอน <UploadCloud size={16} /></>}
-            </button>
+            <div className="pt-2 px-1">
+              <button
+                type="submit"
+                disabled={isSubmitting || !file || !amount}
+                className={`w-full py-6 rounded-[2.5rem] font-black text-2xl tracking-wide transition-all flex items-center justify-center gap-4 shadow-2xl relative overflow-hidden group ${isSubmitting ? 'bg-slate-900 text-white' :
+                  !file || !amount ? 'bg-slate-100 text-slate-400 shadow-none cursor-not-allowed' :
+                    'bg-slate-900 text-white hover:bg-black active:scale-[0.98]'}`}
+              >
+                {isSubmitting ? <Loader2 className="animate-spin w-8 h-8" /> : <>ยืนยันการทำรายการ <UploadCloud size={30} /></>}
+                {!isSubmitting && file && amount && (
+                  <div className="absolute inset-0 w-[80px] h-full bg-white/10 skew-x-[-25deg] animate-[shine_2s_infinite] left-[-100%]" />
+                )}
+              </button>
+              <p className="text-center text-[10px] text-slate-400 mt-6 font-black uppercase tracking-[0.4em]">
+                Secure Transaction Verified
+              </p>
+            </div>
           </div>
         )}
       </form>
