@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: "Ikwah - กองทุนอิควะฮฺ สา’สุข ยะรัง",
 };
 
+import { Toaster } from "react-hot-toast";
+
 export default function RootLayout({
   children,
 }: {
@@ -25,7 +27,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-        
+        <Toaster position="top-right" />
         {children}
       </body>
     </html>

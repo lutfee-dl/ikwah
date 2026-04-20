@@ -134,6 +134,20 @@ export async function POST(request: Request) {
       return NextResponse.json(data);
     }
 
+    if (body.action === "admin_get_shares_report") {
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_get_shares_report",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
     if (body.action === "admin_update_deposit") {
       const { depositId, status, amount } = body;
       const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
@@ -146,6 +160,40 @@ export async function POST(request: Request) {
           depositId,
           status,
           amount
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    if (body.action === "admin_get_repayment_slips") {
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_get_repayment_slips",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    if (body.action === "admin_update_loan_repayment") {
+      const { depositId, status, contractId, amount, installmentNo } = body;
+      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
+      const response = await fetch(gasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "admin_update_loan_repayment",
+          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+          depositId,
+          status,
+          contractId,
+          amount,
+          installmentNo
         }),
       });
       const data = await response.json();

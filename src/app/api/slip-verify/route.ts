@@ -63,31 +63,37 @@ function parsePromptPayQR(data: string) {
 export async function POST(request: Request) {
   const startTime = Date.now();
   try {
-    const { imageUrl } = await request.json();
+    // 1. รับข้อมูลรูปภาพ (รองรับทั้ง URL และ Base64 Body)
+    let buffer: Buffer;
+    
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      const body = await request.json();
+      const { imageUrl, imageBody } = body;
 
-    if (!imageUrl) {
-      return NextResponse.json({ success: false, msg: "Missing imageUrl" }, { status: 400 });
-    }
-
-    // แปลงลิงก์ Google Drive → Direct link
-    let finalUrl = imageUrl;
-    if (finalUrl.includes("drive.google.com")) {
-      const match = finalUrl.match(/\/d\/([^/]+)/) || finalUrl.match(/[?&]id=([^&]+)/);
-      if (match?.[1]) {
-        finalUrl = `https://drive.google.com/uc?export=download&id=${match[1]}`;
+      if (imageBody) {
+        // กรณีส่งมาเป็น Base64
+        buffer = Buffer.from(imageBody, "base64");
+      } else if (imageUrl) {
+        // กรณีส่งมาเป็น URL (เช่นจาก Google Drive)
+        let finalUrl = imageUrl;
+        if (finalUrl.includes("drive.google.com")) {
+          const match = finalUrl.match(/\/d\/([^/]+)/) || finalUrl.match(/[?&]id=([^&]+)/);
+          if (match?.[1]) {
+            finalUrl = `https://drive.google.com/uc?export=download&id=${match[1]}`;
+          }
+        }
+        const imageRes = await fetch(finalUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+        if (!imageRes.ok) throw new Error(`Image fetch failed: ${imageRes.status} ${imageRes.statusText}`);
+        buffer = Buffer.from(await imageRes.arrayBuffer());
+      } else {
+        return NextResponse.json({ success: false, msg: "Missing image data" }, { status: 400 });
       }
+    } else {
+      return NextResponse.json({ success: false, msg: "Invalid Content-Type" }, { status: 400 });
     }
-
-    // 1. Fetch รูปภาพ
-    const imageRes = await fetch(finalUrl, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
-    if (!imageRes.ok) throw new Error(`Image fetch failed: ${imageRes.status} ${imageRes.statusText}`);
-
-    const arrayBuffer = await imageRes.arrayBuffer();
 
     // 2. แปลงรูปเป็น raw pixel ด้วย sharp
-    const sharpImg = sharp(Buffer.from(arrayBuffer));
+    const sharpImg = sharp(buffer);
     const { width, height } = await sharpImg.metadata();
     const { data } = await sharpImg
       .ensureAlpha()

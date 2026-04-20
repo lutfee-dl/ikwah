@@ -2,6 +2,8 @@
 
 import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2, FileClock } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
+import Image from "next/image";
+
 
 type Deposit = {
 	id: string;
@@ -9,6 +11,7 @@ type Deposit = {
 	amount: number;
 	date: string;
 	status: "pending" | "approved" | "rejected";
+	rawStatus?: string;
 	slipUrl: string;
 };
 
@@ -40,29 +43,27 @@ export default function DepositsPage() {
 	const [editAmount, setEditAmount] = useState<number>(0);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [isUpdating, setIsUpdating] = useState(false);
+	const [isZoomOpen, setIsZoomOpen] = useState(false);
 
-	// Helper to convert Google Drive link to direct display link
 	const getDriveImageUrl = (url: string) => {
-		if (!url) return "";
-		// Regex patterns for different Drive URL formats
-		const patterns = [
-			/\/d\/([^/?]+)/,
-			/[?&]id=([^&]+)/,
-			/\/file\/d\/([^/]+)/
-		];
+		if (!url || typeof url !== 'string') return "";
 
-		let fileId = "";
-		for (const pattern of patterns) {
-			const match = url.match(pattern);
-			if (match && match[1]) {
-				fileId = match[1];
-				break;
+		// 1. ถ้าเป็นลิงก์ Google Drive
+		if (url.includes("drive.google.com") || url.includes("googleusercontent.com")) {
+			// ดึง File ID: ค้นหาชุดตัวอักษรที่มีความยาวเหมือน ID ของ Google Drive (33 ตัว หรือใกล้เคียง)
+			// โดยเลี่ยงคำทั่วไปใน URL
+			const matches = url.match(/[-\w]{25,}/g);
+			const fileId = matches ? matches.find(m =>
+				!['drive', 'google', 'file', 'view', 'drivesdk', 'usp', 'shared'].includes(m.toLowerCase())
+			) : null;
+
+			if (fileId) {
+				const finalUrl = `https://docs.google.com/thumbnail?id=${fileId}&sz=w1200`;
+				return finalUrl;
 			}
 		}
 
-		if (fileId) {
-			return `https://lh3.googleusercontent.com/u/0/d/${fileId}=w1000`;
-		}
+		// 2. ถ้าเป็นลิงก์รูปภาพทั่วไป ให้คืนค่าเดิม
 		return url;
 	};
 
@@ -73,10 +74,10 @@ export default function DepositsPage() {
 		// 1. กรองข้อมูล (Filter)
 		const result = deposits.filter((d) => {
 			const matchStatus =
-				filterStatus === "all" || d.status === filterStatus || 
+				filterStatus === "all" || d.status === filterStatus ||
 				(filterStatus === "pending" && String(d.status).includes("pending"));
 			const matchSearch =
-				(d.name || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+				(d.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
 				(d.id || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
 				(d.amount?.toString() || "").includes(searchQuery);
 			return matchStatus && matchSearch;
@@ -126,9 +127,9 @@ export default function DepositsPage() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ action: "admin_get_deposits" })
 			});
-			const result = await res.json();
-			if (result.success) {
-				setDeposits(result.data);
+			const data = await res.json();
+			if (data.success) {
+				setDeposits(data.data);
 			}
 		} catch (error) {
 			console.error("Fetch error:", error);
@@ -238,8 +239,8 @@ export default function DepositsPage() {
 						ตรวจสอบและอนุมัติหลักฐานการโอนเงินกองทุนทั้งหมด
 					</p>
 				</div>
-				<button 
-					onClick={fetchDeposits} 
+				<button
+					onClick={fetchDeposits}
 					className="group flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all hover:border-slate-300"
 				>
 					<Loader2 size={16} className={`${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
@@ -301,51 +302,51 @@ export default function DepositsPage() {
 
 			{/* 3. CONTROLS (TABS & SEARCH) */}
 			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-					{/* Tabs for Filtering */}
-					<div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
-						{[
-							{ id: "pending", label: "รอตรวจสอบ" },
-							{ id: "approved", label: "อนุมัติแล้ว" },
-							{ id: "rejected", label: "ปฏิเสธ" },
-							{ id: "all", label: "ทั้งหมด" },
-						].map((tab) => (
-							<button
-								key={tab.id}
-								onClick={() => setFilterStatus(tab.id as FilterStatus)}
-								className={`cursor-pointer flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${filterStatus === tab.id
-										? "bg-white text-sky-600 shadow-sm"
-										: "text-slate-500 hover:text-slate-700"
-									}`}
-							>
-								{tab.label}
-								{tab.id === "pending" &&
-									Array.isArray(deposits) &&
-									deposits.filter((d) => d.status === "pending").length >
-									0 && (
-										<span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-rose-500 rounded-full">
-											{
-												deposits.filter((d) => d.status === "pending")
-													.length
-											}
-										</span>
-									)}
-							</button>
-						))}
-					</div>
+				{/* Tabs for Filtering */}
+				<div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
+					{[
+						{ id: "pending", label: "รอตรวจสอบ" },
+						{ id: "approved", label: "อนุมัติแล้ว" },
+						{ id: "rejected", label: "ปฏิเสธ" },
+						{ id: "all", label: "ทั้งหมด" },
+					].map((tab) => (
+						<button
+							key={tab.id}
+							onClick={() => setFilterStatus(tab.id as FilterStatus)}
+							className={`cursor-pointer flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${filterStatus === tab.id
+								? "bg-white text-sky-600 shadow-sm"
+								: "text-slate-500 hover:text-slate-700"
+								}`}
+						>
+							{tab.label}
+							{tab.id === "pending" &&
+								Array.isArray(deposits) &&
+								deposits.filter((d) => d.status === "pending").length >
+								0 && (
+									<span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-rose-500 rounded-full">
+										{
+											deposits.filter((d) => d.status === "pending")
+												.length
+										}
+									</span>
+								)}
+						</button>
+					))}
+				</div>
 
-					{/* Search */}
-					<div className="relative w-full sm:w-64">
-						<Search
-							className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-							size={18}
-						/>
-						<input
-							type="text"
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							placeholder="ค้นหาชื่อ, รหัส..."
-							className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
-						/>
+				{/* Search */}
+				<div className="relative w-full sm:w-64">
+					<Search
+						className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+						size={18}
+					/>
+					<input
+						type="text"
+						value={searchQuery}
+						onChange={(e) => setSearchQuery(e.target.value)}
+						placeholder="ค้นหาชื่อ, รหัส..."
+						className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+					/>
 				</div>
 			</div>
 
@@ -409,26 +410,32 @@ export default function DepositsPage() {
 										</td>
 										<td className="py-4 px-6 text-center">
 											<span
-												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${item.status === "pending"
-														? "bg-amber-100 text-amber-700"
-														: item.status === "approved"
-															? "bg-emerald-100 text-emerald-700"
-															: "bg-rose-100 text-rose-700"
+												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap gap-1 items-center ${item.status === "approved"
+													? "bg-emerald-100 text-emerald-700"
+													: item.status === "rejected"
+														? "bg-rose-100 text-rose-700"
+														: "bg-amber-100 text-amber-700"
 													}`}
 											>
+												{item.rawStatus?.includes("(ซ้ำ!)") && (
+													<span className="text-rose-500 animate-pulse">⚠️</span>
+												)}
 												{item.status === "pending"
-													? "รอตรวจสอบ"
+													? (item.rawStatus?.includes("รอส่งสลิป") ? "รอสลิป" : "รอตรวจสอบ")
 													: item.status === "approved"
 														? "อนุมัติแล้ว"
 														: "ปฏิเสธ"}
+												{item.rawStatus?.includes("(ซ้ำ!)") && (
+													<span className="text-[10px] ml-0.5 text-rose-600 font-black">ซ้ำ!</span>
+												)}
 											</span>
 										</td>
 										<td className="py-4 px-6 text-center">
 											<button
 												onClick={() => openDetails(item)}
 												className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${item.status === "pending"
-														? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100 hover:border-sky-500"
-														: "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
+													? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100 hover:border-sky-500"
+													: "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
 													}`}
 											>
 												<Eye size={16} />
@@ -485,10 +492,10 @@ export default function DepositsPage() {
 										<p className="text-xs text-slate-500 mt-0.5">{formatDate(selectedDeposit.date)}</p>
 									</div>
 									<span className={`shrink-0 inline-flex px-3 py-1 rounded-full text-xs font-bold ${selectedDeposit.status === "pending"
-											? "bg-amber-100 text-amber-700"
-											: selectedDeposit.status === "approved"
-												? "bg-emerald-100 text-emerald-700"
-												: "bg-rose-100 text-rose-700"
+										? "bg-amber-100 text-amber-700"
+										: selectedDeposit.status === "approved"
+											? "bg-emerald-100 text-emerald-700"
+											: "bg-rose-100 text-rose-700"
 										}`}>
 										{selectedDeposit.status === "pending" ? "รอตรวจสอบ" : selectedDeposit.status === "approved" ? "อนุมัติแล้ว" : "ปฏิเสธ"}
 									</span>
@@ -498,16 +505,32 @@ export default function DepositsPage() {
 							{/* Slip Image */}
 							<div className="px-5 pt-4">
 								<p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">รูปสลิป</p>
-								<div className="bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex justify-center items-center min-h-[220px]">
+								<div className="bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex justify-center items-center min-h-[220px] relative">
 									{selectedDeposit.slipUrl ? (
-										<img
-											src={getDriveImageUrl(selectedDeposit.slipUrl)}
-											alt="Slip"
-											className="w-full h-auto max-h-[60svh] object-contain"
-											onError={(e) => {
-												(e.target as HTMLImageElement).src = "https://placehold.co/400x600?text=ไม่สามารถโหลดได้";
-											}}
-										/>
+										<>
+											<div 
+												className="cursor-zoom-in relative group"
+												onClick={() => setIsZoomOpen(true)}
+											>
+												<Image
+													src={getDriveImageUrl(selectedDeposit.slipUrl)}
+													alt="Slip"
+													width={500}
+													height={800}
+													className="w-full h-auto max-h-[60svh] object-contain rounded-lg border border-slate-200 shadow-sm transition-transform duration-300 group-hover:scale-[1.02]"
+													unoptimized
+													onError={(e) => {
+														const target = e.target as HTMLImageElement;
+														target.src = "https://placehold.co/400x600?text=Invalid+Image";
+													}}
+												/>
+												<div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300 flex items-center justify-center rounded-lg">
+													<div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-lg">
+														<span className="i-lucide-zoom-in w-6 h-6 text-slate-700" />
+													</div>
+												</div>
+											</div>
+										</>
 									) : (
 										<p className="text-slate-400 text-sm py-8">ไม่พบรูปสลิป</p>
 									)}
@@ -566,6 +589,42 @@ export default function DepositsPage() {
 								</button>
 							)}
 						</div>
+					</div>
+				</div>
+			)}
+			{/* 🔍 Zoom Modal (Lightbox) */}
+			{isZoomOpen && selectedDeposit && (
+				<div 
+					className="fixed inset-0 z-[999] flex items-center justify-center bg-black/90 backdrop-blur-md transition-all duration-300 animate-in fade-in"
+					onClick={() => setIsZoomOpen(false)}
+				>
+					<div className="absolute top-6 right-6 flex gap-4">
+						<a
+							href={selectedDeposit.slipUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-colors"
+							onClick={(e) => e.stopPropagation()}
+						>
+							<span className="i-lucide-external-link w-6 h-6" />
+						</a>
+						<button 
+							className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-colors"
+							onClick={() => setIsZoomOpen(false)}
+						>
+							<span className="i-lucide-x w-6 h-6" />
+						</button>
+					</div>
+					
+					<div 
+						className="relative max-w-[95vw] max-h-[90vh] w-auto h-auto transition-transform duration-500 animate-in zoom-in-95"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<img
+							src={getDriveImageUrl(selectedDeposit.slipUrl)}
+							alt="Zoomed Slip"
+							className="w-auto h-auto max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl border border-white/10"
+						/>
 					</div>
 				</div>
 			)}

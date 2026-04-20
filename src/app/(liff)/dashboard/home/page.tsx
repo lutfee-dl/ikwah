@@ -114,6 +114,20 @@ export default function DashboardPage() {
             <p className="text-[10px] text-blue-500 font-medium mt-1 tracking-wide">ดูย้อนหลัง</p>
           </div>
         </button>
+        <button
+          onClick={() => router.push("/dashboard/upload")}
+          className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-start gap-3 hover:shadow-md transition-shadow text-left"
+        >
+          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
+            <i className="fas fa-file-invoice text-xl"></i>
+          </div>
+          <div className="text-left">
+            <p className="font-semibold text-sm text-slate-800">
+              แจ้งฝาก/ชำระเงิน
+            </p>
+            <p className="text-[10px] text-blue-500 font-medium mt-1 tracking-wide">อัปโหลดสลิป</p>
+          </div>
+        </button>
       </div>
     </div>
   );
