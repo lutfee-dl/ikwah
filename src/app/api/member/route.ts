@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    
+
     // Check if it's admin making an edit vs normal user login
     if (body.action === "updateAdminMember") {
       const { memberId, updateData } = body;
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       const data = await response.json();
       return NextResponse.json(data);
     }
-    
+
     if (body.action === "admin_update_loan") {
       const { loanId, status } = body;
       const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       const data = await response.json();
       return NextResponse.json(data);
     }
-    
+
     if (body.action === "admin_get_contracts") {
       const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
       const response = await fetch(gasUrl, {
@@ -200,21 +200,9 @@ export async function POST(request: Request) {
       return NextResponse.json(data);
     }
 
-    // Normal registration path (or other proxy actions)
-    // We shouldn't strictly require these if action != 'register'
-    if (body.action === "register") {
-      const { lineUserId, displayName, pictureUrl } = body;
-      if (!lineUserId || !displayName || !pictureUrl) {
-        return NextResponse.json(
-          { success: false, msg: "Missing required fields" },
-          { status: 400 }
-        );
-      }
-    }
-
     // ดึง URL ของ GAS จาก Environment Variable ที่ซ่อนไว้ในเซิร์ฟเวอร์
     const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL;
-    
+
     if (!gasUrl) {
       console.error("GAS_API_URL is missing in environment variables.");
       return NextResponse.json(
@@ -243,9 +231,9 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json(data);
-    
+
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error("Proxy API Error:", errorMsg);
