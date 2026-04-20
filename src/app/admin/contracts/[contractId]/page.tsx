@@ -17,6 +17,7 @@ import {
 import { toast } from "react-hot-toast";
 import Swal from "sweetalert2";
 import Link from "next/link";
+import { NumericFormat } from "react-number-format";
 
 interface Contract {
   contractId: string;
@@ -58,7 +59,7 @@ export default function ContractDetailPage() {
   const [isAddingRepayment, setIsAddingRepayment] = useState(false);
 
   // Form states
-  const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [amountPaid, setAmountPaid] = useState<number | undefined>(undefined);
   const [installmentNo, setInstallmentNo] = useState("");
 
   const fetchContract = useCallback(async () => {
@@ -395,11 +396,14 @@ export default function ContractDetailPage() {
                 <div className="flex flex-wrap sm:flex-nowrap gap-2">
                   <div className="relative flex-1">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">฿</span>
-                    <input
-                      type="number"
+                    <NumericFormat
+                      thousandSeparator={true}
+                      value={amountPaid}
+                      onValueChange={(values) => {
+                        setAmountPaid(values.floatValue);
+                      }}
                       className="w-full pl-8 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-2xl text-xl font-black text-blue-700 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-right"
-                      value={amountPaid || ""}
-                      onChange={(e) => setAmountPaid(Number(e.target.value))}
+                      placeholder="0.00"
                     />
                   </div>
 

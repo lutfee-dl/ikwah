@@ -6,6 +6,8 @@ import { UploadCloud, CheckCircle2, AlertCircle, FileImage, Loader2, ArrowLeft }
 import liff from "@line/liff";
 import { gasApi } from "@/services/gasApi";
 import toast from "react-hot-toast";
+import { NumericFormat } from "react-number-format";
+import Swal from "sweetalert2";
 
 type ProfileToken = {
   lineUserId: string;
@@ -16,7 +18,7 @@ export default function UploadSlipPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileToken | null>(null);
   
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState<number | undefined>(undefined);
   const [category, setCategory] = useState("ฝากหุ้นสะสม");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -139,7 +141,12 @@ export default function UploadSlipPage() {
         setSuccess(true);
         toast.success("อัปโหลดสลิปเรียบร้อยแล้ว");
       } else {
-        toast.error(data.msg || "เกิดข้อผิดพลาดในการอัปโหลดสลิป");
+        Swal.fire({
+          title: "อัปโหลดไม่สำเร็จ",
+          text: data.msg || "เกิดข้อผิดพลาดในการอัปโหลดสลิป",
+          icon: "error",
+          confirmButtonColor: "#3b82f6"
+        });
       }
     } catch (err) {
       console.error(err);
@@ -190,13 +197,14 @@ export default function UploadSlipPage() {
           </label>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">฿</span>
-            <input 
-              type="number" 
+            <NumericFormat
+              thousandSeparator={true}
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onValueChange={(values) => {
+                setAmount(values.floatValue);
+              }}
               placeholder="0.00"
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 sm:py-4 text-xl sm:text-2xl font-black text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all placeholder:text-slate-300 placeholder:font-medium"
-              required
             />
           </div>
         </div>

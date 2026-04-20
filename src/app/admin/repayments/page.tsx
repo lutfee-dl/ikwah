@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { Search, X, XCircle, Receipt, CheckCircle, Loader2, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
+import { NumericFormat } from "react-number-format";
+import Swal from "sweetalert2";
 
 type RepaymentSlip = {
   id: string;
@@ -106,10 +108,23 @@ export default function RepaymentsPage() {
 
   const handleApprove = async () => {
     if (!selectedPay) return;
+    
     if (!selectedContractId) {
       toast.error("กรุณาเลือกสัญญาที่ต้องการตัดยอด");
       return;
     }
+
+    const confirmResult = await Swal.fire({
+      title: 'ยืนยันรับชำระค่างวด?',
+      text: `คุณต้องการบันทึกการรับชำระเป็นเงิน ${editAmount.toLocaleString()} ฿ ใช่หรือไม่?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'ยืนยันอนุมัติ',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#3b82f6', // sky-500
+    });
+
+    if (!confirmResult.isConfirmed) return;
 
     setIsUpdating(true);
     try {
@@ -142,6 +157,19 @@ export default function RepaymentsPage() {
 
   const handleReject = async () => {
     if (!selectedPay) return;
+
+    const confirmResult = await Swal.fire({
+      title: 'ยืนยันการปฏิเสธ?',
+      text: 'คุณต้องการปฏิเสธสลิปชำระเงินนี้ใช่หรือไม่?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'ยืนยันปฏิเสธ',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#ef4444', // rose-500
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
     setIsUpdating(true);
     try {
       const res = await fetch("/api/member", {
@@ -343,10 +371,12 @@ export default function RepaymentsPage() {
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">ยอดเงินชำระ (แก้ไขได้)</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">฿</span>
-                  <input
-                    type="number"
+                  <NumericFormat
+                    thousandSeparator={true}
                     value={editAmount}
-                    onChange={(e) => setEditAmount(Number(e.target.value))}
+                    onValueChange={(values) => {
+                      setEditAmount(values.floatValue || 0);
+                    }}
                     className="w-full bg-sky-50 border-2 border-sky-100 rounded-2xl px-8 py-3 text-2xl font-black text-sky-600 text-right focus:bg-white focus:border-sky-500 focus:outline-none transition-all"
                   />
                 </div>

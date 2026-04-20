@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Search, Eye } from "lucide-react";
 import { toast } from "react-hot-toast";
+import Swal from "sweetalert2";
 import LoanDetailModal from "./LoanDetailModal";
 
 type FilterStatus = "รอตรวจสอบ" | "อนุมัติ" | "ไม่อนุมัติ" | "all";
@@ -97,6 +98,18 @@ export default function LoansPage() {
 	}, [loans, filterStatus, searchQuery]);
 
 	const handleApprove = async (id: string) => {
+		const result = await Swal.fire({
+			title: 'ยืนยันการอนุมัติสินเชื่อ?',
+			text: "สมาชิกจะได้รับเงินกู้และสร้างสัญญาใหม่ในระบบ คุณแน่ใจหรือไม่?",
+			icon: 'question',
+			showCancelButton: true,
+			confirmButtonText: 'อนุมัติ',
+			cancelButtonText: 'ยกเลิก',
+			confirmButtonColor: '#10b981', // emerald-500
+		});
+
+		if (!result.isConfirmed) return;
+
 		setIsLoading(true);
 		const toastId = toast.loading("กำลังอนุมัติ...");
 		try {
@@ -125,6 +138,18 @@ export default function LoansPage() {
 	};
 
 	const handleReject = async (id: string) => {
+		const result = await Swal.fire({
+			title: 'ยืนยันการปฏิเสธคำขอ?',
+			text: "คุณต้องการปฏิเสธคำขอกู้สินเชื่อนี้ใช่หรือไม่?",
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'ยืนยันปฏิเสธ',
+			cancelButtonText: 'ยกเลิก',
+			confirmButtonColor: '#ef4444', // rose-500
+		});
+
+		if (!result.isConfirmed) return;
+
 		setIsLoading(true);
 		const toastId = toast.loading("กำลังบันทึก...");
 		try {

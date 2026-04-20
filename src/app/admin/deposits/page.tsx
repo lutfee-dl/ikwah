@@ -3,6 +3,9 @@
 import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2, FileClock } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
+import { NumericFormat } from "react-number-format";
+import Swal from "sweetalert2";
+import { toast } from "react-hot-toast";
 
 
 type Deposit = {
@@ -143,8 +146,19 @@ export default function DepositsPage() {
 	}, []);
 
 	const handleApprove = async (id: string) => {
-		if (!confirm("ยืนยันการอนุมัติยอดฝากนี้?")) return;
+		const result = await Swal.fire({
+			title: 'ยืนยันการอนุมัติ?',
+			text: `คุณต้องการอนุมัติยอดฝากจำนวน ${editAmount.toLocaleString()} บาท นี้ใช่หรือไม่?`,
+			icon: 'question',
+			showCancelButton: true,
+			confirmButtonText: 'อนุมัติ',
+			cancelButtonText: 'ยกเลิก',
+			confirmButtonColor: '#10b981', // emerald-500
+		});
 
+		if (!result.isConfirmed) return;
+
+		const toastId = toast.loading("กำลังดำเนินการ...");
 		setIsUpdating(true);
 		try {
 			const res = await fetch(API_URL, {
@@ -158,16 +172,18 @@ export default function DepositsPage() {
 				})
 			});
 
-			const result = await res.json();
-			if (result.success) {
-				alert("อนุมัติสำเร็จ และส่งข้อความแจ้งสมาชิกแล้ว ✅");
-				fetchDeposits(); // รีเฟรชตารางใหม่
+			const resData = await res.json();
+			if (resData.success) {
+				toast.success("อนุมัติสำเร็จ และแจ้งสมาชิกแล้ว ✅", { id: toastId });
+				fetchDeposits();
 				setIsModalOpen(false);
 			} else {
-				alert("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: " + (result.msg || ""));
+				Swal.fire('เกิดข้อผิดพลาด', resData.msg || "ไม่สามารถอนุมัติได้", 'error');
+				toast.dismiss(toastId);
 			}
 		} catch (error) {
-			alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+			Swal.fire('ข้อผิดพลาด', 'ติดต่อเซิร์ฟเวอร์ไม่ได้', 'error');
+			toast.dismiss(toastId);
 			console.error(error);
 		} finally {
 			setIsUpdating(false);
@@ -175,8 +191,19 @@ export default function DepositsPage() {
 	};
 
 	const handleReject = async (id: string) => {
-		if (!confirm("ยืนยันการ 'ไม่อนุมัติ' ยอดฝากนี้?")) return;
+		const result = await Swal.fire({
+			title: 'ยืนยันการปฏิเสธ?',
+			text: "คุณแน่ใจหรือไม่ที่จะ 'ไม่อนุมัติ' ยอดฝากนี้?",
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'ยืนยันปฏิเสธ',
+			cancelButtonText: 'ยกเลิก',
+			confirmButtonColor: '#ef4444', // rose-500
+		});
 
+		if (!result.isConfirmed) return;
+
+		const toastId = toast.loading("กำลังดำเนินการ...");
 		setIsUpdating(true);
 		try {
 			const res = await fetch(API_URL, {
@@ -189,16 +216,18 @@ export default function DepositsPage() {
 				})
 			});
 
-			const result = await res.json();
-			if (result.success) {
-				alert("ปฏิเสธยอดฝากเรียบร้อยแล้ว");
-				fetchDeposits(); // รีเฟรชตารางใหม่
+			const resData = await res.json();
+			if (resData.success) {
+				toast.success("ปฏิเสธยอดฝากเรียบร้อยแล้ว", { id: toastId });
+				fetchDeposits();
 				setIsModalOpen(false);
 			} else {
-				alert("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: " + (result.msg || ""));
+				Swal.fire('เกิดข้อผิดพลาด', resData.msg || "ไม่สามารถปฏิเสธได้", 'error');
+				toast.dismiss(toastId);
 			}
 		} catch (error) {
-			alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+			Swal.fire('ข้อผิดพลาด', 'ติดต่อเซิร์ฟเวอร์ไม่ได้', 'error');
+			toast.dismiss(toastId);
 			console.error(error);
 		} finally {
 			setIsUpdating(false);
@@ -543,10 +572,12 @@ export default function DepositsPage() {
 									<p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">ยอดเงิน (แก้ไขได้)</p>
 									<div className="relative">
 										<span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-lg">฿</span>
-										<input
-											type="tel"
+										<NumericFormat
+											thousandSeparator={true}
 											value={editAmount}
-											onChange={(e) => setEditAmount(Number(e.target.value.replace(/[^0-9]/g, "")))}
+											onValueChange={(values) => {
+												setEditAmount(values.floatValue || 0);
+											}}
 											className="w-full text-3xl font-black text-sky-600 bg-white border-2 border-sky-200 rounded-2xl pl-10 pr-4 py-3.5 focus:outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 transition-all text-right"
 										/>
 									</div>
