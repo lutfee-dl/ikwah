@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { UploadCloud, CheckCircle2, AlertCircle, FileImage, Loader2, ArrowLeft } from "lucide-react";
+import { UploadCloud, CheckCircle2, AlertCircle, FileImage, Loader2, ArrowLeft, Copy, Wallet, Building2 } from "lucide-react";
+
 import liff from "@line/liff";
 import { gasApi } from "@/services/gasApi";
 import toast from "react-hot-toast";
@@ -261,11 +262,43 @@ export default function UploadSlipPage() {
       return;
     }
 
+    // Confirmation Step
+    const result = await Swal.fire({
+      title: 'ยืนยันแจ้งโอนเงิน?',
+      html: `
+        <div class="text-left p-2 space-y-2">
+          <div class="flex justify-between border-b pb-2">
+            <span class="text-gray-500">จำนวนเงิน:</span>
+            <span class="font-bold text-emerald-600">฿${Number(amount).toLocaleString()}</span>
+          </div>
+          <div class="flex justify-between border-b pb-2">
+            <span class="text-gray-500">หมวดหมู่:</span>
+            <span class="font-bold text-slate-700">${category}</span>
+          </div>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'ใช่, ยืนยันแจ้งโอน',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#059669',
+      cancelButtonColor: '#94a3b8',
+      customClass: {
+        popup: 'rounded-[1.5rem] p-6',
+        title: 'font-black text-slate-800',
+        confirmButton: 'rounded-full px-6 py-2 font-bold',
+        cancelButton: 'rounded-full px-6 py-2 font-bold'
+      }
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
+
       setIsSubmitting(true);
 
       const base64Image = await toBase64(file);
-      const base64DataStr = base64Image.split(",")[1]; // remove the prefix 
+      const base64DataStr = base64Image.split(",")[1];
       const mimeType = file.type;
 
       let idToken = "";
@@ -344,6 +377,50 @@ export default function UploadSlipPage() {
           <p className="text-slate-500 text-sm font-medium">อัปโหลดสลิปเพื่อบันทึกรายการ</p>
         </div>
       </div>
+
+      {/* BANK INFORMATION CARD */}
+      <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[2rem] p-6 text-white shadow-xl shadow-emerald-200/50 relative overflow-hidden group">
+        {/* Decorative elements */}
+        <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-colors" />
+        <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-black/10 rounded-full blur-3xl" />
+
+        <div className="relative z-10">
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+              <Building2 size={14} className="text-emerald-100" />
+              <span className="text-xs font-black uppercase tracking-wider">ช่องทางการชำระเงิน</span>
+            </div>
+            <Wallet size={24} className="opacity-40" />
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-emerald-100/70 text-[10px] font-bold uppercase tracking-widest mb-1">ธนาคารอิสลาม (สาขา ยะรัง ปัตตานี)</p>
+              <div className="flex items-center justify-between group/account">
+                <h2 className="text-2xl font-black tracking-wider text-white">087-1-20839-3</h2>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText("087-1-20839-3");
+                    toast.success("คัดลอกเลขบัญชีแล้ว");
+                  }}
+                  className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl transition-all active:scale-90"
+                >
+                  <Copy size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-white/10">
+              <p className="text-emerald-100/70 text-[10px] font-bold uppercase tracking-widest mb-1">ชื่อบัญชี</p>
+              <p className="text-sm font-bold leading-relaxed">
+                กองทุนสะสมอิควะห์ยะรัง <br />
+                <span className="text-emerald-50 text-xs font-medium">โดยน.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       <form onSubmit={handleSubmit} className="space-y-6">
 
