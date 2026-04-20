@@ -26,23 +26,31 @@ export default function UploadSlipPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Check if LIFF is loaded
-    if (typeof window !== "undefined" && liff.isLoggedIn()) {
-      const p = liff.getDecodedIDToken();
-      if (p && p.sub) {
-        setProfile({
-          lineUserId: p.sub,
-          name: p.name || "Member"
-        });
+    const setupLiff = async () => {
+      try {
+        const { initLiff } = await import("@/services/liff");
+        const success = await initLiff();
+        if (success) {
+          const { getLiffProfile } = await import("@/services/liff");
+          const profile = await getLiffProfile();
+          if (profile) {
+            setProfile({
+              lineUserId: profile.userId,
+              name: profile.displayName || "Member"
+            });
+          }
+        }
+      } catch (e) {
+        console.error("LIFF init failed", e);
+        // Fallback for testing
+        const localData = localStorage.getItem("memberData");
+        if (localData) {
+          const p = JSON.parse(localData);
+          setProfile({ lineUserId: p.lineUserId || p.line_user_id || "TEST-USER", name: p.fullName || "Member" });
+        }
       }
-    } else {
-      // For testing outside of LIFF
-      const localData = localStorage.getItem("memberData");
-      if (localData) {
-        const p = JSON.parse(localData);
-        setProfile({ lineUserId: p.lineUserId || p.line_user_id || "TEST-USER", name: p.fullName || "Member" });
-      }
-    }
+    };
+    setupLiff();
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

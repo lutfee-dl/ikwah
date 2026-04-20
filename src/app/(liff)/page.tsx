@@ -1,20 +1,24 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { initLiff, getLiffIdToken, isLiffInClient } from "@/services/liff";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import liff from "@line/liff";
 import { gasApi } from "@/services/gasApi";
+import { Suspense } from "react";
 
-export default function RootPage() {
+function RootPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetPage = searchParams.get("page");
+
   const [isExternalBrowser, setIsExternalBrowser] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     const initializeApp = async () => {
       const isLiffInitialized = await initLiff();
-      
+
       if (isLiffInitialized) {
         if (!isLiffInClient()) {
           setIsExternalBrowser(true);
@@ -31,20 +35,24 @@ export default function RootPage() {
           const idToken = await getLiffIdToken();
           if (idToken) {
             const res = await gasApi.checkStatus(idToken);
-            
+
             if (res.verified) {
               // เซฟข้อมูลลง localStorage สำหรับดึงไปใช้ใน dashboard
               if (res.profileData) {
                 localStorage.setItem("memberData", JSON.stringify(res.profileData));
               }
-              
-              router.push("/dashboard/home");
+
+              if (targetPage === "upload") {
+                router.push("/dashboard/upload");
+              } else {
+                router.push("/dashboard/home");
+              }
             } else {
               // ยังไม่ได้ยืนยันตัวตน ให้ไปหน้า register
               router.push("/register");
             }
           } else {
-             setErrorMsg("ดึงข้อมูล Token ไม่สำเร็จ กรุณาลองใหม่");
+            setErrorMsg("ดึงข้อมูล Token ไม่สำเร็จ กรุณาลองใหม่");
           }
         } catch (error) {
           console.error("Failed to fetch profile or token", error);
@@ -53,7 +61,7 @@ export default function RootPage() {
       }
     };
     initializeApp();
-  }, [router]);
+  }, [router, targetPage]);
 
   if (isExternalBrowser) {
     return (
@@ -76,10 +84,22 @@ export default function RootPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-blue-50">
       <div className="text-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto"></div>
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto" />
         <p className="mt-4 text-slate-500 font-medium">กำลังตรวจสอบสถานะ...</p>
         {errorMsg && <p className="mt-2 text-red-500 text-sm">{errorMsg}</p>}
       </div>
     </div>
+  );
+}
+
+export default function RootPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-blue-50">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto" />
+      </div>
+    }>
+      <RootPageContent />
+    </Suspense>
   );
 }
