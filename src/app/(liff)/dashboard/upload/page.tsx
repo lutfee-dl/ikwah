@@ -334,9 +334,9 @@ export default function UploadSlipPage() {
   }
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-300">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
       <div className="flex items-center gap-3 mb-2">
-        <button onClick={() => router.back()} className="p-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-600">
+        <button onClick={() => router.back()} className="p-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 active:scale-90 transition-transform">
           <ArrowLeft size={20} />
         </button>
         <div>
@@ -345,89 +345,55 @@ export default function UploadSlipPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Amount Input */}
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-            จำนวนเงินตามสลิป (บาท)
-          </label>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">฿</span>
-            <NumericFormat
-              thousandSeparator={true}
-              inputMode="decimal"
-              value={amount}
-              onValueChange={(values) => {
-                setAmount(values.floatValue);
-              }}
-              placeholder="0.00"
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 sm:py-4 text-xl sm:text-2xl font-black text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all placeholder:text-slate-300 placeholder:font-medium"
-            />
-          </div>
-        </div>
-
-        {/* Category Select */}
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-            หมวดหมู่รายการ
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all ${category === "ฝากหุ้นสะสม" ? "border-sky-500 bg-sky-50 text-sky-700" : "border-slate-100 bg-white text-slate-500 hover:border-slate-200"}`}>
-              <input type="radio" value="ฝากหุ้นสะสม" checked={category === "ฝากหุ้นสะสม"} onChange={e => setCategory(e.target.value)} className="hidden" />
-              <CheckCircle2 size={24} className={`mb-2 ${category === "ฝากหุ้นสะสม" ? "text-sky-500" : "text-slate-200"}`} />
-              <span className="font-bold text-sm">ฝากหุ้นสะสม</span>
-            </label>
-            <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all ${category === "ชำระยอดสินเชื่อ" ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-100 bg-white text-slate-500 hover:border-slate-200"}`}>
-              <input type="radio" value="ชำระยอดสินเชื่อ" checked={category === "ชำระยอดสินเชื่อ"} onChange={e => setCategory(e.target.value)} className="hidden" />
-              <CheckCircle2 size={24} className={`mb-2 ${category === "ชำระยอดสินเชื่อ" ? "text-violet-500" : "text-slate-200"}`} />
-              <span className="font-bold text-sm">ชำระยอดสินเชื่อ</span>
-            </label>
-          </div>
-        </div>
-
-        {/* File Upload */}
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-center mb-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-              แนบสลิปการโอนเงิน
-            </label>
-            <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">Max 5MB</span>
-          </div>
-          
+        {/* STEP 1: HERO FILE UPLOAD (Always Visible) */}
+        <div className="bg-white p-2 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
           <div 
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-6 cursor-pointer transition-colors relative overflow-hidden ${previewUrl ? 'border-sky-500 bg-slate-900' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'}`}
+            className={`relative min-h-[280px] rounded-[2rem] flex flex-col items-center justify-center cursor-pointer transition-all duration-500 overflow-hidden ${
+              previewUrl 
+              ? 'bg-slate-900 ring-4 ring-sky-500/10' 
+              : 'bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200'
+            }`}
           >
             {previewUrl ? (
               <>
-                <img src={previewUrl} alt="Slip Preview" className="absolute inset-0 w-full h-full object-contain opacity-50 blur-md scale-110" />
-                <img src={previewUrl} alt="Slip Preview" className="relative z-10 max-h-48 rounded-lg shadow-2xl border border-white/20" />
+                <img src={previewUrl} alt="Slip Preview" className="absolute inset-0 w-full h-full object-contain opacity-40 blur-lg scale-125 transition-transform duration-700" />
+                <img src={previewUrl} alt="Slip Preview" className="relative z-10 max-h-64 rounded-xl shadow-2xl border border-white/20 animate-in zoom-in duration-500" />
                 
                 {isScanning && (
-                  <div className="absolute inset-0 z-30 bg-black/60 flex flex-col items-center justify-center p-6 text-white text-center">
-                    <Loader2 className="animate-spin w-10 h-10 mb-3 text-sky-400" />
-                    <p className="font-bold text-sm">{scanProgress.message}</p>
-                    <div className="w-full max-w-[150px] bg-white/20 h-1 rounded-full mt-3 overflow-hidden">
-                      <div className="h-full bg-sky-400 transition-all duration-300" style={{ width: `${scanProgress.percent}%` }} />
+                  <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-white text-center animate-in fade-in">
+                    <div className="relative">
+                      <Loader2 className="animate-spin w-12 h-12 mb-4 text-sky-400" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                      </div>
+                    </div>
+                    <p className="font-black text-lg tracking-wide uppercase italic">{scanProgress.message}</p>
+                    <div className="w-full max-w-[180px] bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden border border-white/5">
+                      <div className="h-full bg-gradient-to-r from-sky-400 to-blue-500 transition-all duration-300" style={{ width: `${scanProgress.percent}%` }} />
                     </div>
                   </div>
                 )}
 
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/40 transition-opacity z-20">
-                  <span className="bg-white text-slate-800 font-bold px-4 py-2 rounded-full text-sm shadow-xl flex items-center gap-2">
-                    <UploadCloud size={16} /> เปลี่ยนรูปภาพ
+                  <span className="bg-white/90 backdrop-blur-md text-slate-800 font-black px-6 py-3 rounded-full text-sm shadow-2xl flex items-center gap-2 transform translate-y-4 hover:translate-y-0 transition-transform">
+                    <UploadCloud size={18} className="text-sky-500" /> เปลี่ยนรูปภาพ
                   </span>
                 </div>
               </>
             ) : (
-              <div className="flex flex-col items-center text-center space-y-3 py-4">
-                <div className="w-14 h-14 bg-sky-100 text-sky-500 rounded-full flex items-center justify-center shadow-sm">
-                  <FileImage size={24} />
+              <div className="flex flex-col items-center text-center px-6 py-12 space-y-4">
+                <div className="w-20 h-20 bg-gradient-to-br from-sky-100 to-blue-50 text-sky-500 rounded-3xl flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform">
+                  <FileImage size={32} />
                 </div>
                 <div>
-                  <p className="font-bold text-slate-700">แทปเพื่อเลือกรูปภาพสลิป</p>
-                  <p className="text-xs text-slate-400 mt-1">รองรับ JPG, PNG, WEBP</p>
+                  <h3 className="font-black text-slate-800 text-lg">แตะเพื่ออัปโหลดสลิป</h3>
+                  <p className="text-sm text-slate-400 mt-1 font-medium">AI จะช่วยกรอกข้อมูลยอดยอดเงินให้ทันที</p>
+                </div>
+                <div className="bg-sky-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest animate-pulse">
+                  แนะนำอัปโหลดเป็นอันดับแรก
                 </div>
               </div>
             )}
@@ -441,23 +407,93 @@ export default function UploadSlipPage() {
           </div>
         </div>
 
-        <button 
-          type="submit" 
-          disabled={isSubmitting || !file || !amount}
-          className={`w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 shadow-xl ${
-            isSubmitting ? 'bg-slate-800 text-white shadow-slate-200 cursor-not-allowed' :
-            !file || !amount ? 'bg-slate-100 text-slate-400 shadow-none' :
-            'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-sky-200/50 hover:opacity-90 active:scale-[0.98]'
-          }`}
-        >
-          {isSubmitting ? (
-            <><Loader2 className="animate-spin w-6 h-6" /> กำลังอัปโหลดข้อมูล...</>
-          ) : (
-            <><UploadCloud className="w-6 h-6" /> ยืนยันการส่งสลิป</>
-          )}
-        </button>
+        {/* STEP 2: REVEAL FIELDS (Only show when file is picked) */}
+        {(previewUrl || file) && (
+          <div className="space-y-6 animate-in slide-in-from-top-10 fade-in duration-700 fill-mode-both">
+            
+            {/* Amount Input */}
+            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 relative group transition-all hover:shadow-lg hover:shadow-slate-100">
+              <div className="flex justify-between items-center mb-3">
+                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                  จำนวนเงินตามสลิป
+                </label>
+                {aiData && (
+                  <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 size={10} /> AI ช่วยกรอกแล้ว
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 font-light text-4xl">฿</span>
+                <NumericFormat
+                  thousandSeparator={true}
+                  inputMode="decimal"
+                  value={amount}
+                  onValueChange={(values) => {
+                    setAmount(values.floatValue);
+                  }}
+                  placeholder="0.00"
+                  className="w-full bg-transparent border-none rounded-none pl-10 pr-4 py-2 text-4xl sm:text-5xl font-black text-slate-800 focus:outline-none transition-all placeholder:text-slate-100"
+                />
+              </div>
+            </div>
+
+            {/* Category Select */}
+            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-lg transition-all">
+              <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 text-center">
+                เลือกหมวดหมู่รายการ
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 ${category === "ฝากหุ้นสะสม" ? "border-sky-500 bg-sky-50/50 shadow-inner" : "border-slate-50 bg-white text-slate-400 hover:bg-slate-50 active:scale-95"}`}>
+                  <input type="radio" value="ฝากหุ้นสะสม" checked={category === "ฝากหุ้นสะสม"} onChange={e => setCategory(e.target.value)} className="hidden" />
+                  <div className={`w-10 h-10 rounded-xl mb-2 flex items-center justify-center transition-colors ${category === "ฝากหุ้นสะสม" ? "bg-sky-500 text-white shadow-lg shadow-sky-200" : "bg-slate-100"}`}>
+                    <FileImage size={20} />
+                  </div>
+                  <span className={`font-black text-xs ${category === "ฝากหุ้นสะสม" ? "text-sky-700" : ""}`}>ฝากหุ้นสะสม</span>
+                </label>
+                <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 ${category === "ชำระยอดสินเชื่อ" ? "border-violet-500 bg-violet-50/50 shadow-inner" : "border-slate-50 bg-white text-slate-400 hover:bg-slate-50 active:scale-95"}`}>
+                  <input type="radio" value="ชำระยอดสินเชื่อ" checked={category === "ชำระยอดสินเชื่อ"} onChange={e => setCategory(e.target.value)} className="hidden" />
+                  <div className={`w-10 h-10 rounded-xl mb-2 flex items-center justify-center transition-colors ${category === "ชำระยอดสินเชื่อ" ? "bg-violet-500 text-white shadow-lg shadow-violet-200" : "bg-slate-100"}`}>
+                    <CheckCircle2 size={20} />
+                  </div>
+                  <span className={`font-black text-xs ${category === "ชำระยอดสินเชื่อ" ? "text-violet-700" : ""}`}>ชำระสินเชื่อ</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button 
+              type="submit" 
+              disabled={isSubmitting || !file || !amount}
+              className={`w-full py-5 rounded-[2rem] font-black text-xl transition-all flex items-center justify-center gap-3 shadow-2xl relative overflow-hidden group ${
+                isSubmitting ? 'bg-slate-900 text-white cursor-not-allowed' :
+                !file || !amount ? 'bg-slate-100 text-slate-400 shadow-none' :
+                'bg-slate-900 text-white hover:bg-black active:scale-[0.98]'
+              }`}
+            >
+              {isSubmitting ? (
+                <><Loader2 className="animate-spin w-6 h-6" /> กำลังบันทึกข้อมูล...</>
+              ) : (
+                <>
+                  <span>ยืนยันการแจ้งโอน</span>
+                  <UploadCloud className="w-6 h-6 group-hover:translate-y-[-2px] transition-transform" />
+                </>
+              )}
+              {/* Shine effect for active button */}
+              {!isSubmitting && file && amount && (
+                <div className="absolute inset-0 w-[40px] h-full bg-white/20 skew-x-[-20deg] animate-[shine_2s_infinite] left-[-100%]" />
+              )}
+            </button>
+          </div>
+        )}
 
       </form>
+
+      <style jsx>{`
+        @keyframes shine {
+          100% { left: 200%; }
+        }
+      `}</style>
     </div>
   );
 }
