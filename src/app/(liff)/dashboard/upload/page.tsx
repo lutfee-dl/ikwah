@@ -411,10 +411,10 @@ export default function UploadSlipPage() {
             </div>
 
             <div className="pt-2 border-t border-white/10">
-              <p className="text-emerald-100/70 text-[10px] font-bold uppercase tracking-widest mb-1">ชื่อบัญชี</p>
-              <p className="text-sm font-bold leading-relaxed">
+              <p className="text-emerald-100/70 text-xs font-bold uppercase tracking-widest mb-1">ชื่อบัญชี</p>
+              <p className="text-white text-base font-bold leading-relaxed">
                 กองทุนสะสมอิควะห์ยะรัง <br />
-                <span className="text-emerald-50 text-xs font-medium">โดยน.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง</span>
+                <span className="text-emerald-50 text-sm font-medium">โดย น.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง</span>
               </p>
             </div>
           </div>
@@ -490,12 +490,12 @@ export default function UploadSlipPage() {
             {/* Amount Input */}
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 relative group transition-all hover:shadow-lg hover:shadow-slate-100">
               <div className="flex justify-between items-center mb-3">
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                  จำนวนเงินตามสลิป
+                <label className="block text-xs font-black uppercase text-slate-400">
+                  จำนวนเงิน
                 </label>
                 {aiData && (
                   <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle2 size={10} /> ระบบช่วยกรอกแล้ว
+                    <CheckCircle2 size={10} /> โปรดตรวจสอบความถูกต้อง
                   </span>
                 )}
               </div>
@@ -509,14 +509,14 @@ export default function UploadSlipPage() {
                     setAmount(values.floatValue);
                   }}
                   placeholder="0.00"
-                  className="w-full bg-transparent border-none rounded-none pl-10 pr-4 py-2 text-4xl sm:text-5xl font-black text-slate-800 focus:outline-none transition-all placeholder:text-slate-100"
+                  className="w-full bg-transparent border-none rounded-none pl-10 pr-4 py-2 text-5xl sm:text-5xl font-black text-slate-800 focus:outline-none transition-all placeholder:text-slate-100"
                 />
               </div>
             </div>
 
             {/* Category Select */}
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-lg transition-all">
-              <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 text-center">
+              <label className="block text-[10px] font-black uppercase text-slate-400 mb-4 text-center">
                 เลือกหมวดหมู่รายการ
               </label>
               <div className="grid grid-cols-2 gap-4">

@@ -24,12 +24,8 @@ const formatThaiPhone = (phone: string) => {
 
 function InfoItem({ icon, label, value, color, last = false }: InfoItemProps) {
   return (
-    <div
-      className={`flex items-center gap-4 p-4 ${!last && "border-b border-white/40"}`}
-    >
-      <div
-        className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-100 text-${color}-600`}
-      >
+    <div className={`flex items-center gap-4 p-4 ${!last && "border-b border-slate-100"}`}>
+      <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-100 text-${color}-600`}>
         {icon}
       </div>
       <div>
@@ -62,12 +58,12 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="animate-[fadeIn_0.3s] max-w-md mx-auto flex flex-col justify-center h-[calc(100vh-140px)] min-h-[450px]">
-      {/* Profile Header */}
-      <div className="text-center mb-6">
+    // ปรับ pt-10 เพื่อขยับขึ้นด้านบน และเอา justify-center ออก
+    <div className="animate-[fadeIn_0.3s] max-w-md mx-auto flex flex-col min-h-screen pt-20 pb-32 px-6">
+      <div className="text-center mb-8">
         <div className="relative inline-block">
           {member.pictureUrl ? (
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full mx-auto shadow-xl border-4 border-white overflow-hidden bg-white">
+            <div className="w-24 h-24 rounded-full mx-auto shadow-xl border-4 border-white overflow-hidden bg-white">
               <Image
                 src={member.pictureUrl}
                 alt={member.fullName}
@@ -78,30 +74,30 @@ export default function ProfilePage() {
               />
             </div>
           ) : (
-            <div className="w-20 h-20 sm:w-24 sm:h-24 profile-gradient rounded-full mx-auto flex items-center justify-center text-white text-3xl sm:text-4xl shadow-xl border-4 border-white">
-              <User className="w-10 h-10 sm:w-12 sm:h-12" />
+            <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-sky-400 rounded-full mx-auto flex items-center justify-center text-white shadow-xl border-4 border-white">
+              <User className="w-12 h-12" />
             </div>
           )}
-          <div className="absolute bottom-0 right-0 bg-green-500 w-5 h-5 sm:w-6 sm:h-6 rounded-full border-[3px] sm:border-4 border-white"></div>
+          <div className="absolute bottom-1 right-1 bg-green-500 w-6 h-6 rounded-full border-4 border-white"></div>
         </div>
-        <h2 className="text-lg sm:text-xl font-bold mt-3 text-slate-800">
+        <h2 className="text-xl font-bold mt-4 text-slate-800">
           คุณ {member.fullName}
         </h2>
         <div className="mt-2 flex justify-center">
-          <div className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-[10px] sm:text-xs font-semibold rounded-full shadow-md">
-            <ShieldCheck size={16} className="opacity-90" />
-            ยืนยันแล้ว
+          <div className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-xs font-semibold rounded-full shadow-sm">
+            <ShieldCheck size={14} />
+            ยืนยันตัวตนแล้ว
           </div>
         </div>
       </div>
 
       {/* Info Card */}
-      <div className="px-5 w-full">
-        <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1 tracking-wider">
+      <div className="px-6 w-full">
+        <h3 className="text-[11px] font-bold text-slate-400 uppercase mb-3 ml-1 tracking-widest">
           ข้อมูลส่วนตัว
         </h3>
 
-        <div className="backdrop-blur-xl bg-white/70 border border-white/40 rounded-3xl shadow-lg overflow-hidden">
+        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
           <InfoItem
             icon={<User size={18} />}
             label="ชื่อ-นามสกุล"
@@ -127,7 +123,7 @@ export default function ProfilePage() {
       {/* Contact Button */}
       <div className="mt-8 flex flex-col items-center justify-center">
         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-          ติดต่อผู้ดูแล
+          ติดต่อสอบถามเพิ่มเติม
         </span>
 
         <a
