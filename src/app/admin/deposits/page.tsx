@@ -562,7 +562,7 @@ export default function DepositsPage() {
 								<p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">รูปสลิป</p>
 								<div className="bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex justify-center items-center min-h-[220px] relative">
 									{selectedDeposit.slipUrl ? (
-										<div 
+										<div
 											className="cursor-zoom-in relative group"
 											onClick={() => setIsZoomOpen(true)}
 										>
@@ -583,80 +583,6 @@ export default function DepositsPage() {
 										<p className="text-slate-400 text-sm py-8">ไม่พบรูปสลิป</p>
 									)}
 								</div>
-							</div>
-
-							{/* AI Analysis Section (Pre-calculated by Member Tool) */}
-							<div className="px-5 py-4 border-t border-slate-100 bg-sky-50/50">
-								<div className="flex items-center justify-between mb-3">
-									<h4 className="text-xs font-black text-sky-700 uppercase tracking-widest flex items-center gap-2">
-										<CheckCircle2 size={12} className="text-emerald-500" />
-										AI วิเคราะห์สลิป (บันทึกตอนอัปโหลด)
-									</h4>
-									{aiParsedData && (
-										<span className="text-[10px] font-bold text-sky-600 bg-white px-2 py-0.5 rounded-full shadow-sm">
-											{aiParsedData.method === 'qr' ? 'Verified via QR' : 'Verified via OCR'}
-										</span>
-									)}
-								</div>
-
-								{!aiParsedData ? (
-									<div className="flex items-center gap-2 py-2 text-slate-400">
-										<AlertCircle size={16} />
-										<p className="text-xs font-bold">ไม่มีข้อมูลการวิเคราะห์ (รายการเก่า)</p>
-									</div>
-								) : (
-									<div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-300">
-										{/* Amount Comparison */}
-										{(() => {
-											const detectedAmt = parseFloat(aiParsedData.qr_data?.amount || aiParsedData.ocr_data?.amount || "0");
-											const matches = Math.abs(detectedAmt - selectedDeposit.amount) < 1;
-											return (
-												<div className={`p-3 rounded-2xl border flex items-center justify-between ${
-													matches ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"
-												}`}>
-													<div className="flex items-center gap-3">
-														<div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-															matches ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"
-														}`}>
-															{matches ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-														</div>
-														<div>
-															<p className="text-[10px] font-bold text-slate-400 uppercase">ยอดเงินที่ตรวจพบ</p>
-															<p className="font-black text-slate-700">
-																{detectedAmt > 0 ? `${detectedAmt.toLocaleString()} บาท` : "ไม่พบยอดเงิน"}
-															</p>
-														</div>
-													</div>
-													{matches && (
-														<span className="text-[10px] font-black text-emerald-600 uppercase">ยอดตรงกัน ✅</span>
-													)}
-												</div>
-											);
-										})()}
-
-										{/* Details Grid */}
-										<div className="grid grid-cols-2 gap-y-2 px-1">
-											{aiParsedData.qr_data?.merchantID && (
-												<>
-													<span className="text-[10px] font-bold text-slate-400 uppercase">ผู้รับเงิน (QR)</span>
-													<span className="text-xs text-sky-600 font-bold text-right">{aiParsedData.qr_data.merchantID}</span>
-												</>
-											)}
-											{aiParsedData.qr_data?.reference && (
-												<>
-													<span className="text-[10px] font-bold text-slate-400 uppercase">เลขอ้างอิง (QR)</span>
-													<span className="text-xs font-mono text-slate-600 text-right">{aiParsedData.qr_data.reference}</span>
-												</>
-											)}
-											{aiParsedData.ocr_data?.reference && (
-												<>
-													<span className="text-[10px] font-bold text-slate-400 uppercase">เลขอ้างอิง (OCR)</span>
-													<span className="text-xs font-mono text-slate-600 text-right">{aiParsedData.ocr_data.reference}</span>
-												</>
-											)}
-										</div>
-									</div>
-								)}
 							</div>
 
 							{/* Amount */}
@@ -690,7 +616,7 @@ export default function DepositsPage() {
 						{/* Sticky Action Buttons */}
 						<div className="p-4 border-t border-slate-100 bg-white">
 							{selectedDeposit.status === "pending" ? (
-								<div className="flex gap-3">
+								<div className="flex gap-2">
 									<button
 										disabled={isUpdating}
 										onClick={() => handleReject(selectedDeposit.id)}
@@ -720,7 +646,7 @@ export default function DepositsPage() {
 			)}
 			{/* 🔍 Zoom Modal (Lightbox) */}
 			{isZoomOpen && selectedDeposit && (
-				<div 
+				<div
 					className="fixed inset-0 z-[999] flex items-center justify-center bg-black/90 backdrop-blur-md transition-all duration-300 animate-in fade-in"
 					onClick={() => setIsZoomOpen(false)}
 				>
@@ -734,15 +660,15 @@ export default function DepositsPage() {
 						>
 							<span className="i-lucide-external-link w-6 h-6" />
 						</a>
-						<button 
+						<button
 							className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-colors"
 							onClick={() => setIsZoomOpen(false)}
 						>
 							<span className="i-lucide-x w-6 h-6" />
 						</button>
 					</div>
-					
-					<div 
+
+					<div
 						className="relative max-w-[95vw] max-h-[90vh] w-auto h-auto transition-transform duration-500 animate-in zoom-in-95"
 						onClick={(e) => e.stopPropagation()}
 					>
