@@ -373,6 +373,7 @@ export default function RepaymentsPage() {
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">฿</span>
                   <NumericFormat
                     thousandSeparator={true}
+                    inputMode="decimal"
                     value={editAmount}
                     onValueChange={(values) => {
                       setEditAmount(values.floatValue || 0);

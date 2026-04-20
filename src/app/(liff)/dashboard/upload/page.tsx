@@ -8,6 +8,8 @@ import { gasApi } from "@/services/gasApi";
 import toast from "react-hot-toast";
 import { NumericFormat } from "react-number-format";
 import Swal from "sweetalert2";
+import jsQR from "jsqr";
+import Tesseract from "tesseract.js";
 
 type ProfileToken = {
   lineUserId: string;
@@ -25,7 +27,13 @@ export default function UploadSlipPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // AI Scanning State
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState({ message: '', percent: 0 });
+  const [aiData, setAiData] = useState<any>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const setupLiff = async () => {
@@ -73,8 +81,156 @@ export default function UploadSlipPage() {
       }
       
       setFile(selectedFile);
-      setPreviewUrl(URL.createObjectURL(selectedFile));
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
+      
+      // Start AI Scanning (QR + OCR) in background
+      processImage(selectedFile, url);
     }
+  };
+
+  const processImage = async (selectedFile: File, url: string) => {
+    setIsScanning(true);
+    setScanProgress({ message: 'วิเคราะห์สลิป...', percent: 0 });
+    setAiData(null);
+
+    try {
+      // 1. Scan QR Code
+      setScanProgress({ message: 'อ่าน QR Code...', percent: 20 });
+      const qr = await scanQRCode(selectedFile);
+      
+      // 2. Scan OCR (Parallel/Fallback)
+      setScanProgress({ message: 'อ่านข้อความจากสลิป...', percent: 40 });
+      const ocr = await performOCR(url);
+
+      const finalAiData = {
+        qr_data: qr,
+        ocr_data: ocr,
+        timestamp: new Date().toISOString(),
+        method: qr ? 'qr' : 'ocr'
+      };
+
+      setAiData(finalAiData);
+
+      // Super Feature: Auto-fill amount if detected and not already entered
+      const detectedAmount = parseFloat(qr?.amount || ocr?.amount || "0");
+      if (detectedAmount > 0 && (!amount || amount === 0)) {
+        setAmount(detectedAmount);
+        toast.success(`พบยอดเงิน ฿${detectedAmount.toLocaleString()} ในสลิป`, { icon: '💰' });
+      }
+
+      setScanProgress({ message: 'เสร็จสิ้น!', percent: 100 });
+    } catch (err) {
+      console.error("Scanning error:", err);
+    } finally {
+      setTimeout(() => setIsScanning(false), 500);
+    }
+  };
+
+  const scanQRCode = (file: File): Promise<any | null> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(null);
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+          if (code) {
+            resolve(parsePromptPayData(code.data));
+          } else {
+            resolve(null);
+          }
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const performOCR = async (imageUrl: string): Promise<any | null> => {
+    try {
+      const result = await Tesseract.recognize(imageUrl, 'tha+eng', {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            const p = Math.round(m.progress * 100);
+            setScanProgress({ message: `วิเคราะห์สลิป... ${p}%`, percent: 40 + p * 0.6 });
+          }
+        },
+      });
+      return extractSlipInfo(result.data.text);
+    } catch (err) {
+      console.error('OCR Error:', err);
+      return null;
+    }
+  };
+
+  // --- Accurate Parsing Logic ---
+  const parsePromptPayData = (data: string): any | null => {
+    try {
+      const info: any = { merchantID: '', amount: '', reference: '', billPaymentRef1: '', billPaymentRef2: '' };
+      let i = 0;
+      while (i < data.length) {
+        const tag = data.substring(i, i + 2); i += 2;
+        const length = parseInt(data.substring(i, i + 2)); i += 2;
+        const value = data.substring(i, i + length); i += length;
+        if (tag === '29' && value.length > 0) {
+          let j = 0;
+          while (j < value.length) {
+            const subTag = value.substring(j, j + 2); j += 2;
+            const subLength = parseInt(value.substring(j, j + 2)); j += 2;
+            const subValue = value.substring(j, j + subLength); j += subLength;
+            if (subTag === '01') info.merchantID = formatPromptPayID(subValue);
+          }
+        }
+        if (tag === '54') info.amount = value;
+        if (tag === '62' && value.length > 0) {
+          let j = 0;
+          while (j < value.length) {
+            const subTag = value.substring(j, j + 2); j += 2;
+            const subLength = parseInt(value.substring(j, j + 2)); j += 2;
+            const subValue = value.substring(j, j + subLength); j += subLength;
+            if (subTag === '05') info.reference = subValue;
+            if (subTag === '01') info.billPaymentRef1 = subValue;
+            if (subTag === '02') info.billPaymentRef2 = subValue;
+          }
+        }
+      }
+      return info;
+    } catch { return null; }
+  };
+
+  const formatPromptPayID = (id: string): string => {
+    if (id.length === 15 && id.startsWith('00')) return id.substring(2).replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{1})/, '$1-$2-$3-$4-$5');
+    if (id.length === 13 && id.startsWith('66')) return '0' + id.substring(2).replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+    return id;
+  };
+
+  const extractSlipInfo = (text: string): any => {
+    const info: any = { amount: null, date: null, time: null, reference: null };
+    const cleanText = text.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9\s\.\,\:\-\/\(\)\฿]/g, ' ').replace(/\s+/g, ' ').trim();
+    const amountPatterns = [
+      /(?:จำนวนเงิน|จ่าย|ยอดเงิน|โอน)[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i,
+      /(?:Amount|Total|Pay)[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i,
+      /THB[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i,
+      /([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})\s*(?:บาท|Baht)/i,
+      /\b([1-9][0-9]{0,2}(?:,?[0-9]{3})*\.[0-9]{2})\b/,
+    ];
+    for (const pattern of amountPatterns) {
+      const match = cleanText.match(pattern);
+      if (match) {
+        const val = match[1].replace(/,/g, '');
+        if (!isNaN(parseFloat(val))) { info.amount = val; break; }
+      }
+    }
+    const refPatterns = [ /(?:เลขที่อ้างอิง|Reference|Ref\s*No\.?)[:\s]*([A-Z0-9]{10,})/i, /\b([A-Z]{3}[0-9]{10,})\b/ ];
+    for (const p of refPatterns) { const m = text.match(p); if (m) { info.reference = m[1] || m[0]; break; } }
+    return info;
   };
 
   const toBase64 = (f: File): Promise<string> => {
@@ -126,7 +282,8 @@ export default function UploadSlipPage() {
         filename: file.name,
         mimeType: mimeType,
         fileBase64: base64DataStr,
-        idToken: idToken
+        idToken: idToken,
+        aiData: JSON.stringify(aiData) // Pass findings to backend
       };
       
       const res = await fetch("/api/member", {
@@ -199,6 +356,7 @@ export default function UploadSlipPage() {
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">฿</span>
             <NumericFormat
               thousandSeparator={true}
+              inputMode="decimal"
               value={amount}
               onValueChange={(values) => {
                 setAmount(values.floatValue);
@@ -245,6 +403,17 @@ export default function UploadSlipPage() {
               <>
                 <img src={previewUrl} alt="Slip Preview" className="absolute inset-0 w-full h-full object-contain opacity-50 blur-md scale-110" />
                 <img src={previewUrl} alt="Slip Preview" className="relative z-10 max-h-48 rounded-lg shadow-2xl border border-white/20" />
+                
+                {isScanning && (
+                  <div className="absolute inset-0 z-30 bg-black/60 flex flex-col items-center justify-center p-6 text-white text-center">
+                    <Loader2 className="animate-spin w-10 h-10 mb-3 text-sky-400" />
+                    <p className="font-bold text-sm">{scanProgress.message}</p>
+                    <div className="w-full max-w-[150px] bg-white/20 h-1 rounded-full mt-3 overflow-hidden">
+                      <div className="h-full bg-sky-400 transition-all duration-300" style={{ width: `${scanProgress.percent}%` }} />
+                    </div>
+                  </div>
+                )}
+
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/40 transition-opacity z-20">
                   <span className="bg-white text-slate-800 font-bold px-4 py-2 rounded-full text-sm shadow-xl flex items-center gap-2">
                     <UploadCloud size={16} /> เปลี่ยนรูปภาพ

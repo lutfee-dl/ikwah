@@ -398,6 +398,7 @@ export default function ContractDetailPage() {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">฿</span>
                     <NumericFormat
                       thousandSeparator={true}
+                      inputMode="decimal"
                       value={amountPaid}
                       onValueChange={(values) => {
                         setAmountPaid(values.floatValue);

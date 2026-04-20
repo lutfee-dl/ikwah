@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2, FileClock } from "lucide-react";
+import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2, FileClock, AlertCircle } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import { NumericFormat } from "react-number-format";
@@ -16,6 +16,7 @@ type Deposit = {
 	status: "pending" | "approved" | "rejected";
 	rawStatus?: string;
 	slipUrl: string;
+	aiData?: string; // JSON string stored in GAS
 };
 
 type FilterStatus = "pending" | "approved" | "rejected" | "all";
@@ -45,8 +46,8 @@ export default function DepositsPage() {
 	const [selectedDeposit, setSelectedDeposit] = useState<Deposit | null>(null);
 	const [editAmount, setEditAmount] = useState<number>(0);
 	const [isModalOpen, setIsModalOpen] = useState(false);
-	const [isUpdating, setIsUpdating] = useState(false);
 	const [isZoomOpen, setIsZoomOpen] = useState(false);
+	const [isUpdating, setIsUpdating] = useState(false);
 
 	const getDriveImageUrl = (url: string) => {
 		if (!url || typeof url !== 'string') return "";
@@ -144,6 +145,31 @@ export default function DepositsPage() {
 	useEffect(() => {
 		fetchDeposits();
 	}, []);
+
+	const aiParsedData = useMemo(() => {
+		if (!selectedDeposit?.aiData) return null;
+		try {
+			return JSON.parse(selectedDeposit.aiData);
+		} catch (e) {
+			console.error("AI Data Parse Error:", e);
+			return null;
+		}
+	}, [selectedDeposit]);
+
+	const formatDateTime = (dateStr: string | null, timeStr: string | null): string | null => {
+		if (!dateStr) return null;
+		const monthsEN: { [key: string]: string } = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+		let day, month, year;
+		let match = dateStr.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{4})/i);
+		if (match) { day = match[1].padStart(2, '0'); month = monthsEN[match[2].toLowerCase().substring(0, 3)]; year = match[3]; }
+		if (!month) {
+			match = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+			if (match) { day = match[1].padStart(2, '0'); month = match[2].padStart(2, '0'); year = match[3].length === 2 ? '20' + match[3] : match[3]; }
+		}
+		if (!month) return dateStr + (timeStr ? ' ' + timeStr : '');
+		const formattedTime = timeStr || '00:00:00';
+		return `${day}/${month}/${year} ${formattedTime}`;
+	};
 
 	const handleApprove = async (id: string) => {
 		const result = await Swal.fire({
@@ -536,34 +562,101 @@ export default function DepositsPage() {
 								<p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">รูปสลิป</p>
 								<div className="bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex justify-center items-center min-h-[220px] relative">
 									{selectedDeposit.slipUrl ? (
-										<>
-											<div 
-												className="cursor-zoom-in relative group"
-												onClick={() => setIsZoomOpen(true)}
-											>
-												<Image
-													src={getDriveImageUrl(selectedDeposit.slipUrl)}
-													alt="Slip"
-													width={500}
-													height={800}
-													className="w-full h-auto max-h-[60svh] object-contain rounded-lg border border-slate-200 shadow-sm transition-transform duration-300 group-hover:scale-[1.02]"
-													unoptimized
-													onError={(e) => {
-														const target = e.target as HTMLImageElement;
-														target.src = "https://placehold.co/400x600?text=Invalid+Image";
-													}}
-												/>
-												<div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300 flex items-center justify-center rounded-lg">
-													<div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-lg">
-														<span className="i-lucide-zoom-in w-6 h-6 text-slate-700" />
-													</div>
-												</div>
-											</div>
-										</>
+										<div 
+											className="cursor-zoom-in relative group"
+											onClick={() => setIsZoomOpen(true)}
+										>
+											<Image
+												src={getDriveImageUrl(selectedDeposit.slipUrl)}
+												alt="Slip"
+												width={500}
+												height={800}
+												className="w-full h-auto max-h-[60svh] object-contain rounded-lg border border-slate-200 shadow-sm transition-transform duration-300 group-hover:scale-[1.02]"
+												unoptimized
+												onError={(e) => {
+													const target = e.target as HTMLImageElement;
+													target.src = "https://placehold.co/400x600?text=Invalid+Image";
+												}}
+											/>
+										</div>
 									) : (
 										<p className="text-slate-400 text-sm py-8">ไม่พบรูปสลิป</p>
 									)}
 								</div>
+							</div>
+
+							{/* AI Analysis Section (Pre-calculated by Member Tool) */}
+							<div className="px-5 py-4 border-t border-slate-100 bg-sky-50/50">
+								<div className="flex items-center justify-between mb-3">
+									<h4 className="text-xs font-black text-sky-700 uppercase tracking-widest flex items-center gap-2">
+										<CheckCircle2 size={12} className="text-emerald-500" />
+										AI วิเคราะห์สลิป (บันทึกตอนอัปโหลด)
+									</h4>
+									{aiParsedData && (
+										<span className="text-[10px] font-bold text-sky-600 bg-white px-2 py-0.5 rounded-full shadow-sm">
+											{aiParsedData.method === 'qr' ? 'Verified via QR' : 'Verified via OCR'}
+										</span>
+									)}
+								</div>
+
+								{!aiParsedData ? (
+									<div className="flex items-center gap-2 py-2 text-slate-400">
+										<AlertCircle size={16} />
+										<p className="text-xs font-bold">ไม่มีข้อมูลการวิเคราะห์ (รายการเก่า)</p>
+									</div>
+								) : (
+									<div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-300">
+										{/* Amount Comparison */}
+										{(() => {
+											const detectedAmt = parseFloat(aiParsedData.qr_data?.amount || aiParsedData.ocr_data?.amount || "0");
+											const matches = Math.abs(detectedAmt - selectedDeposit.amount) < 1;
+											return (
+												<div className={`p-3 rounded-2xl border flex items-center justify-between ${
+													matches ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"
+												}`}>
+													<div className="flex items-center gap-3">
+														<div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+															matches ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"
+														}`}>
+															{matches ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+														</div>
+														<div>
+															<p className="text-[10px] font-bold text-slate-400 uppercase">ยอดเงินที่ตรวจพบ</p>
+															<p className="font-black text-slate-700">
+																{detectedAmt > 0 ? `${detectedAmt.toLocaleString()} บาท` : "ไม่พบยอดเงิน"}
+															</p>
+														</div>
+													</div>
+													{matches && (
+														<span className="text-[10px] font-black text-emerald-600 uppercase">ยอดตรงกัน ✅</span>
+													)}
+												</div>
+											);
+										})()}
+
+										{/* Details Grid */}
+										<div className="grid grid-cols-2 gap-y-2 px-1">
+											{aiParsedData.qr_data?.merchantID && (
+												<>
+													<span className="text-[10px] font-bold text-slate-400 uppercase">ผู้รับเงิน (QR)</span>
+													<span className="text-xs text-sky-600 font-bold text-right">{aiParsedData.qr_data.merchantID}</span>
+												</>
+											)}
+											{aiParsedData.qr_data?.reference && (
+												<>
+													<span className="text-[10px] font-bold text-slate-400 uppercase">เลขอ้างอิง (QR)</span>
+													<span className="text-xs font-mono text-slate-600 text-right">{aiParsedData.qr_data.reference}</span>
+												</>
+											)}
+											{aiParsedData.ocr_data?.reference && (
+												<>
+													<span className="text-[10px] font-bold text-slate-400 uppercase">เลขอ้างอิง (OCR)</span>
+													<span className="text-xs font-mono text-slate-600 text-right">{aiParsedData.ocr_data.reference}</span>
+												</>
+											)}
+										</div>
+									</div>
+								)}
 							</div>
 
 							{/* Amount */}
@@ -574,6 +667,7 @@ export default function DepositsPage() {
 										<span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-lg">฿</span>
 										<NumericFormat
 											thousandSeparator={true}
+											inputMode="decimal"
 											value={editAmount}
 											onValueChange={(values) => {
 												setEditAmount(values.floatValue || 0);
@@ -589,6 +683,7 @@ export default function DepositsPage() {
 									<p className="text-3xl font-black text-sky-600">฿{selectedDeposit.amount.toLocaleString()}</p>
 								</div>
 							)}
+
 							<div className="h-4" />
 						</div>
 

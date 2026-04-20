@@ -6,6 +6,8 @@ import { useMemberData } from "@/hooks/useMemberData";
 import { getLiffIdToken } from "@/services/liff";
 import { ArrowLeft, Send, AlertCircle, CheckCircle } from "lucide-react";
 import { NumericFormat } from "react-number-format";
+import Swal from "sweetalert2";
+import { toast } from "react-hot-toast";
 
 export default function LoanRequestPage() {
   const router = useRouter();
@@ -25,48 +27,48 @@ export default function LoanRequestPage() {
     e.preventDefault();
 
     if (!loanType) {
-      setErrorMsg("กรุณาเลือกประเภทสินเชื่อ");
+      toast.error("กรุณาเลือกประเภทสินเชื่อ");
       return;
     }
 
     const amountNum = parseInt(amount);
 
     if (!amount || amountNum <= 0) {
-      setErrorMsg("กรุณาระบุจำนวนเงินให้ถูกต้อง");
+      toast.error("กรุณาระบุจำนวนเงินให้ถูกต้อง");
       return;
     }
 
     if (loanType === "ฉุกเฉิน" && amountNum > 10000) {
-      setErrorMsg("สินเชื่อฉุกเฉิน ระบุได้ไม่เกิน 10,000 บาท");
+      toast.error("สินเชื่อฉุกเฉิน ระบุได้ไม่เกิน 10,000 บาท");
       return;
     }
     if (
       (loanType === "ก้อดฮาซัน" || loanType === "ซื้อขาย") &&
       amountNum > 200000
     ) {
-      setErrorMsg(`สินเชื่อ${loanType} ระบุได้ไม่เกิน 200,000 บาท`);
+      toast.error(`สินเชื่อ${loanType} ระบุได้ไม่เกิน 200,000 บาท`);
       return;
     }
 
     if (!duration) {
-      setErrorMsg("กรุณาเลือกระยะเวลาผ่อนชำระ");
+      toast.error("กรุณาเลือกระยะเวลาผ่อนชำระ");
       return;
     }
 
     if (!reason) {
-      setErrorMsg("กรุณาระบุวัตถุประสงค์การกู้ยืม");
+      toast.error("กรุณาระบุวัตถุประสงค์การกู้ยืม");
       return;
     }
 
     setIsSubmitting(true);
     setErrorMsg("");
+    const tid = toast.loading("กำลังส่งข้อมูล...");
 
     try {
       const token = await getLiffIdToken();
       if (!token) {
-        setErrorMsg(
-          "เซสชันหมดอายุ หรือ Liff API Error กรุณาเข้าแอปใหม่อีกครั้ง",
-        );
+        Swal.fire("Session Expired", "เซสชันหมดอายุ กรุณาเข้าแอปใหม่อีกครั้ง", "error");
+        toast.dismiss(tid);
         setIsSubmitting(false);
         return;
       }
@@ -93,15 +95,18 @@ export default function LoanRequestPage() {
       const data = await res.json();
 
       if (data.success) {
+        toast.success("ส่งคำขอเรียบร้อยแล้ว", { id: tid });
         setSuccessMsg("ส่งคำขอสำเร็จ");
         setTimeout(() => {
           router.push("/dashboard/home");
         }, 3000);
       } else {
-        setErrorMsg(data.msg || "เกิดข้อผิดพลาดในการส่งข้อมูล");
+        Swal.fire("Failure", data.msg || "เกิดข้อผิดพลาดในการส่งข้อมูล", "error");
+        toast.dismiss(tid);
       }
     } catch {
-      setErrorMsg("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+      Swal.fire("Error", "ไม่สามารถติดต่อเซิร์ฟเวอร์ได้", "error");
+      toast.dismiss(tid);
     } finally {
       setIsSubmitting(false);
     }
@@ -196,7 +201,7 @@ export default function LoanRequestPage() {
               value={amount}
               thousandSeparator=","
               allowNegative={false}
-              inputMode="numeric"
+              inputMode="decimal"
               placeholder="ระบุจำนวนเงิน"
               className={`w-full bg-slate-50 border ${
                 errorMsg &&
