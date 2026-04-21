@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react"; // 1. นำเข้า useState
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMemberData } from "@/hooks/useMemberData";
-import { BanknoteArrowDown, Eye, EyeOff } from "lucide-react"; // 2. นำเข้าไอคอน
+import { BanknoteArrowDown, Eye, EyeOff } from "lucide-react";
+import { ASSETS } from "@/config";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function DashboardPage() {
         {/* 🔥 LOGO BACKGROUND */}
         <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-10 pointer-events-none">
           <Image
-            src="/LOGO.png"
+            src={ASSETS.IMAGES.LOGO}
             alt="bg-logo"
             width={180}
             height={180}
