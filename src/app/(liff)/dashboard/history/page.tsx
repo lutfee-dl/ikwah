@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { gasApi } from "@/services/gasApi";
 import { getLiffIdToken } from "@/services/liff";
-import { 
-  ArrowLeft, 
-  History as HistoryIcon, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Clock, 
-  CheckCircle2, 
+import {
+  ArrowLeft,
+  History as HistoryIcon,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Clock,
+  CheckCircle2,
   XCircle,
   Eye,
-  Wallet
+  Wallet,
+  X
 } from "lucide-react";
 
 type Transaction = {
@@ -31,6 +33,8 @@ export default function HistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedSlip, setSelectedSlip] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchHistory = async () => {
     setIsLoading(true);
@@ -80,6 +84,13 @@ export default function HistoryPage() {
     return <Clock size={14} />;
   };
 
+  const getDriveImageUrl = (url: string) => {
+    if (!url) return "";
+    const matches = url.match(/[-\w]{25,}/g);
+    const fileId = matches ? matches.find(m => !['drive', 'google', 'file', 'view'].includes(m.toLowerCase())) : null;
+    return fileId ? `https://docs.google.com/thumbnail?id=${fileId}&sz=w1200` : url;
+  };
+
   return (
     <div className="max-w-md mx-auto pb-20 animate-[fadeIn_0.3s]">
       {/* Header */}
@@ -117,7 +128,7 @@ export default function HistoryPage() {
           <div className="py-20 text-center bg-white rounded-3xl border border-rose-100">
             <XCircle className="w-12 h-12 text-rose-300 mx-auto mb-3" />
             <p className="text-rose-500 font-medium">{error}</p>
-            <button 
+            <button
               onClick={fetchHistory}
               className="mt-4 text-blue-500 font-bold"
             >
@@ -133,15 +144,14 @@ export default function HistoryPage() {
           </div>
         ) : (
           transactions.map((item, index) => (
-            <div 
+            <div
               key={index}
               className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 group active:scale-[0.98] transition-all"
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex gap-3">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                    item.type === "deposit" ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500"
-                  }`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${item.type === "deposit" ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500"
+                    }`}>
                     {item.type === "deposit" ? <ArrowUpRight size={24} /> : <ArrowDownLeft size={24} />}
                   </div>
                   <div>
@@ -166,10 +176,13 @@ export default function HistoryPage() {
                   {getStatusIcon(item.status)}
                   {item.status}
                 </div>
-                
+
                 {item.slipUrl && (
-                  <button 
-                    onClick={() => window.open(item.slipUrl, "_blank")}
+                  <button
+                    onClick={() => {
+                      setSelectedSlip(item.slipUrl || null);
+                      setIsModalOpen(true);
+                    }}
                     className="flex items-center gap-1.5 text-[11px] font-bold text-blue-500 hover:text-blue-600"
                   >
                     <Eye size={14} /> ดูสลิป
@@ -180,6 +193,41 @@ export default function HistoryPage() {
           ))
         )}
       </div>
+
+      {/* Slip Modal */}
+      {isModalOpen && selectedSlip && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-200"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div
+            className="relative max-w-full max-h-full flex flex-col items-center animate-in zoom-in-95 duration-300"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute -top-12 right-0 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="bg-white p-2 rounded-3xl shadow-2xl overflow-hidden max-h-[75vh]">
+              <Image
+                src={getDriveImageUrl(selectedSlip)}
+                alt="Slip Preview"
+                width={600}
+                height={800}
+                className="w-auto h-auto max-w-full max-h-[70vh] object-contain rounded-2xl"
+                unoptimized
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = "https://placehold.co/400x600?text=ไม่สามารถโหลดรูปภาพได้";
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -46,10 +46,8 @@ export default function LoansPage() {
 			});
 			const result = await res.json();
 			if ((result.status === "success" || result.success === true) && Array.isArray(result.data)) {
-				// Map backend data which comes as an array of arrays or objects.
-				// Based on headers: Request_ID, Timestamp, LINE_UserID, LineName, FullName, Phone, Loan_Type, Amount, Duration_Months, Reason, Status, Admin_Remark
+				// Map backend data...
 				const mappedLoans = result.data.map((row: Record<string, string | number> | string[], index: number) => {
-					// Handle whether result.data is an array of arrays or objects
 					const isArray = Array.isArray(row);
 					const reqId = isArray ? String(row[0] || "") : String(row.id || row.loanId || `REQ-${index}`);
 					const lineUserIdStr = isArray ? String(row[2] || "") : String(row.lineUserId || row.lineId || "-");
@@ -57,14 +55,14 @@ export default function LoansPage() {
 						id: reqId,
 						date: isArray ? String(row[1] || "") : String(row.date || row.createdAt || "-"),
 						lineUserId: lineUserIdStr,
-						lineName: isArray ? String(row[3] || "") : String(row.lineName || "-"),
-						name: isArray ? String(row[4] || "") : String(row.name || row.fullName || "-"),
-						phone: isArray ? String(row[5] || "") : String(row.phone || "-"),
-						type: isArray ? String(row[6] || "") : String(row.type || row.loanType || "-"),
-						amount: Number(isArray ? row[7] : row.amount || 0),
+						lineName: isArray ? "" : String(row.lineName || "-"),
+						name: isArray ? String(row[3] || "-") : String(row.name || row.fullName || "-"),
+						phone: isArray ? String(row[4] || "-") : String(row.phone || "-"),
+						type: isArray ? String(row[7] || "-") : String(row.type || row.loanType || "-"),
+						amount: Number(isArray ? row[5] : row.amount || 0),
 						duration: Number(isArray ? row[8] : row.duration || 0),
-						reason: isArray ? String(row[9] || "") : String(row.reason || "-"),
-						status: isArray ? String(row[10] || "รอตรวจสอบ") : String(row.status || "รอตตรวจสอบ"),
+						reason: isArray ? String(row[6] || "-") : String(row.reason || "-"),
+						status: isArray ? String(row[9] || "รอตรวจสอบ") : String(row.status || "รอตรวจสอบ"),
 					};
 				});
 				setLoans(mappedLoans);
@@ -73,8 +71,9 @@ export default function LoansPage() {
 				// If error but it returned successfully from API, assume no data
 				if (Object.keys(result).length === 0) {
 				  setLoans([]);
+				  toast.error("ได้รับข้อมูลว่างเปล่า (กรุณา Deploy GAS เป็นเวอร์ชันใหม่)");
 				} else {
-				  toast.error("ไม่สามารถโหลดข้อมูลคำขอกู้เงินได้");
+				  toast.error(`ไม่สามารถโหลดข้อมูลได้: ${result.msg || "เกิดข้อผิดพลาดที่เซิร์ฟเวอร์"}`);
 				}
 			}
 		} catch (error) {
@@ -216,11 +215,11 @@ export default function LoansPage() {
 							>
 								{tab.label}
 								{tab.id === "รอตรวจสอบ" &&
-									loans.filter((l) => l.status === "รอตตรวจสอบ").length >
+									loans.filter((l) => l.status === "รอตรวจสอบ").length >
 										0 && (
 										<span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-rose-500 rounded-full">
 											{
-												loans.filter((l) => l.status === "รอตตรวจสอบ")
+												loans.filter((l) => l.status === "รอตรวจสอบ")
 													.length
 											}
 										</span>
@@ -323,7 +322,7 @@ export default function LoansPage() {
 										<td className="py-4 px-6 text-center">
 											<span
 												className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-													item.status === "รอตตรวจสอบ"
+													item.status === "รอตรวจสอบ"
 														? "bg-amber-100 text-amber-700"
 														: item.status === "อนุมัติ"
 														? "bg-emerald-100 text-emerald-700"
@@ -337,13 +336,13 @@ export default function LoansPage() {
 											<button
 												onClick={() => openDetails(item)}
 												className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-													item.status === "รอตตรวจสอบ"
+													item.status === "รอตรวจสอบ"
 														? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100 hover:border-sky-500"
 														: "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
 												}`}
 											>
 												<Eye size={16} />
-												{item.status === "รอตตรวจสอบ"
+												{item.status === "รอตรวจสอบ"
 													? "ตรวจสอบ"
 													: "ดูข้อมูล"}
 											</button>
