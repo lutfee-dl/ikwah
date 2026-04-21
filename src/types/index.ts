@@ -30,35 +30,47 @@ export interface ProfileData {
   lineName?: string;
 }
 
-export type LoanSchedule = {
-	period: number;
-	month: string;
-	amount: number;
-	status: string;
-	payDate: string;
-};
+export interface LoanSchedule {
+  period: number;
+  month: string;
+  amount: number;
+  status: string;
+  payDate: string;
+}
 
-export type Member = {
-	memberId: string;
-	lineUserId: string;
-	lineName: string;
-	prefix: string;
-	fullName: string;
-	accountName: string;
-	idCard: string;
-	phone: string;
-	accumulatedShares: number;
-	totalLoanDebt: number;
-	pictureUrl: string;
-	status: string;
-	hasActiveLoan: boolean;
-	loanData: {
-		id: string;
-		type: string;
-		totalAmount: number;
-		paidAmount: number;
-		remainingAmount: number;
-		duration: number;
-		schedule: LoanSchedule[];
-	} | null;
-};
+export interface Member {
+  memberId: string;
+  lineUserId: string;
+  lineName: string;
+  prefix: string;
+  fullName: string;
+  accountName: string;
+  idCard: string;
+  phone: string;
+  accumulatedShares: number;
+  totalLoanDebt: number;
+  pictureUrl: string;
+  status: string;
+  hasActiveLoan: boolean;
+  loanData: {
+    id: string;
+    type: string;
+    totalAmount: number;
+    paidAmount: number;
+    remainingAmount: number;
+    duration: number;
+    schedule: LoanSchedule[];
+  } | null;
+}
+
+export interface MemberLoan {
+  contractId: string;
+  approvedDate: string;
+  loanType: string;
+  amount: number;
+  totalPayable: number;
+  duration: number;
+  paidAmount: number;
+  remainingBalance: number;
+  status: string;
+}

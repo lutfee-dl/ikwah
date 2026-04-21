@@ -1,8 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { UploadCloud, CheckCircle2, FileImage, Loader2, ArrowLeft, Copy, Wallet, Building2 } from "lucide-react";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { 
+  UploadCloud, 
+  CheckCircle2, 
+  FileImage, 
+  Loader2, 
+  ArrowLeft, 
+  Copy, 
+  ChevronDown,
+  Info,
+  AlertTriangle
+} from "lucide-react";
 
 import liff from "@line/liff";
 import NextImage from "next/image";
@@ -12,22 +22,34 @@ import Swal from "sweetalert2";
 import jsQR from "jsqr";
 import Tesseract from "tesseract.js";
 import { ASSETS } from "@/config";
+import { gasApi } from "@/services/gasApi";
+import { MemberLoan } from "@/types";
 
 type ProfileToken = {
   lineUserId: string;
   name: string;
 };
 
-export default function UploadSlipPage() {
+// --- Subcomponent to handle search params safely in Suspense ---
+function UploadForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchCategory = searchParams.get("category");
+  const searchContractId = searchParams.get("contractId");
+
   const [profile, setProfile] = useState<ProfileToken | null>(null);
 
   const [amount, setAmount] = useState<number | undefined>(undefined);
-  const [category, setCategory] = useState("ฝากหุ้นสะสม");
+  const [category, setCategory] = useState(searchCategory || "ฝากหุ้นสะสม");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Loan State
+  const [loans, setLoans] = useState<MemberLoan[]>([]);
+  const [selectedContractId, setSelectedContractId] = useState(searchContractId || "");
+  const [isLoadingLoans, setIsLoadingLoans] = useState(true);
 
   // AI Scanning State
   const [isScanning, setIsScanning] = useState(false);
@@ -35,7 +57,6 @@ export default function UploadSlipPage() {
   const [aiData, setAiData] = useState<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const setupLiff = async () => {
@@ -50,6 +71,7 @@ export default function UploadSlipPage() {
               lineUserId: profile.userId,
               name: profile.displayName || "Member"
             });
+            fetchLoans();
           }
         }
       } catch (e) {
@@ -59,11 +81,36 @@ export default function UploadSlipPage() {
         if (localData) {
           const p = JSON.parse(localData);
           setProfile({ lineUserId: p.lineUserId || p.line_user_id || "TEST-USER", name: p.fullName || "Member" });
+          fetchLoans();
         }
       }
     };
+
+    const fetchLoans = async () => {
+      setIsLoadingLoans(true);
+      try {
+        const { getLiffIdToken } = await import("@/services/liff");
+        const token = await getLiffIdToken();
+        if (token) {
+          const res = await gasApi.getMemberLoans(token);
+          if (res.success) {
+            const activeLoans = res.data.filter((l: any) => l.status === "กำลังผ่อน");
+            setLoans(activeLoans);
+            // If we have loans but no pre-selected contract, select the first one
+            if (activeLoans.length > 0 && !searchContractId) {
+              setSelectedContractId(activeLoans[0].contractId);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Fetch loans err", err);
+      } finally {
+        setIsLoadingLoans(false);
+      }
+    };
+
     setupLiff();
-  }, []);
+  }, [searchContractId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -277,6 +324,10 @@ export default function UploadSlipPage() {
       toast.error("กรุณาเลือกหมวดหมู่รายการ");
       return;
     }
+    if (category === "ชำระยอดสินเชื่อ" && !selectedContractId) {
+      toast.error("กรุณาเลือกเลขที่สัญญาที่ต้องการชำระ");
+      return;
+    }
     if (!file) {
       toast.error("กรุณาอัปโหลดรูปภาพสลิปโอนเงิน");
       return;
@@ -299,6 +350,12 @@ export default function UploadSlipPage() {
             <span class="text-[10px] font-black uppercase text-slate-400">หมวดหมู่รายการ</span>
             <span class="font-bold text-slate-700">${category}</span>
           </div>
+          ${category === 'ชำระยอดสินเชื่อ' ? `
+          <div class="flex justify-between items-center">
+            <span class="text-[10px] font-black uppercase text-slate-400">เลขที่สัญญา</span>
+            <span class="font-bold text-violet-600">${selectedContractId}</span>
+          </div>
+          ` : ''}
           <p class="text-[10px] text-slate-400 italic text-center mt-2 font-medium">* โปรดตรวจสอบยอดเงินให้ตรงกับสลิปจริง</p>
         </div>
       `,
@@ -319,9 +376,7 @@ export default function UploadSlipPage() {
     if (!result.isConfirmed) return;
 
     try {
-
       setIsSubmitting(true);
-
       const base64Image = await toBase64(file);
       const base64DataStr = base64Image.split(",")[1];
       const mimeType = file.type;
@@ -337,11 +392,12 @@ export default function UploadSlipPage() {
         name: profile.name,
         amount: Number(amount),
         category: category,
+        contractId: category === "ชำระยอดสินเชื่อ" ? selectedContractId : "",
         filename: file.name,
         mimeType: mimeType,
         fileBase64: base64DataStr,
         idToken: idToken,
-        aiData: JSON.stringify(aiData) // Pass findings to backend
+        aiData: JSON.stringify(aiData)
       };
 
       const res = await fetch("/api/member", {
@@ -351,7 +407,6 @@ export default function UploadSlipPage() {
       });
 
       const data = await res.json();
-
       if (data.success) {
         setSuccess(true);
         toast.success("อัปโหลดสลิปเรียบร้อยแล้ว");
@@ -403,10 +458,8 @@ export default function UploadSlipPage() {
         </div>
       </div>
 
-      {/* COMPACT & EASY-READ BANK CARD */}
+      {/* BANK CARD */}
       <div className="mx-auto bg-white rounded-3xl p-6 border border-sky-100 shadow-sm">
-
-        {/* Bank Header */}
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 bg-[#174719] rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-[#174719]">
             <NextImage src={ASSETS.IMAGES.LOGO_ISLAMIC_BANK} alt="Islamic Bank" width={40} height={40} />
@@ -416,10 +469,7 @@ export default function UploadSlipPage() {
             <p className="text-sky-500 text-xs font-medium">สาขา ยะรัง ปัตตานี</p>
           </div>
         </div>
-
-        {/* Account Info Box */}
         <div className="space-y-4">
-          {/* Number Section */}
           <div className="bg-slate-50 rounded-2xl p-4 relative group">
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">เลขที่บัญชี</p>
             <div className="flex items-center justify-between">
@@ -435,21 +485,16 @@ export default function UploadSlipPage() {
               </button>
             </div>
           </div>
-
-          {/* Holder Section */}
           <div className="px-1">
             <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">ชื่อบัญชี</p>
             <p className="text-slate-800 font-bold text-base leading-tight">กองทุนสะสมอิควะห์ยะรัง</p>
-            <p className="text-slate-500 text-sm mt-1 font-medium">
-              โดย น.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง
-            </p>
+            <p className="text-slate-500 text-sm mt-1 font-medium">โดย น.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง</p>
           </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-
-        {/* STEP 1: HERO FILE UPLOAD (Always Visible) */}
+        {/* STEP 1: UPLOAD */}
         <div className="bg-white p-2 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
           <div
             onClick={() => fileInputRef.current?.click()}
@@ -462,22 +507,15 @@ export default function UploadSlipPage() {
               <>
                 <img src={previewUrl} alt="Slip Preview" className="absolute inset-0 w-full h-full object-contain opacity-40 blur-lg scale-125 transition-transform duration-700" />
                 <img src={previewUrl} alt="Slip Preview" className="relative z-10 max-h-64 rounded-xl shadow-2xl border border-white/20 animate-in zoom-in duration-500" />
-
                 {isScanning && (
                   <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-white text-center animate-in fade-in">
-                    <div className="relative">
-                      <Loader2 className="animate-spin w-12 h-12 mb-4 text-sky-400" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                      </div>
-                    </div>
+                    <Loader2 className="animate-spin w-12 h-12 mb-4 text-sky-400" />
                     <p className="font-black text-lg tracking-wide uppercase italic">{scanProgress.message}</p>
                     <div className="w-full max-w-[180px] bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden border border-white/5">
                       <div className="h-full bg-gradient-to-r from-sky-400 to-blue-500 transition-all duration-300" style={{ width: `${scanProgress.percent}%` }} />
                     </div>
                   </div>
                 )}
-
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/40 transition-opacity z-20">
                   <span className="bg-white/90 backdrop-blur-md text-slate-800 font-black px-6 py-3 rounded-full text-sm shadow-2xl flex items-center gap-2 transform translate-y-4 hover:translate-y-0 transition-transform">
                     <UploadCloud size={18} className="text-sky-500" /> เปลี่ยนรูปภาพ
@@ -491,60 +529,37 @@ export default function UploadSlipPage() {
                 </div>
                 <div>
                   <h3 className="font-black text-slate-800 text-lg">แตะเพื่ออัปโหลดสลิป</h3>
-                  <p className="text-sm text-slate-400 mt-1 font-medium">ระบบจะช่วยกรอกข้อมูลยอดยอดเงินให้ทันที</p>
-                </div>
-                <div className="bg-sky-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest animate-pulse">
-                  แนะนำอัปโหลดเป็นอันดับแรก
+                  <p className="text-sm text-slate-400 mt-1 font-medium">ระบบจะช่วยกรอกข้อมูลยอดเงินให้ทันที</p>
                 </div>
               </div>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
           </div>
         </div>
 
-        {/* STEP 2: REVEAL FIELDS (Only show when file is picked) */}
+        {/* STEP 2: FIELDS */}
         {(previewUrl || file) && (
           <div className="space-y-6 animate-in slide-in-from-top-10 fade-in duration-700 fill-mode-both">
-
-            {/* Amount Input */}
+            {/* Amount */}
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 relative group transition-all hover:shadow-lg hover:shadow-slate-100">
-              <div className="flex justify-between items-center mb-3">
-                <label className="block text-xs font-black uppercase text-slate-400">
-                  จำนวนเงิน
-                </label>
-                {aiData && (
-                  <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle2 size={10} /> โปรดตรวจสอบความถูกต้อง
-                  </span>
-                )}
-              </div>
+              <label className="block text-xs font-black uppercase text-slate-400 mb-3">จำนวนเงิน</label>
               <div className="relative">
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 font-light text-4xl">฿</span>
                 <NumericFormat
                   thousandSeparator={true}
                   inputMode="decimal"
                   value={amount}
-                  onValueChange={(values) => {
-                    setAmount(values.floatValue);
-                  }}
+                  onValueChange={(values) => setAmount(values.floatValue)}
                   placeholder="0.00"
-                  className="w-full bg-transparent border-none rounded-none pl-10 pr-4 py-2 text-5xl sm:text-5xl font-black text-slate-800 focus:outline-none transition-all placeholder:text-slate-100"
+                  className="w-full bg-transparent border-none rounded-none pl-10 pr-4 py-2 text-5xl font-black text-slate-800 focus:outline-none transition-all placeholder:text-slate-100"
                 />
               </div>
             </div>
 
-            {/* Category Select */}
+            {/* Category */}
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-lg transition-all">
-              <label className="block text-[10px] font-black uppercase text-slate-400 mb-4 text-center">
-                เลือกหมวดหมู่รายการ
-              </label>
-              <div className="grid grid-cols-2 gap-4">
+              <label className="block text-[10px] font-black uppercase text-slate-400 mb-4 text-center">เลือกหมวดหมู่รายการ</label>
+              <div className="grid grid-cols-2 gap-4 mb-6">
                 <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 ${category === "ฝากหุ้นสะสม" ? "border-sky-500 bg-sky-50/50 shadow-inner" : "border-slate-50 bg-white text-slate-400 hover:bg-slate-50 active:scale-95"}`}>
                   <input type="radio" value="ฝากหุ้นสะสม" checked={category === "ฝากหุ้นสะสม"} onChange={e => setCategory(e.target.value)} className="hidden" />
                   <div className={`w-10 h-10 rounded-xl mb-2 flex items-center justify-center transition-colors ${category === "ฝากหุ้นสะสม" ? "bg-sky-500 text-white shadow-lg shadow-sky-200" : "bg-slate-100"}`}>
@@ -552,17 +567,59 @@ export default function UploadSlipPage() {
                   </div>
                   <span className={`font-black text-xs ${category === "ฝากหุ้นสะสม" ? "text-sky-700" : ""}`}>ฝากหุ้นสะสม</span>
                 </label>
-                <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 ${category === "ชำระยอดสินเชื่อ" ? "border-violet-500 bg-violet-50/50 shadow-inner" : "border-slate-50 bg-white text-slate-400 hover:bg-slate-50 active:scale-95"}`}>
-                  <input type="radio" value="ชำระยอดสินเชื่อ" checked={category === "ชำระยอดสินเชื่อ"} onChange={e => setCategory(e.target.value)} className="hidden" />
+                
+                <label className={`relative cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 
+                  ${loans.length === 0 ? "opacity-40 cursor-not-allowed border-slate-100 bg-slate-50 grayscale" : 
+                    category === "ชำระยอดสินเชื่อ" ? "border-violet-500 bg-violet-50/50 shadow-inner" : "border-slate-50 bg-white text-slate-400 hover:bg-slate-50 active:scale-95"}`}
+                >
+                  <input 
+                    type="radio" 
+                    value="ชำระยอดสินเชื่อ" 
+                    disabled={loans.length === 0}
+                    checked={category === "ชำระยอดสินเชื่อ"} 
+                    onChange={e => setCategory(e.target.value)} 
+                    className="hidden" 
+                  />
                   <div className={`w-10 h-10 rounded-xl mb-2 flex items-center justify-center transition-colors ${category === "ชำระยอดสินเชื่อ" ? "bg-violet-500 text-white shadow-lg shadow-violet-200" : "bg-slate-100"}`}>
                     <CheckCircle2 size={20} />
                   </div>
                   <span className={`font-black text-xs ${category === "ชำระยอดสินเชื่อ" ? "text-violet-700" : ""}`}>ชำระสินเชื่อ</span>
+                  {loans.length === 0 && (
+                    <div className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg">
+                      <AlertTriangle size={10} />
+                    </div>
+                  )}
                 </label>
               </div>
+
+              {/* Contract Picker (Only if Category = Repayment) */}
+              {category === "ชำระยอดสินเชื่อ" && loans.length > 0 && (
+                <div className="space-y-3 animate-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Info size={14} className="text-violet-500" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase">กรุณาเลือกสัญญาที่ต้องการชำระ</span>
+                  </div>
+                  <div className="relative group">
+                    <select 
+                      value={selectedContractId}
+                      onChange={(e) => setSelectedContractId(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 appearance-none focus:outline-none focus:border-violet-500 transition-all font-bold text-slate-700 pr-12"
+                    >
+                      {loans.map(loan => (
+                        <option key={loan.contractId} value={loan.contractId}>
+                          {loan.loanType} - #{loan.contractId} (คงเหลือ ฿{loan.remainingBalance.toLocaleString()})
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300 group-focus-within:text-violet-500 transition-colors">
+                      <ChevronDown size={20} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={isSubmitting || !file || !amount}
@@ -574,26 +631,26 @@ export default function UploadSlipPage() {
               {isSubmitting ? (
                 <><Loader2 className="animate-spin w-6 h-6" /> กำลังบันทึกข้อมูล...</>
               ) : (
-                <>
-                  <span>ยืนยันการแจ้งโอน</span>
-                  <UploadCloud className="w-6 h-6 group-hover:translate-y-[-2px] transition-transform" />
-                </>
-              )}
-              {/* Shine effect for active button */}
-              {!isSubmitting && file && amount && (
-                <div className="absolute inset-0 w-[40px] h-full bg-white/20 skew-x-[-20deg] animate-[shine_2s_infinite] left-[-100%]" />
+                <><span>ยืนยันการแจ้งโอน</span><UploadCloud className="w-6 h-6" /></>
               )}
             </button>
           </div>
         )}
-
       </form>
-
-      <style jsx>{`
-        @keyframes shine {
-          100% { left: 200%; }
-        }
-      `}</style>
     </div>
+  );
+}
+
+// --- Main Page Export with Suspense Wrapper ---
+export default function UploadSlipPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <Loader2 className="animate-spin text-sky-500 w-10 h-10" />
+        <p className="text-slate-400 font-medium">กำลังเตรียมหน้าแจ้งโอน...</p>
+      </div>
+    }>
+      <UploadForm />
+    </Suspense>
   );
 }

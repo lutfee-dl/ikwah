@@ -117,19 +117,23 @@ export default function DashboardPage() {
           </button>
 
           <button
-            onClick={() => router.push("/dashboard/history")}
-            className="cursor-pointer bg-white p-4 rounded-2xl border border-slate-100 shadow-sm col-span-2 flex items-center justify-between px-5 active:bg-sky-50 transition-all mt-1 hover:bg-gray-50"
+            onClick={() => router.push("/dashboard/loans")}
+            className="cursor-pointer group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:bg-violet-50 transition-all hover:bg-gray-50"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-slate-50 text-sky-600 rounded-lg flex items-center justify-center shadow-inner">
-                <i className="fas fa-history text-sx"></i>
-              </div>
-              <p className="font-bold text-sm text-slate-800 tracking-tight">ประวัติธุรกรรม</p>
+            <div className="w-10 h-10 bg-violet-50 text-violet-600 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
+              <i className="fas fa-search-dollar text-lg"></i>
             </div>
-            <div className="flex items-center gap-1 text-slate-300">
-              <span className="text-xs font-medium text-slate-400">ดูทั้งหมด</span>
-              <i className="fas fa-chevron-right text-[10px]"></i>
+            <p className="font-bold text-sm text-slate-700">ตรวจสอบสินเชื่อ</p>
+          </button>
+
+          <button
+            onClick={() => router.push("/dashboard/history")}
+            className="cursor-pointer group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:bg-slate-50 transition-all hover:bg-gray-50"
+          >
+            <div className="w-10 h-10 bg-slate-50 text-slate-500 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
+              <i className="fas fa-history text-lg"></i>
             </div>
+            <p className="font-bold text-sm text-slate-700">ประวัติธุรกรรม</p>
           </button>
         </div>
       </div>

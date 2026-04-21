@@ -38,7 +38,7 @@ export default function RepaymentsPage() {
   const [selectedPay, setSelectedPay] = useState<RepaymentSlip | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  
+
   const [selectedContractId, setSelectedContractId] = useState("");
   const [editAmount, setEditAmount] = useState(0);
 
@@ -108,7 +108,7 @@ export default function RepaymentsPage() {
 
   const handleApprove = async () => {
     if (!selectedPay) return;
-    
+
     if (!selectedContractId) {
       toast.error("กรุณาเลือกสัญญาที่ต้องการตัดยอด");
       return;
@@ -240,11 +240,10 @@ export default function RepaymentsPage() {
             <button
               key={tab.id}
               onClick={() => setFilterStatus(tab.id as FilterStatus)}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                filterStatus === tab.id
-                  ? "bg-white text-sky-600 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${filterStatus === tab.id
+                ? "bg-white text-sky-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+                }`}
             >
               {tab.label}
               {tab.id === "pending" && repayments.filter(r => r.status === "pending").length > 0 && (
@@ -299,22 +298,20 @@ export default function RepaymentsPage() {
                       {item.amount.toLocaleString()} ฿
                     </td>
                     <td className="py-4 px-6 text-center">
-                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${
-                        item.status === "pending" ? "bg-amber-100 text-amber-700" : 
+                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${item.status === "pending" ? "bg-amber-100 text-amber-700" :
                         item.status === "approved" ? "bg-emerald-100 text-emerald-700" :
-                        "bg-rose-100 text-rose-700"
-                      }`}>
+                          "bg-rose-100 text-rose-700"
+                        }`}>
                         {item.status === "pending" ? "รอตรวจสลิป" : item.status === "approved" ? "รับชำระแล้ว" : "มีปัญหา"}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-center">
                       <button
                         onClick={() => openDetails(item)}
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                          item.status === "pending"
-                            ? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100"
-                            : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
-                        }`}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${item.status === "pending"
+                          ? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100"
+                          : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
+                          }`}
                       >
                         <Receipt size={16} />
                         {item.status === "pending" ? "ตรวจสลิป" : "ดูข้อมูล"}
@@ -337,7 +334,7 @@ export default function RepaymentsPage() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-5 overflow-y-auto">
               <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl text-sm space-y-2">
                 <div className="flex justify-between"><span className="text-slate-500">รหัสสลิป:</span><span className="font-bold">{selectedPay.id}</span></div>
@@ -348,7 +345,7 @@ export default function RepaymentsPage() {
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">เลือกสัญญาที่ต้องการตัดยอด</label>
                 {memberActiveContracts.length > 0 ? (
-                  <select 
+                  <select
                     value={selectedContractId}
                     onChange={(e) => setSelectedContractId(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none transition-all"
