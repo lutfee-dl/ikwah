@@ -255,18 +255,18 @@ export default function MembersPage() {
 							<thead>
 								<tr className="bg-slate-50 border-b border-slate-200">
 									<th className="py-4 px-6 font-bold text-slate-500 text-xs uppercase tracking-wider">
-										<div className="flex items-center justify-start gap-1 cursor-pointer hover:text-sky-600 group" onClick={() => handleSort('lineName')}>
-											<span>โปรไฟล์ / ชื่อไลน์</span>
+										<div className="flex items-center justify-start gap-1 cursor-pointer hover:text-sky-600 group" onClick={() => handleSort('memberId')}>
+											<span>รหัสสมาชิก / โปรไฟล์</span>
 											<span className="text-slate-400 group-hover:text-sky-500">
-												{sortConfig.key === 'lineName' && sortConfig.direction === 'asc' && <ArrowDownUp size={14} className="rotate-180" />}
-												{sortConfig.key === 'lineName' && sortConfig.direction === 'desc' && <ArrowDownUp size={14} />}
-												{sortConfig.key !== 'lineName' || sortConfig.direction === null ? <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50" /> : null}
+												{sortConfig.key === 'memberId' && sortConfig.direction === 'asc' && <ArrowDownUp size={14} className="rotate-180" />}
+												{sortConfig.key === 'memberId' && sortConfig.direction === 'desc' && <ArrowDownUp size={14} />}
+												{sortConfig.key !== 'memberId' || sortConfig.direction === null ? <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50" /> : null}
 											</span>
 										</div>
 									</th>
 									<th className="py-4 px-6 font-bold text-slate-500 text-xs uppercase tracking-wider">
 										<div className="flex items-center justify-start gap-1 cursor-pointer hover:text-sky-600 group" onClick={() => handleSort('fullName')}>
-											<span>ข้อมูลสมาชิก</span>
+											<span>ข้อมูลชื่อ-นามสกุล</span>
 											<span className="text-slate-400 group-hover:text-sky-500">
 												{sortConfig.key === 'fullName' && sortConfig.direction === 'asc' && <ArrowDownUp size={14} className="rotate-180" />}
 												{sortConfig.key === 'fullName' && sortConfig.direction === 'desc' && <ArrowDownUp size={14} />}
@@ -285,13 +285,13 @@ export default function MembersPage() {
 										</div>
 									</th>
 									<th className="py-4 px-6 font-bold text-slate-500 text-xs uppercase tracking-wider text-right">
-										<div className="flex items-center justify-end gap-1 cursor-pointer hover:text-sky-600 group" onClick={() => handleSort('remainingAmount')}>
+										<div className="flex items-center justify-end gap-1 cursor-pointer hover:text-sky-600 group" onClick={() => handleSort('totalLoanDebt')}>
 											<span className="text-slate-400 group-hover:text-sky-500">
-												{sortConfig.key === 'remainingAmount' && sortConfig.direction === 'asc' && <ArrowDownUp size={14} className="rotate-180" />}
-												{sortConfig.key === 'remainingAmount' && sortConfig.direction === 'desc' && <ArrowDownUp size={14} />}
-												{sortConfig.key !== 'remainingAmount' || sortConfig.direction === null ? <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50" /> : null}
+												{sortConfig.key === 'totalLoanDebt' && sortConfig.direction === 'asc' && <ArrowDownUp size={14} className="rotate-180" />}
+												{sortConfig.key === 'totalLoanDebt' && sortConfig.direction === 'desc' && <ArrowDownUp size={14} />}
+												{sortConfig.key !== 'totalLoanDebt' || sortConfig.direction === null ? <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50" /> : null}
 											</span>
-											<span>หนี้คงเหลือ (฿)</span>
+											<span>หนี้คงเหลือรวม (฿)</span>
 										</div>
 									</th>
 									<th className="py-4 px-6 font-bold text-slate-500 text-xs uppercase tracking-wider text-center">
@@ -329,13 +329,9 @@ export default function MembersPage() {
 														</div>
 													)}
 													<div>
-														{member.lineName && member.lineName.trim() !== "" ? (
-															<p className="font-bold text-slate-800 line-clamp-1">{member.lineName}</p>
-														) : (
-															<p className="font-bold text-amber-600 line-clamp-1 text-xs px-2 py-0.5 bg-amber-50 rounded-full border border-amber-200 inline-block">ยังไม่ยืนยันตัวตน (LINE)</p>
-														)}
-														<p className="text-xs text-slate-400 font-medium mt-0.5">
-															{member.lineUserId ? `รหัส: ${member.lineUserId.substring(0,8)}...` : "ไม่มี LineUserID"}
+														<p className="font-black text-slate-900 tracking-tight">{member.memberId || "IKW-"}</p>
+														<p className="text-[10px] text-slate-400 font-medium mt-0.5 line-clamp-1">
+															{member.lineName || "ไม่ระบุชื่อไลน์"}
 														</p>
 													</div>
 												</div>
@@ -356,13 +352,9 @@ export default function MembersPage() {
 												</span>
 											</td>
 											<td className="py-4 px-6 text-right">
-												{member.hasActiveLoan ? (
-													<span className="font-black text-rose-500 text-base tabular-nums bg-rose-50 px-3 py-1 rounded-lg border border-rose-100">
-														{member.loanData?.remainingAmount.toLocaleString()} บาท
-													</span>
-												) : (
-													<span className="text-slate-300 font-medium">-</span>
-												)}
+												<span className="font-black text-rose-500 text-base tabular-nums bg-rose-50 px-3 py-1 rounded-lg border border-rose-100">
+													{(member.totalLoanDebt || 0).toLocaleString()} <span className="text-[10px] opacity-60">฿</span>
+												</span>
 											</td>
 											<td className="py-4 px-6 text-center">
 												<span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ring-1 ${

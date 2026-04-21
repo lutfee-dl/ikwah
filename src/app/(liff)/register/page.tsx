@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { gasApi } from "@/services/gasApi";
 import { initLiff, getLiffProfile, getLiffIdToken, liffCloseWindow } from "@/services/liff";
+import { ASSETS } from "@/config";
+import toast from "react-hot-toast";
 
 export default function RegisterPage() {
   const router = useRouter();
-  
+
   const [profileData, _setProfileData] = useState({
     userId: "",
     lineName: "",
@@ -23,7 +25,7 @@ export default function RegisterPage() {
         await initLiff();
         const profile = await getLiffProfile();
         const token = await getLiffIdToken();
-        
+
         if (profile && token) {
           _setProfileData({
             userId: profile.userId,
@@ -81,39 +83,68 @@ export default function RegisterPage() {
       Swal.fire("แจ้งเตือน", "กรุณากรอกชื่อ-นามสกุล", "warning");
       return;
     }
-    
+
     if (!profileData.idToken) {
       Swal.fire("แจ้งเตือน", "ไม่พบข้อมูลยืนยันตัวตนจาก LINE กรุณาเข้าสู่ระบบใหม่", "error");
       return;
     }
 
     setIsVerifying(true);
+    const tid = toast.loading("กำลังตรวจสอบรายชื่อ...");
 
     try {
       const res = await gasApi.verifyName(fullName, profileData.idToken);
       setIsVerifying(false);
-      
+
       if (res.success) {
+        toast.success("พบรายชื่อในระบบ", { id: tid });
         setStep(2);
       } else {
-        Swal.fire("ไม่พบข้อมูล", res.msg || "ไม่พบรายชื่อในระบบ", "error");
+        toast.error(res.msg || "ไม่พบรายชื่อในระบบ", { id: tid });
+        Swal.fire({
+          title: "ไม่พบข้อมูลสมาชิก",
+          text: res.msg || "กรุณาตรวจสอบการสะกดชื่อ-นามสกุล หรือติดต่อแอดมินหากคุณเป็นสมาชิกใหม่",
+          icon: "error",
+          confirmButtonColor: "#2563eb"
+        });
       }
     } catch (error) {
       setIsVerifying(false);
+      toast.error("การเชื่อมต่อขัดข้อง", { id: tid });
       Swal.fire("ข้อผิดพลาด", "ติดต่อเซิร์ฟเวอร์ไม่ได้", "error");
     }
   };
 
   const handleSubmit = async () => {
+    // --- ✨ SWEETALERT CONFIRMATION ---
+    const confirm = await Swal.fire({
+      title: "ยืนยันการลงทะเบียน?",
+      text: "กรุณาตรวจสอบข้อมูลชื่อ-นามสกุล และเบอร์โทรศัพท์ให้ถูกต้อง",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "ลงทะเบียน",
+      cancelButtonText: "แก้ไขข้อมูล",
+      confirmButtonColor: "#22c55e",
+      cancelButtonColor: "#64748b",
+      customClass: {
+        popup: "rounded-3xl",
+        confirmButton: "rounded-xl px-8 py-2",
+        cancelButton: "rounded-xl px-8 py-2"
+      }
+    });
+
+    if (!confirm.isConfirmed) return;
+
     setIsSubmitting(true);
+    const tid = toast.loading("กำลังบันทึกข้อมูล...");
 
     // Format ให้มีขีดแบบที่ GAS ต้องการ (17 และ 12 ตัวอักษร)
-    const formattedIdCard = idCard.length === 13 
-      ? `${idCard.slice(0, 1)}-${idCard.slice(1, 5)}-${idCard.slice(5, 10)}-${idCard.slice(10, 12)}-${idCard.slice(12)}` 
+    const formattedIdCard = idCard.length === 13
+      ? `${idCard.slice(0, 1)}-${idCard.slice(1, 4)}-${idCard.slice(4, 9)}-${idCard.slice(9, 12)}-${idCard.slice(12)}`
       : idCard;
-      
-    const formattedPhone = phone.length === 10 
-      ? `${phone.slice(0, 2)}-${phone.slice(2, 6)}-${phone.slice(6)}` 
+
+    const formattedPhone = phone.length === 10
+      ? `${phone.slice(0, 2)}-${phone.slice(2, 6)}-${phone.slice(6)}`
       : phone;
 
     try {
@@ -125,24 +156,32 @@ export default function RegisterPage() {
         pictureUrl: profileData.pictureUrl,
         lineName: profileData.lineName,
       });
-      
+
       setIsSubmitting(false);
 
       if (res.success) {
+        toast.success("ลงทะเบียนสำเร็จ!", { id: tid });
         Swal.fire({
           icon: "success",
-          title: "สำเร็จ!",
-          text: res.msg || "ลงทะเบียนสำเร็จ",
+          title: "ลงทะเบียนสำเร็จ!",
+          text: "ยินดีต้อนรับเข้าใช้งานระบบกองทุนอิควะฮฺ",
+          confirmButtonColor: "#22c55e",
+          customClass: { popup: "rounded-3xl" }
         }).then(() => {
-          // เก็บชื่อลง localStorage หรือ redirect ไปหน้า home
           liffCloseWindow();
           router.push("/dashboard/home");
         });
       } else {
-        Swal.fire("เกิดข้อผิดพลาด", res.msg || "บันทึกข้อมูลไม่สำเร็จ", "error");
+        toast.error(res.msg || "บันทึกไม่สำเร็จ", { id: tid });
+        Swal.fire({
+          title: "เกิดข้อผิดพลาด",
+          text: res.msg || "ไม่สามารถบันทึกข้อมูลได้",
+          icon: "error"
+        });
       }
     } catch (error) {
       setIsSubmitting(false);
+      toast.error("การเชื่อมต่อขัดข้อง", { id: tid });
       Swal.fire("ข้อผิดพลาด", "บันทึกข้อมูลไม่สำเร็จ", "error");
     }
   };
@@ -150,19 +189,19 @@ export default function RegisterPage() {
   return (
     <div className="bg-blue-50 flex items-center justify-center min-h-screen p-4 font-sans">
       <div className="bg-white w-full max-w-sm rounded-3xl shadow-xl overflow-hidden p-6 relative">
-        
+
         {step === 1 && (
           <div className="animate-fade-in">
             <div className="text-center mb-4">
               <div className="w-full max-w-[200px] h-24 mx-auto overflow-hidden flex items-center justify-center relative">
-                 <Image 
-                   src="../LOGO-Ikwah.png" 
-                   alt="Logo" 
-                   width={200} 
-                   height={96} 
-                   className="w-full h-full object-contain scale-[1.8] transform origin-center" 
-                   unoptimized 
-                 />
+                <Image
+                  src={ASSETS.IMAGES.LOGO_IKWAH}
+                  alt="Logo"
+                  width={200}
+                  height={96}
+                  className="w-full h-full object-contain scale-[1.8] transform origin-center"
+                  unoptimized
+                />
               </div>
               <div className="mt-2 mb-4">
                 <h2 className="text-2xl font-bold text-[#2d3748]">ยืนยันตัวตน</h2>
@@ -203,13 +242,13 @@ export default function RegisterPage() {
           <div id="step2" className="animate-fade-in text-center">
             <div className="mb-6">
               {profileData.pictureUrl && (
-                <Image 
-                  src={profileData.pictureUrl} 
-                  alt="Profile" 
-                  width={80} 
-                  height={80} 
-                  className="w-20 h-20 rounded-full mx-auto border-4 border-blue-100 shadow-sm mb-3 object-cover" 
-                  unoptimized 
+                <Image
+                  src={profileData.pictureUrl}
+                  alt="Profile"
+                  width={80}
+                  height={80}
+                  className="w-20 h-20 rounded-full mx-auto border-4 border-blue-100 shadow-sm mb-3 object-cover"
+                  unoptimized
                 />
               )}
               <h2 className="text-xl font-bold text-gray-800">กรอกข้อมูลสมาชิก</h2>
@@ -249,9 +288,9 @@ export default function RegisterPage() {
               disabled={!(isIdValid && isPhoneValid) || isSubmitting}
               className="cursor-pointer w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-green-500/30 disabled:bg-gray-300 disabled:shadow-none flex items-center justify-center"
             >
-               {isSubmitting ? (
-                  <svg className="animate-spin h-5 w-5 mx-auto text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                ) : "ยืนยันการลงทะเบียน"}
+              {isSubmitting ? (
+                <svg className="animate-spin h-5 w-5 mx-auto text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+              ) : "ยืนยันการลงทะเบียน"}
             </button>
           </div>
         )}

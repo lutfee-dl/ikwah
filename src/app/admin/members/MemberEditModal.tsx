@@ -86,7 +86,7 @@ export default function MemberEditModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "updateAdminMember",
-          memberId: member.lineUserId || member.idCard || "",
+          memberId: member.memberId, // ใช้ MemberId (IKW...) เป็น Key หลักในการแก้ไข
           updateData: {
             prefix: editedMember.prefix,
             fullName: editedMember.fullName,
@@ -150,9 +150,10 @@ export default function MemberEditModal({
                 {member.lineName || "ไม่ระบุ"}
               </h3>
               <p className="text-xs text-slate-500 font-mono mt-0.5">
-                {member.lineUserId
-                  ? `${member.lineUserId.substring(0, 10)}...`
-                  : "ไม่มี LineUserID"}
+                LINE UID: {member.lineUserId ? `${member.lineUserId.substring(0, 10)}...` : "N/A"}
+              </p>
+              <p className="text-[10px] font-black text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100 inline-block mt-2">
+                OFFICIAL ID: {member.memberId || "IKW-"}
               </p>
             </div>
           </div>

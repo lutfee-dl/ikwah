@@ -4,198 +4,26 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Check if it's admin making an edit vs normal user login
-    if (body.action === "updateAdminMember") {
-      const { memberId, updateData } = body;
-      // When inside the server API route, we shouldn't use gasApi to call back into ourselves 
-      // via /api/member. We should call GAS directly.
+    // 🛡️ จัดการคำสั่งสำหรับแอดมิน (Admin API Proxy)
+    if (body.action && (body.action.startsWith("admin_") || body.action === "updateAdminMember")) {
       const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_update_member",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
-          memberId,
-          updateData
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
 
-    if (body.action === "admin_get_members") {
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_get_members",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
+      // แปลงชื่อ Action บางตัวที่หน้าบ้านเรียกต่างจาก GAS (ถ้ามี)
+      const gasAction = body.action === "updateAdminMember" ? "admin_update_member" : body.action;
 
-    if (body.action === "admin_update_loan") {
-      const { loanId, status } = body;
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_update_loan",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
-          loanId,
-          status
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
+      // สร้าง Payload ใหม่ โดยใช้ ADMIN_SECRET ตัวพิมพ์ใหญ่ตามที่ GAS ต้องการ
+      const payload = {
+        ...body,
+        action: gasAction,
+        ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET || body.ADMIN_SECRET || body.adminSecret
+      };
 
-    if (body.action === "admin_get_loans") {
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
       const response = await fetch(gasUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_get_loans",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
-        }),
+        body: JSON.stringify(payload),
       });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
 
-    if (body.action === "admin_get_contracts") {
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_get_contracts",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
-
-    if (body.action === "admin_get_repayments") {
-      const { contractId } = body;
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_get_repayments",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
-          contractId
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
-
-    if (body.action === "admin_add_repayment") {
-      const { contractId, lineUserId, amountPaid, installmentNo, slipUrl, status } = body;
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_add_repayment",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
-          contractId,
-          lineUserId,
-          amountPaid,
-          installmentNo,
-          slipUrl: slipUrl || "",
-          status
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
-
-    if (body.action === "admin_get_deposits") {
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_get_deposits",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
-
-    if (body.action === "admin_get_shares_report") {
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_get_shares_report",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
-
-    if (body.action === "admin_update_deposit") {
-      const { depositId, status, amount } = body;
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_update_deposit",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
-          depositId,
-          status,
-          amount
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
-
-    if (body.action === "admin_get_repayment_slips") {
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_get_repayment_slips",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
-
-    if (body.action === "admin_update_loan_repayment") {
-      const { depositId, status, contractId, amount, installmentNo } = body;
-      const gasUrl = process.env.GAS_API_URL || process.env.NEXT_PUBLIC_GAS_URL || "";
-      const response = await fetch(gasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "admin_update_loan_repayment",
-          adminSecret: process.env.NEXT_PUBLIC_ADMIN_SECRET,
-          depositId,
-          status,
-          contractId,
-          amount,
-          installmentNo
-        }),
-      });
       const data = await response.json();
       return NextResponse.json(data);
     }

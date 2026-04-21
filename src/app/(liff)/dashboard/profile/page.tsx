@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { User, Phone, IdCard, ShieldCheck } from "lucide-react";
+import { User, Phone, IdCard, ShieldCheck, IdCardLanyard } from "lucide-react";
 import { useMemberData } from "@/hooks/useMemberData";
 import Image from "next/image";
 
@@ -51,6 +51,7 @@ export default function ProfilePage() {
   }
 
   const member = memberData || {
+    memberNo: "IKW00000000",
     fullName: "ไม่ทราบชื่อ",
     phone: "-",
     idCard: "-",
@@ -59,7 +60,7 @@ export default function ProfilePage() {
 
   return (
     // ปรับ pt-10 เพื่อขยับขึ้นด้านบน และเอา justify-center ออก
-    <div className="animate-[fadeIn_0.3s] max-w-md mx-auto flex flex-col min-h-screen pt-20 pb-32 px-6">
+    <div className="animate-[fadeIn_0.3s] max-w-md mx-auto pb-24">
       <div className="text-center mb-8">
         <div className="relative inline-block">
           {member.pictureUrl ? (
@@ -92,12 +93,18 @@ export default function ProfilePage() {
       </div>
 
       {/* Info Card */}
-      <div className="px-6 w-full">
+      <div className="w-full">
         <h3 className="text-[11px] font-bold text-slate-400 uppercase mb-3 ml-1 tracking-widest">
           ข้อมูลส่วนตัว
         </h3>
 
         <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+          <InfoItem
+            icon={<IdCardLanyard size={18} />}
+            label="รหัสสมาชิก"
+            value={member.memberNo}
+            color="emerald"
+          />
           <InfoItem
             icon={<User size={18} />}
             label="ชื่อ-นามสกุล"
@@ -115,7 +122,6 @@ export default function ProfilePage() {
             label="เลขบัตรประชาชน"
             value={formatThaiId(member.idCard.replace(/-/g, ""))}
             color="indigo"
-            last
           />
         </div>
       </div>

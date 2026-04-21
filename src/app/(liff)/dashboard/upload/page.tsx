@@ -2,15 +2,16 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { UploadCloud, CheckCircle2, AlertCircle, FileImage, Loader2, ArrowLeft, Copy, Wallet, Building2 } from "lucide-react";
+import { UploadCloud, CheckCircle2, FileImage, Loader2, ArrowLeft, Copy, Wallet, Building2 } from "lucide-react";
 
 import liff from "@line/liff";
-import { gasApi } from "@/services/gasApi";
+import NextImage from "next/image";
 import toast from "react-hot-toast";
 import { NumericFormat } from "react-number-format";
 import Swal from "sweetalert2";
 import jsQR from "jsqr";
 import Tesseract from "tesseract.js";
+import { ASSETS } from "@/config";
 
 type ProfileToken = {
   lineUserId: string;
@@ -100,7 +101,29 @@ export default function UploadSlipPage() {
       setScanProgress({ message: 'อ่าน QR Code...', percent: 20 });
       const qr = await scanQRCode(selectedFile);
 
-      // 2. Scan OCR (Parallel/Fallback)
+      // 🛑 MANDATORY CHECK: If no QR code found, reject the image
+      if (!qr) {
+        setIsScanning(false);
+        await Swal.fire({
+          title: "กรุณาอัปโหลดสลิปที่ถูกต้อง",
+          text: "โปรดใช้รูปภาพสลิปโอนเงินที่ถูกต้อง",
+          icon: "error",
+          confirmButtonText: "ตกลง",
+          confirmButtonColor: "#ef4444",
+          customClass: {
+            popup: 'rounded-[1.5rem]',
+            confirmButton: 'rounded-full px-8 py-2'
+          }
+        });
+
+        // Reset states
+        setFile(null);
+        setPreviewUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      // 2. Scan OCR (Supplementary)
       setScanProgress({ message: 'อ่านข้อความจากสลิป...', percent: 40 });
       const ocr = await performOCR(url);
 
@@ -108,12 +131,12 @@ export default function UploadSlipPage() {
         qr_data: qr,
         ocr_data: ocr,
         timestamp: new Date().toISOString(),
-        method: qr ? 'qr' : 'ocr'
+        method: 'qr' // Always QR based now
       };
 
       setAiData(finalAiData);
 
-      // Super Feature: Auto-fill amount if detected and not already entered
+      // Super Feature: Auto-fill amount from QR (Most accurate)
       const detectedAmount = parseFloat(qr?.amount || ocr?.amount || "0");
       if (detectedAmount > 0 && (!amount || amount === 0)) {
         setAmount(detectedAmount);
@@ -123,6 +146,7 @@ export default function UploadSlipPage() {
       setScanProgress({ message: 'เสร็จสิ้น!', percent: 100 });
     } catch (err) {
       console.error("Scanning error:", err);
+      toast.error("เกิดข้อผิดพลาดในการวิเคราะห์สลิป");
     } finally {
       setTimeout(() => setIsScanning(false), 500);
     }
@@ -264,30 +288,31 @@ export default function UploadSlipPage() {
 
     // Confirmation Step
     const result = await Swal.fire({
-      title: 'ยืนยันแจ้งโอนเงิน?',
+      title: 'ยืนยันการแจ้งโอนเงิน?',
       html: `
-        <div class="text-left p-2 space-y-2">
-          <div class="flex justify-between border-b pb-2">
-            <span class="text-gray-500">จำนวนเงิน:</span>
-            <span class="font-bold text-emerald-600">฿${Number(amount).toLocaleString()}</span>
+        <div class="text-left p-4 space-y-3 bg-slate-50 rounded-2xl border border-slate-100">
+          <div class="flex justify-between items-center pb-2 border-b border-slate-200/50">
+            <span class="text-[10px] font-black uppercase text-slate-400">จำนวนเงินที่โอน</span>
+            <span class="font-black text-xl text-emerald-600">฿${Number(amount).toLocaleString()}</span>
           </div>
-          <div class="flex justify-between border-b pb-2">
-            <span class="text-gray-500">หมวดหมู่:</span>
+          <div class="flex justify-between items-center">
+            <span class="text-[10px] font-black uppercase text-slate-400">หมวดหมู่รายการ</span>
             <span class="font-bold text-slate-700">${category}</span>
           </div>
+          <p class="text-[10px] text-slate-400 italic text-center mt-2 font-medium">* โปรดตรวจสอบยอดเงินให้ตรงกับสลิปจริง</p>
         </div>
       `,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'ใช่, ยืนยันแจ้งโอน',
-      cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#059669',
+      confirmButtonText: 'ยืนยันแจ้งโอน',
+      cancelButtonText: 'แก้ไข',
+      confirmButtonColor: '#10b981',
       cancelButtonColor: '#94a3b8',
       customClass: {
-        popup: 'rounded-[1.5rem] p-6',
+        popup: 'rounded-[2rem] p-6',
         title: 'font-black text-slate-800',
-        confirmButton: 'rounded-full px-6 py-2 font-bold',
-        cancelButton: 'rounded-full px-6 py-2 font-bold'
+        confirmButton: 'rounded-2xl px-8 py-3 font-bold',
+        cancelButton: 'rounded-2xl px-8 py-3 font-bold'
       }
     });
 
@@ -378,49 +403,49 @@ export default function UploadSlipPage() {
         </div>
       </div>
 
-      {/* BANK INFORMATION CARD */}
-      <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[2rem] p-6 text-white shadow-xl shadow-emerald-200/50 relative overflow-hidden group">
-        {/* Decorative elements */}
-        <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-colors" />
-        <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-black/10 rounded-full blur-3xl" />
+      {/* COMPACT & EASY-READ BANK CARD */}
+      <div className="mx-auto bg-white rounded-3xl p-6 border border-sky-100 shadow-sm">
 
-        <div className="relative z-10">
-          <div className="flex justify-between items-start mb-6">
-            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
-              <Building2 size={14} className="text-emerald-100" />
-              <span className="text-xs font-black uppercase tracking-wider">ช่องทางการชำระเงิน</span>
+        {/* Bank Header */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 bg-[#174719] rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-[#174719]">
+            <NextImage src={ASSETS.IMAGES.LOGO_ISLAMIC_BANK} alt="Islamic Bank" width={40} height={40} />
+          </div>
+          <div>
+            <h3 className="text-slate-800 font-bold text-base leading-tight">ธนาคารอิสลาม</h3>
+            <p className="text-sky-500 text-xs font-medium">สาขา ยะรัง ปัตตานี</p>
+          </div>
+        </div>
+
+        {/* Account Info Box */}
+        <div className="space-y-4">
+          {/* Number Section */}
+          <div className="bg-slate-50 rounded-2xl p-4 relative group">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">เลขที่บัญชี</p>
+            <div className="flex items-center justify-between">
+              <span className="text-xl font-bold text-slate-800 tracking-tight">087-1-20839-3</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText("087-1-20839-3");
+                  toast.success("คัดลอกแล้ว");
+                }}
+                className="p-2 bg-white text-sky-500 rounded-xl shadow-sm border border-sky-100 active:scale-90 transition-transform"
+              >
+                <Copy size={16} />
+              </button>
             </div>
-            <Wallet size={24} className="opacity-40" />
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <p className="text-emerald-100/70 text-[10px] font-bold uppercase tracking-widest mb-1">ธนาคารอิสลาม (สาขา ยะรัง ปัตตานี)</p>
-              <div className="flex items-center justify-between group/account">
-                <h2 className="text-2xl font-black tracking-wider text-white">087-1-20839-3</h2>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText("087-1-20839-3");
-                    toast.success("คัดลอกเลขบัญชีแล้ว");
-                  }}
-                  className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl transition-all active:scale-90"
-                >
-                  <Copy size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-white/10">
-              <p className="text-emerald-100/70 text-xs font-bold uppercase tracking-widest mb-1">ชื่อบัญชี</p>
-              <p className="text-white text-base font-bold leading-relaxed">
-                กองทุนสะสมอิควะห์ยะรัง <br />
-                <span className="text-emerald-50 text-sm font-medium">โดย น.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง</span>
-              </p>
-            </div>
+          {/* Holder Section */}
+          <div className="px-1">
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">ชื่อบัญชี</p>
+            <p className="text-slate-800 font-bold text-base leading-tight">กองทุนสะสมอิควะห์ยะรัง</p>
+            <p className="text-slate-500 text-sm mt-1 font-medium">
+              โดย น.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง
+            </p>
           </div>
         </div>
       </div>
-
 
       <form onSubmit={handleSubmit} className="space-y-6">
 

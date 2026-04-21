@@ -7,14 +7,10 @@ export const initLiff = async () => {
   try {
     if (!LIFF_ID) {
       console.warn("LIFF_ID is not defined in environment variables");
+      return false;
     }
 
     await liff.init({ liffId: LIFF_ID });
-    
-    // ตรวจสอบสถานะการล็อกอิน
-    // เอาการบังคับล็อกอินออก ถ้าเกิดว่าเราไม่อยู่ใน Liff หรือ Client 
-    // ควรจัดการสิทธิ์การเด้งไป login ที่ระดับหน้า Page ดีกว่า
-    
     return true;
   } catch (error) {
     console.error("LIFF Initialization failed", error);
@@ -22,10 +18,23 @@ export const initLiff = async () => {
   }
 };
 
+// ฟังก์ชันล็อกอิน
+export const liffLogin = () => {
+  if (!liff.isLoggedIn()) {
+    liff.login();
+  }
+};
+
+// ฟังก์ชันเช็คสถานะล็อกอิน
+export const isLiffLoggedIn = () => {
+  return liff.isLoggedIn();
+};
+
 // ฟังก์ชันสำหรับดึงข้อมูลโปรไฟล์
 export const getLiffProfile = async () => {
   try {
     await liff.ready;
+    if (!liff.isLoggedIn()) return null;
     const profile = await liff.getProfile();
     return profile;
   } catch (error) {

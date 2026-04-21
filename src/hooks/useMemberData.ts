@@ -12,7 +12,7 @@ export interface MemberProfile {
   phone: string;
   accumulatedShares: number;
   pictureUrl?: string;
-  lineName?: string; 
+  lineName?: string;
 }
 
 export function useMemberData() {
@@ -32,19 +32,19 @@ export function useMemberData() {
 
         const isLiffOpen = await initLiff();
         if (!isLiffOpen) {
-           setError("ไม่สามารถเปิด LIFF ได้");
-           return;
+          setError("ไม่สามารถเปิด LIFF ได้");
+          return;
         }
 
         const token = await getLiffIdToken();
         if (!token) {
-           setError("ไม่พบ Token");
-           if (!cachedData) router.push("/register");
-           return;
+          setError("ไม่พบ Token");
+          if (!cachedData) router.push("/register");
+          return;
         }
 
         const res = await gasApi.checkStatus(token);
-        
+
         if (res.verified && res.profileData) {
           setMemberData(res.profileData);
           localStorage.setItem("memberData", JSON.stringify(res.profileData));
@@ -66,3 +66,4 @@ export function useMemberData() {
 
   return { memberData, isLoading, error };
 }
+

@@ -7,6 +7,7 @@ import { Lock, Mail, ShieldAlert, LogIn } from "lucide-react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Cookies from "js-cookie";
+import { ASSETS } from "@/config";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -51,7 +52,7 @@ export default function AdminLogin() {
 
           <div className="w-full max-w-[200px] h-24 mx-auto overflow-hidden flex items-center justify-center relative z-10">
             <Image
-              src="/LOGO-Ikwah.png"
+              src={ASSETS.IMAGES.LOGO_IKWAH}
               alt="Logo"
               width={200}
               height={96}

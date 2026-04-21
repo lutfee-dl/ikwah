@@ -19,6 +19,7 @@ import {
   Wallet,
   Briefcase,
 } from "lucide-react";
+import { ASSETS } from "@/config";
 import "@/app/globals.css";
 
 const sidebarLinks = [
@@ -87,7 +88,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <div className="md:hidden shrink-0 bg-slate-900 text-white p-4 flex justify-between items-center z-40 shadow-md">
         <div className="flex items-center gap-2">
           <Image
-            src="/LOGO-Ikwah.png"
+            src={ASSETS.IMAGES.LOGO_IKWAH}
             alt="Ikuwah"
             width={32}
             height={32}
@@ -128,8 +129,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           >
             <div className="relative w-40 h-20 flex items-center justify-center">
               <Image
-                src="/LOGO-Ikwah.png"
-                alt="Ikwah Logo"
+                src={ASSETS.IMAGES.LOGO_IKWAH}
+                alt="Ikuwah Logo"
                 fill
                 className="object-contain scale-[1.3] transform origin-center drop-shadow-lg brightness-0 invert"
                 unoptimized
@@ -158,18 +159,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <Link
                 key={name}
                 href={href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-200 group ${
-                  isActive
-                    ? "text-white font-semibold bg-sky-700 shadow-sm border-l-4 border-sky-300"
-                    : "text-sky-100 hover:bg-sky-800 hover:text-white border-l-4 border-transparent"
-                }`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-200 group ${isActive
+                  ? "text-white font-semibold bg-sky-700 shadow-sm border-l-4 border-sky-300"
+                  : "text-sky-100 hover:bg-sky-800 hover:text-white border-l-4 border-transparent"
+                  }`}
               >
                 <Icon
-                  className={`w-5 h-5 ${
-                    isActive
-                      ? "text-sky-100"
-                      : "text-sky-300 group-hover:text-sky-100"
-                  }`}
+                  className={`w-5 h-5 ${isActive
+                    ? "text-sky-100"
+                    : "text-sky-300 group-hover:text-sky-100"
+                    }`}
                 />
                 {name}
               </Link>

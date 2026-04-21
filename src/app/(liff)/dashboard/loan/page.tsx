@@ -14,7 +14,7 @@ export default function LoanRequestPage() {
   const { memberData, isLoading } = useMemberData();
 
   const [amount, setAmount] = useState("");
-  const [reason, setReason] = useState("");
+  const [itemName, setItemName] = useState("");
   const [duration, setDuration] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,10 +55,37 @@ export default function LoanRequestPage() {
       return;
     }
 
-    if (!reason) {
-      toast.error("กรุณาระบุวัตถุประสงค์การกู้ยืม");
+    if (!itemName) {
+      toast.error("กรุณาระบุชื่อรายการหรือวัตถุประสงค์");
       return;
     }
+
+    // --- ✨ SWEETALERT CONFIRMATION ---
+    const confirm = await Swal.fire({
+      title: "ยืนยันการส่งคำขอ?",
+      html: `
+        <div class="text-left text-sm space-y-2 py-2">
+        <p><b>รายการ:</b> ${itemName}</p>
+        <p><b>จำนวนเงิน:</b> ${amountNum.toLocaleString()} บาท</p>
+        <p><b>ประเภท:</b> ${loanType}</p>
+        <p><b>ระยะเวลา:</b> ${duration} เดือน</p>
+        </div>
+      `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "ตกลง ส่งคำขอ",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#2563eb",
+      cancelButtonColor: "#64748b",
+      customClass: {
+        popup: "rounded-3xl",
+        confirmButton: "rounded-xl px-6 py-2 content-bold",
+        cancelButton: "rounded-xl px-6 py-2"
+      }
+    });
+
+    if (!confirm.isConfirmed) return;
+    // ---------------------------------
 
     setIsSubmitting(true);
     setErrorMsg("");
@@ -83,7 +110,7 @@ export default function LoanRequestPage() {
         loanType: loanType,
         amount: amountNum,
         duration: parseInt(duration),
-        reason: reason,
+        itemName: itemName,
       };
 
       const res = await fetch("/api/member", {
@@ -95,14 +122,19 @@ export default function LoanRequestPage() {
       const data = await res.json();
 
       if (data.success) {
-        toast.success("ส่งคำขอเรียบร้อยแล้ว", { id: tid });
+        toast.success("บันทึกคำขอสินเชื่อลงระบบเรียบร้อยแล้ว", { id: tid, duration: 4000 });
         setSuccessMsg("ส่งคำขอสำเร็จ");
         setTimeout(() => {
           router.push("/dashboard/home");
-        }, 3000);
+        }, 4000);
       } else {
-        Swal.fire("Failure", data.msg || "เกิดข้อผิดพลาดในการส่งข้อมูล", "error");
-        toast.dismiss(tid);
+        toast.error(data.msg || "เกิดข้อผิดพลาดในการส่งข้อมูล", { id: tid });
+        Swal.fire({
+          title: "ทำรายการไม่สำเร็จ",
+          text: data.msg || "ระบบไม่สามารถบันทึกข้อมูลได้ในขณะนี้",
+          icon: "error",
+          confirmButtonColor: "#2563eb"
+        });
       }
     } catch {
       Swal.fire("Error", "ไม่สามารถติดต่อเซิร์ฟเวอร์ได้", "error");
@@ -143,7 +175,7 @@ export default function LoanRequestPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto animate-[fadeIn_0.3s] pb-8 pt-2">
+    <div className="max-w-md mx-auto animate-[fadeIn_0.3s] pb-20 pt-2">
       <div className="flex items-center gap-4 mb-6 px-1">
         <button
           onClick={() => router.back()}
@@ -155,16 +187,34 @@ export default function LoanRequestPage() {
       </div>
 
       <div className="bg-white rounded-4xl p-6 shadow-sm border border-slate-100">
-        <div className="mb-6 p-4 bg-blue-50 rounded-2xl flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
-          <div className="text-sm text-blue-800">
-            <p className="font-semibold mb-1">ข้อมูลผู้ยื่นคำร้อง</p>
-            <p>ชื่อ: {memberData?.fullName}</p>
-            <p>เบอร์ติดต่อ: {memberData?.phone}</p>
+        <div className="mb-6 p-4 bg-slate-50 rounded-2xl flex items-center justify-between border border-slate-100 shadow-inner">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600">
+              <i className="fas fa-user-circle text-lg"></i>
+            </div>
+            <div className="text-sm">
+              <p className="font-bold text-slate-800 leading-none">{memberData?.fullName}</p>
+              <p className="text-[11px] text-slate-500 mt-1">{memberData?.phone}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-2 py-1 rounded-md">ยืนยันตัวตนแล้ว</span>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              ชื่อรายการ / วัตถุประสงค์
+            </label>
+            <input
+              value={itemName}
+              onChange={(e) => setItemName(e.target.value)}
+              placeholder="เช่น ลงทุนทำธุรกิจ ซื้อเครื่องใช้ไฟฟ้า, จัดงานแต่งงานฯลฯ"
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition resize-none placeholder:text-slate-300"
+              required
+            />
+          </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
               ประเภทสินเชื่อ
@@ -203,12 +253,11 @@ export default function LoanRequestPage() {
               allowNegative={false}
               inputMode="decimal"
               placeholder="ระบุจำนวนเงิน"
-              className={`w-full bg-slate-50 border ${
-                errorMsg &&
+              className={`w-full bg-slate-50 border ${errorMsg &&
                 (errorMsg.includes("เกิน") || errorMsg.includes("จำนวนเงิน"))
-                  ? "border-red-500 focus:ring-red-500/50"
-                  : "border-slate-200 focus:ring-blue-500/50"
-              } rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 transition`}
+                ? "border-red-500 focus:ring-red-500/50"
+                : "border-slate-200 focus:ring-blue-500/50"
+                } rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 transition`}
               onValueChange={(values) => {
                 const num = values.value;
                 setAmount(num);
@@ -269,20 +318,6 @@ export default function LoanRequestPage() {
                 </>
               )}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              วัตถุประสงค์
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="ระบุเหตุผลการขอกู้เงิน"
-              rows={3}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition resize-none"
-              required
-            ></textarea>
           </div>
 
           {errorMsg && (

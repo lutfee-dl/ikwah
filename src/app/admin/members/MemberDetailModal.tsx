@@ -1,5 +1,5 @@
 import { Member } from "@/types";
-import { X, Wallet, TrendingUp, History, UserCircle } from "lucide-react";
+import { X, Wallet, TrendingUp, History, UserCircle, Activity } from "lucide-react";
 import Image from "next/image";
 
 interface MemberDetailModalProps {
@@ -35,8 +35,8 @@ export default function MemberDetailModal({
               </h3>
 
               <div className="text-sm font-normal text-slate-500 mt-1 flex items-center gap-2">
-                <span>LINE: {member.lineName} • บัตร ปชช: </span>
-                <span>{member.idCard || "-"}</span>
+                <span className="font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-100">ID: {member.memberId || "IKW-"}</span>
+                <span>• LINE: {member.lineName} • บัตร: {member.idCard || "-"}</span>
               </div>
             </div>
           </div>
@@ -73,18 +73,16 @@ export default function MemberDetailModal({
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-full -mr-8 -mt-8 opacity-50"></div>
-              <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 z-10">
-                <TrendingUp size={24} />
+              <div className="absolute top-0 right-0 w-24 h-24 bg-rose-50 rounded-full -mr-8 -mt-8 opacity-50"></div>
+              <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 z-10">
+                <Activity size={24} />
               </div>
               <div className="z-10">
                 <p className="text-sm font-medium text-slate-500 mb-1">
-                  สถานะบัญชี
+                  ยอดหนี้สินคงเหลือรวม
                 </p>
-                <p
-                  className={`text-xl font-bold ${member.status === "สมาชิก" ? "text-emerald-600" : "text-rose-600"}`}
-                >
-                  {member.status === "สมาชิก" ? "ปกติ (Active)" : "ลาออก"}
+                <p className="text-3xl font-bold text-rose-600">
+                  {(member.totalLoanDebt || 0).toLocaleString()} <span className="text-lg text-slate-400 font-medium">฿</span>
                 </p>
               </div>
             </div>

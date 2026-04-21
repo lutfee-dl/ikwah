@@ -19,13 +19,14 @@ export interface DashboardData {
 }
 
 export interface ProfileData {
-  memberNo?: string;
+  memberId?: string;
   prefix?: string;
   fullName?: string;
   idCard?: string;
   phone?: string;
   accumulatedShares?: number;
-  pictureUrl?: string; // Add if available
+  totalLoanDebt?: number;
+  pictureUrl?: string;
   lineName?: string;
 }
 
@@ -38,6 +39,7 @@ export type LoanSchedule = {
 };
 
 export type Member = {
+	memberId: string;
 	lineUserId: string;
 	lineName: string;
 	prefix: string;
@@ -46,6 +48,7 @@ export type Member = {
 	idCard: string;
 	phone: string;
 	accumulatedShares: number;
+	totalLoanDebt: number;
 	pictureUrl: string;
 	status: string;
 	hasActiveLoan: boolean;
