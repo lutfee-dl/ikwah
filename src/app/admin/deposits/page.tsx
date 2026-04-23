@@ -131,7 +131,10 @@ export default function DepositsPage() {
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "admin_get_deposits" })
+        body: JSON.stringify({ 
+          action: "admin_get_deposits",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET 
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -193,7 +196,7 @@ export default function DepositsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "admin_update_deposit",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
           status: "approved",
           depositId: id,
           amount: editAmount // ส่งยอดที่อาจจะถูกแก้ไขไปด้วย
@@ -244,7 +247,7 @@ export default function DepositsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "admin_update_deposit",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
           status: "rejected",
           depositId: id,
           note: note // ส่งเหตุผลกลับไปด้วย

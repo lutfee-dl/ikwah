@@ -18,8 +18,8 @@ export default function MemberEditModal({
   const [isSaving, setIsSaving] = useState(false);
   
   // Validation states
-  const [idCardRaw, setIdCardRaw] = useState(member.idCard ? member.idCard.replace(/-/g, "") : "");
-  const [phoneRaw, setPhoneRaw] = useState(member.phone ? member.phone.replace(/-/g, "") : "");
+  const [idCardRaw, setIdCardRaw] = useState(member.idCard ? String(member.idCard).replace(/-/g, "") : "");
+  const [phoneRaw, setPhoneRaw] = useState(member.phone ? String(member.phone).replace(/-/g, "") : "");
   const [isIdValid, setIsIdValid] = useState(true);
   const [isPhoneValid, setIsPhoneValid] = useState(true);
 
@@ -150,7 +150,7 @@ export default function MemberEditModal({
                 {member.lineName || "ไม่ระบุ"}
               </h3>
               <p className="text-xs text-slate-500 font-mono mt-0.5">
-                LINE UID: {member.lineUserId ? `${member.lineUserId.substring(0, 10)}...` : "N/A"}
+                LINE UID: {member.lineId ? `${member.lineId.substring(0, 10)}...` : "N/A"}
               </p>
               <p className="text-[10px] font-black text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100 inline-block mt-2">
                 OFFICIAL ID: {member.memberId || "IKW-"}

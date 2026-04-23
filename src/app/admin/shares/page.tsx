@@ -12,7 +12,7 @@ const API_URL = "/api/member";
 
 type ShareRow = {
   ID_No: string;
-  lineUserId?: string;
+  lineId?: string;
   lineName?: string;
   pictureUrl?: string;
   idCard?: string;
@@ -72,15 +72,35 @@ export default function AdminSharesPage() {
 
   const fetchShares = async () => {
     try {
-      setLoading(true);
+      console.log("Fetching shares with year:", fiscalYear);
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "admin_get_shares_report", options: { year: fiscalYear } }),
+        body: JSON.stringify({
+          action: "admin_get_shares_report",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+          options: { year: fiscalYear }
+        }),
       });
-      const result = await res.json();
-      if (result.success) { setData(result.data); setStats(result.stats); }
-    } catch (err) { console.error(err); }
+      const text = await res.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        console.error("Invalid JSON from GAS:", text);
+        return;
+      }
+      console.log("Shares API Result:", result);
+      if (result.success) {
+        setData(result.data);
+        setStats(result.stats);
+        console.log("Data set to state:", result.data.length, "rows");
+      } else {
+        console.error("API Error Message:", result.msg);
+      }
+    } catch (err) {
+      console.error("Fetch Shares Error:", err);
+    }
     finally { setLoading(false); }
   };
 
@@ -122,7 +142,11 @@ export default function AdminSharesPage() {
     try {
       const res = await fetch(API_URL, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "admin_update_historical_shares", payload: { memberId: editingHistorical.ID_No, years: histForm } }),
+        body: JSON.stringify({
+          action: "admin_update_historical_shares",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+          payload: { memberId: editingHistorical.ID_No, years: histForm }
+        }),
       });
       const r = await res.json();
       if (r.success) { setEditingHistorical(null); fetchShares(); }
@@ -167,9 +191,9 @@ export default function AdminSharesPage() {
           <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
             <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 
               ${kpi.accent === "blue" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-              : kpi.accent === "emerald" ? "bg-emerald-50 text-emerald-600"
-              : kpi.accent === "amber" ? "bg-amber-50 text-amber-600"
-              : "bg-slate-100 text-slate-500"}`}>
+                : kpi.accent === "emerald" ? "bg-emerald-50 text-emerald-600"
+                  : kpi.accent === "amber" ? "bg-amber-50 text-amber-600"
+                    : "bg-slate-100 text-slate-500"}`}>
               <kpi.icon size={21} />
             </div>
             <div>
@@ -421,7 +445,7 @@ export default function AdminSharesPage() {
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 transition-all">
                 <ChevronLeft size={15} />
               </button>
-              <span className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-black shadow-sm shadow-blue-600/20">
+              <span className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-black shadow-sm">
                 {page} / {totalPages || 1}
               </span>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 transition-all">
@@ -652,7 +676,8 @@ export default function AdminSharesPage() {
         </div>
       )}
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @media print {
           body * { visibility: hidden; }
           .fixed * { visibility: visible !important; }

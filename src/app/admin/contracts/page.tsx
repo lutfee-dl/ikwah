@@ -27,7 +27,7 @@ interface Contract {
   contractId: string;
   requestId: string;
   approvedDate: string;
-  lineUserId: string;
+  lineId: string;
   fullName: string;
   lineName?: string;
   loanType: string;
@@ -65,16 +65,20 @@ export default function ContractsPage() {
       const res = await fetch("/api/member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "admin_get_contracts" }),
+        body: JSON.stringify({ 
+          action: "admin_get_contracts",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET 
+        }),
       });
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
-        const mapped = result.data.map((row: unknown[]) => {
-          const totalPaidAmount = Number(row[11] || 0);
-          const installmentPerMonth = Number(row[9] || 0);
-          const totalInstallments = Number(row[10] || 0);
-          const approvedDateStr = String(row[2] || "");
-          let status = String(row[13] || "กำลังผ่อน");
+        const mapped = result.data.map((item: any) => {
+          const totalPaidAmount = Number(item.paidAmount || 0);
+          const totalPayable = Number(item.totalPayable || 0);
+          const totalInstallments = Number(item.duration || 0);
+          const installmentPerMonth = totalInstallments > 0 ? totalPayable / totalInstallments : 0;
+          const approvedDateStr = String(item.approvedDate || "");
+          let status = String(item.status || "กำลังผ่อน");
 
           // --- AUTO-TRACKING LOGIC ---
           if (status !== "ปิดยอดแล้ว" && approvedDateStr) {
@@ -97,28 +101,28 @@ export default function ContractsPage() {
               }
             }
           }
-          if (status !== "ปิดยอดแล้ว" && totalPaidAmount >= Number(row[8] || 0) && Number(row[8] || 0) > 0) {
+          if (status !== "ปิดยอดแล้ว" && totalPaidAmount >= totalPayable && totalPayable > 0) {
             status = "ปิดยอดแล้ว";
           }
 
           return {
-          contractId: String(row[0] || ""),
-          requestId: String(row[1] || ""),
-          approvedDate: String(row[2] || ""),
-            lineUserId: String(row[3] || ""),
-            fullName: String(row[4] || ""),
-            loanType: String(row[5] || ""),
-            principalAmount: Number(row[6] || 0),
-            profitAmount: Number(row[7] || 0),
-            totalPayable: Number(row[8] || 0),
+            contractId: String(item.contractId || ""),
+            requestId: String(item.requestId || ""),
+            approvedDate: String(item.approvedDate || ""),
+            lineId: String(item.lineId || ""),
+            fullName: String(item.memberName || ""),
+            loanType: String(item.loanType || ""),
+            principalAmount: Number(item.amount || 0),
+            profitAmount: Number(item.interest || 0),
+            totalPayable: totalPayable,
             installmentPerMonth,
             totalInstallments,
             totalPaidAmount,
-            remainingBalance: Number(row[12] || 0),
-            status,             // Using Auto-computed status
-            lineName: String(row[14] || ""),
-            items: String(row[15] || "ทั่วไป"),
-            reason: String(row[16] || ""),
+            remainingBalance: Number(item.remainingBalance || 0),
+            status,
+            lineName: String(item.lineName || ""),
+            items: String(item.items || "ทั่วไป"),
+            reason: String(item.reason || ""),
           };
         });
         setContracts(mapped);

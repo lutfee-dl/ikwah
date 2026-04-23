@@ -21,7 +21,8 @@ export default function LiffGuard({ children }: LiffGuardProps) {
         const initialized = await initLiff();
 
         if (!initialized) {
-          router.replace("/");
+          setIsExternalBrowser(true);
+          setStatus("authorized");
           return;
         }
 
@@ -44,7 +45,8 @@ export default function LiffGuard({ children }: LiffGuardProps) {
         }
       } catch (err: any) {
         console.error("LiffGuard error", err);
-        router.replace("/");
+        setIsExternalBrowser(true);
+        setStatus("authorized");
       }
     };
 

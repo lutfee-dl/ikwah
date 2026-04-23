@@ -23,7 +23,7 @@ interface Contract {
   contractId: string;
   requestId: string;
   approvedDate: string;
-  lineUserId: string;
+  lineId: string;
   fullName: string;
   loanType: string;
   principalAmount: number;
@@ -72,13 +72,14 @@ export default function ContractDetailPage() {
       });
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
-        const found = result.data.find((row: unknown[]) => String(row[0] || "") === contractId);
+        const found = result.data.find((item: any) => String(item.contractId || "") === contractId);
         if (found) {
-          const totalPaidAmount = Number(found[11] || 0);
-          const installmentPerMonth = Number(found[9] || 0);
-          const totalInstallments = Number(found[10] || 0);
-          const approvedDateStr = String(found[2] || "");
-          let status = String(found[13] || "กำลังผ่อน");
+          const totalPaidAmount = Number(found.paidAmount || 0);
+          const totalPayable = Number(found.totalPayable || 0);
+          const totalInstallments = Number(found.duration || 0);
+          const installmentPerMonth = totalInstallments > 0 ? totalPayable / totalInstallments : 0;
+          const approvedDateStr = String(found.approvedDate || "");
+          let status = String(found.status || "กำลังผ่อน");
 
           // --- AUTO-TRACKING LOGIC ---
           if (status !== "ปิดยอดแล้ว" && approvedDateStr) {
@@ -99,26 +100,26 @@ export default function ContractDetailPage() {
               }
             }
           }
-          if (status !== "ปิดยอดแล้ว" && totalPaidAmount >= Number(found[8] || 0) && Number(found[8] || 0) > 0) {
+          if (status !== "ปิดยอดแล้ว" && totalPaidAmount >= totalPayable && totalPayable > 0) {
             status = "ปิดยอดแล้ว";
           }
 
           const parsedContract: Contract = {
-            contractId: String(found[0] || ""),
-            requestId: String(found[1] || ""),
+            contractId: String(found.contractId || ""),
+            requestId: String(found.requestId || ""),
             approvedDate: approvedDateStr,
-            lineUserId: String(found[3] || ""),
-            fullName: String(found[4] || ""),
-            loanType: String(found[5] || ""),
-            principalAmount: Number(found[6] || 0),
-            profitAmount: Number(found[7] || 0),
-            totalPayable: Number(found[8] || 0),
+            lineId: String(found.lineId || ""),
+            fullName: String(found.memberName || ""),
+            loanType: String(found.loanType || ""),
+            principalAmount: Number(found.amount || 0),
+            profitAmount: Number(found.interest || 0),
+            totalPayable,
             installmentPerMonth,
             totalInstallments,
             totalPaidAmount,
-            remainingBalance: Number(found[12] || 0),
-            status,             // Using Auto-computed status
-            items: String(found[15] || "ทั่วไป"),
+            remainingBalance: Number(found.remainingBalance || 0),
+            status,
+            items: String(found.items || "ทั่วไป"),
           };
 
           setContract(parsedContract);
@@ -143,17 +144,18 @@ export default function ContractDetailPage() {
         body: JSON.stringify({
           action: "admin_get_repayments",
           contractId,
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET
         }),
       });
       const result = await res.json();
       if (result.success) {
-        const mapped = result.data.map((row: unknown[]) => ({
-          receiptId: String(row[0] || ""),
-          date: String(row[1] || ""),
-          installmentNo: String(row[4] || ""),
-          amount: Number(row[5] || 0),
-          status: String(row[7] || ""),
-          approver: row[8],
+        const mapped = result.data.map((item: any) => ({
+          receiptId: String(item.receiptId || ""),
+          date: String(item.date || ""),
+          installmentNo: String(item.installmentNo || ""),
+          amount: Number(item.amount || 0),
+          status: String(item.status || ""),
+          approver: item.approver,
         }));
         setRepayments(mapped);
       }
@@ -196,7 +198,7 @@ export default function ContractDetailPage() {
         body: JSON.stringify({
           action: "admin_add_repayment",
           contractId: contract.contractId,
-          lineUserId: contract.lineUserId,
+          lineId: contract.lineId,
           amountPaid,
           installmentNo: installmentNo || `ชำระค่างวด`,
           status: "ยืนยันแล้ว",

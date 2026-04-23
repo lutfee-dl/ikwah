@@ -2,16 +2,18 @@
 
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { 
-  UploadCloud, 
-  CheckCircle2, 
-  FileImage, 
-  Loader2, 
-  ArrowLeft, 
-  Copy, 
+import {
+  UploadCloud,
+  CheckCircle2,
+  FileImage,
+  Loader2,
+  ArrowLeft,
+  Copy,
   ChevronDown,
   Info,
-  AlertTriangle
+  AlertTriangle,
+  Banknote,
+  Wallet
 } from "lucide-react";
 
 import liff from "@line/liff";
@@ -26,7 +28,7 @@ import { gasApi } from "@/services/gasApi";
 import { MemberLoan } from "@/types";
 
 type ProfileToken = {
-  lineUserId: string;
+  lineId: string;
   name: string;
 };
 
@@ -68,7 +70,7 @@ function UploadForm() {
           const profile = await getLiffProfile();
           if (profile) {
             setProfile({
-              lineUserId: profile.userId,
+              lineId: profile.userId,
               name: profile.displayName || "Member"
             });
             fetchLoans();
@@ -80,7 +82,7 @@ function UploadForm() {
         const localData = localStorage.getItem("memberData");
         if (localData) {
           const p = JSON.parse(localData);
-          setProfile({ lineUserId: p.lineUserId || p.line_user_id || "TEST-USER", name: p.fullName || "Member" });
+          setProfile({ lineId: p.lineId || p.lineUserId || p.line_user_id || "TEST-USER", name: p.fullName || "Member" });
           fetchLoans();
         }
       }
@@ -332,7 +334,7 @@ function UploadForm() {
       toast.error("กรุณาอัปโหลดรูปภาพสลิปโอนเงิน");
       return;
     }
-    if (!profile?.lineUserId) {
+    if (!profile?.lineId) {
       toast.error("ไม่พบข้อมูลผู้ใช้งาน LINE");
       return;
     }
@@ -388,7 +390,7 @@ function UploadForm() {
 
       const payload = {
         action: "member_upload_slip",
-        lineUserId: profile.lineUserId,
+        lineId: profile.lineId,
         name: profile.name,
         amount: Number(amount),
         category: category,
@@ -447,191 +449,247 @@ function UploadForm() {
   }
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+    <div className="space-y-8 pb-20 animate-in fade-in duration-500">
       <div className="flex items-center gap-3 mb-2">
         <button onClick={() => router.back()} className="p-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 active:scale-90 transition-transform">
           <ArrowLeft size={20} />
         </button>
         <div>
           <h1 className="text-2xl font-black text-slate-800 -tracking-wide">แจ้งโอนเงิน</h1>
-          <p className="text-slate-500 text-sm font-medium">อัปโหลดสลิปเพื่อบันทึกรายการ</p>
+          <p className="text-slate-500 text-sm font-medium">บันทึกรายการฝากหุ้นหรือชำระสินเชื่อ</p>
         </div>
       </div>
 
-      {/* BANK CARD */}
-      <div className="mx-auto bg-white rounded-3xl p-6 border border-sky-100 shadow-sm">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 bg-[#174719] rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-[#174719]">
-            <NextImage src={ASSETS.IMAGES.LOGO_ISLAMIC_BANK} alt="Islamic Bank" width={40} height={40} />
-          </div>
-          <div>
-            <h3 className="text-slate-800 font-bold text-base leading-tight">ธนาคารอิสลาม</h3>
-            <p className="text-sky-500 text-xs font-medium">สาขา ยะรัง ปัตตานี</p>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div className="bg-slate-50 rounded-2xl p-4 relative group">
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">เลขที่บัญชี</p>
-            <div className="flex items-center justify-between">
-              <span className="text-xl font-bold text-slate-800 tracking-tight">087-1-20839-3</span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText("087-1-20839-3");
-                  toast.success("คัดลอกแล้ว");
-                }}
-                className="p-2 bg-white text-sky-500 rounded-xl shadow-sm border border-sky-100 active:scale-90 transition-transform"
-              >
-                <Copy size={16} />
-              </button>
-            </div>
-          </div>
-          <div className="px-1">
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">ชื่อบัญชี</p>
-            <p className="text-slate-800 font-bold text-base leading-tight">กองทุนสะสมอิควะห์ยะรัง</p>
-            <p className="text-slate-500 text-sm mt-1 font-medium">โดย น.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง</p>
-          </div>
-        </div>
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* STEP 1: Select Type */}
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 transition-all">
+          <label className="block text-[10px] font-black uppercase text-slate-400 mb-6 text-center tracking-widest">1. เลือกประเภทรายการ</label>
+          <div className="grid grid-cols-2 gap-4">
+            <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 ${category === "ฝากหุ้นสะสม" ? "border-sky-500 bg-sky-50/50 shadow-inner" : "border-slate-50 bg-white text-slate-400 hover:bg-slate-50 active:scale-95"}`}>
+              <input type="radio" value="ฝากหุ้นสะสม" checked={category === "ฝากหุ้นสะสม"} onChange={e => setCategory(e.target.value)} className="hidden" />
+              <div className={`w-12 h-12 rounded-xl mb-3 flex items-center justify-center transition-colors ${category === "ฝากหุ้นสะสม" ? "bg-sky-500 text-white shadow-lg shadow-sky-200" : "bg-slate-100"}`}>
+                <Wallet size={24} />
+              </div>
+              <span className={`font-black text-sm ${category === "ฝากหุ้นสะสม" ? "text-sky-700" : ""}`}>ฝากหุ้นสะสม</span>
+            </label>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* STEP 1: UPLOAD */}
-        <div className="bg-white p-2 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className={`relative min-h-[280px] rounded-[2rem] flex flex-col items-center justify-center cursor-pointer transition-all duration-500 overflow-hidden ${previewUrl
-              ? 'bg-slate-900 ring-4 ring-sky-500/10'
-              : 'bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200'
-              }`}
-          >
-            {previewUrl ? (
-              <>
-                <img src={previewUrl} alt="Slip Preview" className="absolute inset-0 w-full h-full object-contain opacity-40 blur-lg scale-125 transition-transform duration-700" />
-                <img src={previewUrl} alt="Slip Preview" className="relative z-10 max-h-64 rounded-xl shadow-2xl border border-white/20 animate-in zoom-in duration-500" />
-                {isScanning && (
-                  <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-white text-center animate-in fade-in">
-                    <Loader2 className="animate-spin w-12 h-12 mb-4 text-sky-400" />
-                    <p className="font-black text-lg tracking-wide uppercase italic">{scanProgress.message}</p>
-                    <div className="w-full max-w-[180px] bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden border border-white/5">
-                      <div className="h-full bg-gradient-to-r from-sky-400 to-blue-500 transition-all duration-300" style={{ width: `${scanProgress.percent}%` }} />
+            <label className={`relative cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 
+              ${loans.length === 0 && !isLoadingLoans ? "opacity-40 cursor-not-allowed border-slate-100 bg-slate-50 grayscale" :
+                category === "ชำระยอดสินเชื่อ" ? "border-violet-500 bg-violet-50/50 shadow-inner" : "border-slate-50 bg-white text-slate-400 hover:bg-slate-50 active:scale-95"}`}
+            >
+              <input
+                type="radio"
+                value="ชำระยอดสินเชื่อ"
+                disabled={loans.length === 0 && !isLoadingLoans}
+                checked={category === "ชำระยอดสินเชื่อ"}
+                onChange={e => setCategory(e.target.value)}
+                className="hidden"
+              />
+              <div className={`w-12 h-12 rounded-xl mb-3 flex items-center justify-center transition-colors ${category === "ชำระยอดสินเชื่อ" ? "bg-violet-500 text-white shadow-lg shadow-violet-200" : "bg-slate-100"}`}>
+                <Banknote size={24} />
+              </div>
+              <span className={`font-black text-sm ${category === "ชำระยอดสินเชื่อ" ? "text-violet-700" : ""}`}>ชำระสินเชื่อ</span>
+              {loans.length === 0 && !isLoadingLoans && (
+                <div className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg">
+                  <AlertTriangle size={10} />
+                </div>
+              )}
+            </label>
+          </div>
+
+          {/* Loan Picker & Recommendation */}
+          {category === "ชำระยอดสินเชื่อ" && (
+            <div className="mt-6 pt-6 border-t border-slate-100 space-y-4 animate-in slide-in-from-top-4 duration-500">
+              {isLoadingLoans ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="animate-spin text-violet-500 w-5 h-5" />
+                </div>
+              ) : loans.length > 0 ? (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">เลือกสัญญาที่ต้องการชำระ</label>
+                    <div className="relative group">
+                      <select
+                        value={selectedContractId}
+                        onChange={(e) => setSelectedContractId(e.target.value)}
+                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 appearance-none focus:outline-none focus:border-violet-500 transition-all font-bold text-slate-700 pr-12"
+                      >
+                        {loans.map(loan => (
+                          <option key={loan.contractId} value={loan.contractId}>
+                            {loan.loanType} - #{loan.contractId}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300 group-focus-within:text-violet-500 transition-colors">
+                        <ChevronDown size={20} />
+                      </div>
                     </div>
                   </div>
-                )}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/40 transition-opacity z-20">
-                  <span className="bg-white/90 backdrop-blur-md text-slate-800 font-black px-6 py-3 rounded-full text-sm shadow-2xl flex items-center gap-2 transform translate-y-4 hover:translate-y-0 transition-transform">
-                    <UploadCloud size={18} className="text-sky-500" /> เปลี่ยนรูปภาพ
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center text-center px-6 py-12 space-y-4">
-                <div className="w-20 h-20 bg-gradient-to-br from-sky-100 to-blue-50 text-sky-500 rounded-3xl flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform">
-                  <FileImage size={32} />
+
+                  {/* Payment Hint */}
+                  {selectedContractId && (
+                    <div className="bg-violet-50 rounded-2xl p-4 border border-violet-100 flex items-start gap-3">
+                      <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-violet-500 shadow-sm shrink-0">
+                        <Info size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-violet-900">แนะนำยอดชำระงวดนี้</p>
+                        <p className="text-[10px] text-violet-700 font-medium">
+                          ยอดต่องวดของคุณคือ <span className="font-black text-violet-900">฿{(loans.find(l => l.contractId === selectedContractId)?.installmentAmount || 0).toLocaleString()}</span><br />
+                          หรือยอดคงเหลือทั้งหมด <span className="font-black text-violet-900">฿{(loans.find(l => l.contractId === selectedContractId)?.remainingBalance || 0).toLocaleString()}</span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-center text-rose-500 font-bold text-sm py-4">ไม่พบสัญญาเงินกู้ที่สามารถชำระได้</p>
+              )}
+            </div>
+          )}
+
+          {category === "ฝากหุ้นสะสม" && (
+            <div className="mt-6 pt-6 border-t border-slate-100 animate-in slide-in-from-top-4 duration-500">
+              <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100 flex items-start gap-3">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-sky-500 shadow-sm shrink-0">
+                  <Info size={16} />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-800 text-lg">แตะเพื่ออัปโหลดสลิป</h3>
-                  <p className="text-sm text-slate-400 mt-1 font-medium">ระบบจะช่วยกรอกข้อมูลยอดเงินให้ทันที</p>
+                  <p className="text-xs font-bold text-sky-900">คำแนะนำการฝากหุ้น</p>
+                  <p className="text-[10px] text-sky-700 font-medium leading-relaxed">
+                    ท่านสามารถฝากหุ้นสะสมได้ตามความสมัครใจ ยอดหุ้นจะสะสมเพื่อใช้เป็นสวัสดิการและสิทธิการกู้ในอนาคต
+                  </p>
                 </div>
               </div>
-            )}
-            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
+            </div>
+          )}
+        </div>
+
+        {/* STEP 2: Bank Info */}
+        <div className="space-y-4 animate-in slide-in-from-bottom-6 duration-700 fill-mode-both delay-150">
+          <label className="block text-[10px] font-black uppercase text-slate-400 text-center tracking-widest">2. โอนเงินไปยังบัญชี</label>
+          <div className="mx-auto bg-slate-900 rounded-[2.5rem] p-6 text-white shadow-xl relative overflow-hidden">
+            {/* Background Decoration */}
+            <div className="absolute top-0 right-0 p-6 opacity-10 scale-150 rotate-12">
+              <NextImage src={ASSETS.IMAGES.LOGO_ISLAMIC_BANK} alt="BG" width={100} height={100} />
+            </div>
+
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center p-1 shadow-lg">
+                  <NextImage src={ASSETS.IMAGES.LOGO_ISLAMIC_BANK} alt="Islamic Bank" width={48} height={48} />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg leading-tight">ธนาคารอิสลามแห่งประเทศไทย</h3>
+                  <p className="text-sky-400 text-xs font-bold">สาขายะรัง ปัตตานี</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 group">
+                  <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1">เลขที่บัญชี</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-2xl font-black tracking-widest">087-1-20839-3</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText("087-1-20839-3");
+                        toast.success("คัดลอกเลขบัญชีแล้ว", { icon: '📋' });
+                      }}
+                      className="p-2.5 bg-white text-slate-900 rounded-xl shadow-lg active:scale-90 transition-transform"
+                    >
+                      <Copy size={18} />
+                    </button>
+                  </div>
+                </div>
+                <div className="px-2">
+                  <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1">ชื่อบัญชี</p>
+                  <p className="font-black text-lg">กองทุนสะสมอิควะห์ยะรัง</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* STEP 2: FIELDS */}
+        {/* STEP 3: Upload Slip */}
+        <div className="space-y-4 animate-in slide-in-from-bottom-6 duration-700 fill-mode-both delay-300">
+          <label className="block text-[10px] font-black uppercase text-slate-400 text-center tracking-widest">3. อัปโหลดสลิปหลักฐาน</label>
+
+          <div className="bg-white p-2 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative min-h-[240px] rounded-[2rem] flex flex-col items-center justify-center cursor-pointer transition-all duration-500 overflow-hidden ${previewUrl
+                ? 'bg-slate-900 ring-4 ring-sky-500/10'
+                : 'bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200'
+                }`}
+            >
+              {previewUrl ? (
+                <>
+                  <img src={previewUrl} alt="Slip Preview" className="absolute inset-0 w-full h-full object-contain opacity-40 blur-lg scale-125 transition-transform duration-700" />
+                  <img src={previewUrl} alt="Slip Preview" className="relative z-10 max-h-56 rounded-xl shadow-2xl border border-white/20 animate-in zoom-in duration-500" />
+                  {isScanning && (
+                    <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-white text-center animate-in fade-in">
+                      <Loader2 className="animate-spin w-12 h-12 mb-4 text-sky-400" />
+                      <p className="font-black text-lg tracking-wide uppercase italic">{scanProgress.message}</p>
+                      <div className="w-full max-w-[180px] bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden border border-white/5">
+                        <div className="h-full bg-gradient-to-r from-sky-400 to-blue-500 transition-all duration-300" style={{ width: `${scanProgress.percent}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/40 transition-opacity z-20">
+                    <span className="bg-white/90 backdrop-blur-md text-slate-800 font-black px-6 py-3 rounded-full text-sm shadow-2xl flex items-center gap-2 transform translate-y-4 hover:translate-y-0 transition-transform">
+                      <UploadCloud size={18} className="text-sky-500" /> เปลี่ยนรูปภาพ
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center text-center px-6 py-10 space-y-4">
+                  <div className="w-20 h-20 bg-gradient-to-br from-sky-100 to-blue-50 text-sky-500 rounded-3xl flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform">
+                    <FileImage size={32} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-800 text-lg">แตะเพื่อเลือกสลิป</h3>
+                    <p className="text-sm text-slate-400 mt-1 font-medium italic">ระบบจะดึงยอดเงินจากสลิปให้อัตโนมัติ</p>
+                  </div>
+                </div>
+              )}
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
+            </div>
+          </div>
+        </div>
+
+        {/* STEP 4: Confirm Amount */}
         {(previewUrl || file) && (
-          <div className="space-y-6 animate-in slide-in-from-top-10 fade-in duration-700 fill-mode-both">
-            {/* Amount */}
+          <div className="space-y-6 animate-in slide-in-from-top-6 fade-in duration-700 fill-mode-both">
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 relative group transition-all hover:shadow-lg hover:shadow-slate-100">
-              <label className="block text-xs font-black uppercase text-slate-400 mb-3">จำนวนเงิน</label>
-              <div className="relative">
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 font-light text-4xl">฿</span>
+              <label className="block text-xs font-black uppercase text-slate-400 mb-3 text-center tracking-widest">ตรวจสอบยอดเงินที่ตรวจพบ</label>
+              <div className="relative flex justify-center">
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-200 font-light text-3xl">฿</span>
                 <NumericFormat
                   thousandSeparator={true}
                   inputMode="decimal"
                   value={amount}
                   onValueChange={(values) => setAmount(values.floatValue)}
                   placeholder="0.00"
-                  className="w-full bg-transparent border-none rounded-none pl-10 pr-4 py-2 text-5xl font-black text-slate-800 focus:outline-none transition-all placeholder:text-slate-100"
+                  className="w-full bg-transparent border-none rounded-none text-center py-2 text-5xl font-black text-slate-800 focus:outline-none transition-all placeholder:text-slate-100"
                 />
               </div>
-            </div>
-
-            {/* Category */}
-            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-lg transition-all">
-              <label className="block text-[10px] font-black uppercase text-slate-400 mb-4 text-center">เลือกหมวดหมู่รายการ</label>
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 ${category === "ฝากหุ้นสะสม" ? "border-sky-500 bg-sky-50/50 shadow-inner" : "border-slate-50 bg-white text-slate-400 hover:bg-slate-50 active:scale-95"}`}>
-                  <input type="radio" value="ฝากหุ้นสะสม" checked={category === "ฝากหุ้นสะสม"} onChange={e => setCategory(e.target.value)} className="hidden" />
-                  <div className={`w-10 h-10 rounded-xl mb-2 flex items-center justify-center transition-colors ${category === "ฝากหุ้นสะสม" ? "bg-sky-500 text-white shadow-lg shadow-sky-200" : "bg-slate-100"}`}>
-                    <FileImage size={20} />
-                  </div>
-                  <span className={`font-black text-xs ${category === "ฝากหุ้นสะสม" ? "text-sky-700" : ""}`}>ฝากหุ้นสะสม</span>
-                </label>
-                
-                <label className={`relative cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 
-                  ${loans.length === 0 ? "opacity-40 cursor-not-allowed border-slate-100 bg-slate-50 grayscale" : 
-                    category === "ชำระยอดสินเชื่อ" ? "border-violet-500 bg-violet-50/50 shadow-inner" : "border-slate-50 bg-white text-slate-400 hover:bg-slate-50 active:scale-95"}`}
-                >
-                  <input 
-                    type="radio" 
-                    value="ชำระยอดสินเชื่อ" 
-                    disabled={loans.length === 0}
-                    checked={category === "ชำระยอดสินเชื่อ"} 
-                    onChange={e => setCategory(e.target.value)} 
-                    className="hidden" 
-                  />
-                  <div className={`w-10 h-10 rounded-xl mb-2 flex items-center justify-center transition-colors ${category === "ชำระยอดสินเชื่อ" ? "bg-violet-500 text-white shadow-lg shadow-violet-200" : "bg-slate-100"}`}>
-                    <CheckCircle2 size={20} />
-                  </div>
-                  <span className={`font-black text-xs ${category === "ชำระยอดสินเชื่อ" ? "text-violet-700" : ""}`}>ชำระสินเชื่อ</span>
-                  {loans.length === 0 && (
-                    <div className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg">
-                      <AlertTriangle size={10} />
-                    </div>
-                  )}
-                </label>
-              </div>
-
-              {/* Contract Picker (Only if Category = Repayment) */}
-              {category === "ชำระยอดสินเชื่อ" && loans.length > 0 && (
-                <div className="space-y-3 animate-in slide-in-from-top-4 duration-300">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Info size={14} className="text-violet-500" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase">กรุณาเลือกสัญญาที่ต้องการชำระ</span>
-                  </div>
-                  <div className="relative group">
-                    <select 
-                      value={selectedContractId}
-                      onChange={(e) => setSelectedContractId(e.target.value)}
-                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 appearance-none focus:outline-none focus:border-violet-500 transition-all font-bold text-slate-700 pr-12"
-                    >
-                      {loans.map(loan => (
-                        <option key={loan.contractId} value={loan.contractId}>
-                          {loan.loanType} - #{loan.contractId} (คงเหลือ ฿{loan.remainingBalance.toLocaleString()})
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300 group-focus-within:text-violet-500 transition-colors">
-                      <ChevronDown size={20} />
-                    </div>
-                  </div>
-                </div>
-              )}
+              <p className="text-center text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-tighter">* หากยอดไม่ตรง โปรดแก้ไขให้ถูกต้องตามสลิปจริง</p>
             </div>
 
             {/* Submit */}
             <button
               type="submit"
               disabled={isSubmitting || !file || !amount}
-              className={`w-full py-5 rounded-[2rem] font-black text-xl transition-all flex items-center justify-center gap-3 shadow-2xl relative overflow-hidden group ${isSubmitting ? 'bg-slate-900 text-white cursor-not-allowed' :
+              className={`w-full py-6 rounded-[2rem] font-black text-xl transition-all flex items-center justify-center gap-3 shadow-2xl relative overflow-hidden group ${isSubmitting ? 'bg-slate-900 text-white cursor-not-allowed' :
                 !file || !amount ? 'bg-slate-100 text-slate-400 shadow-none' :
-                  'bg-slate-900 text-white hover:bg-black active:scale-[0.98]'
+                  'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98]'
                 }`}
             >
               {isSubmitting ? (
                 <><Loader2 className="animate-spin w-6 h-6" /> กำลังบันทึกข้อมูล...</>
               ) : (
-                <><span>ยืนยันการแจ้งโอน</span><UploadCloud className="w-6 h-6" /></>
+                <><span>ยืนยันแจ้งโอนเงิน</span><CheckCircle2 className="w-6 h-6" /></>
               )}
             </button>
           </div>

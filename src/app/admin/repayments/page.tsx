@@ -8,7 +8,7 @@ import Swal from "sweetalert2";
 
 type RepaymentSlip = {
   id: string;
-  lineUserId: string;
+  lineId: string;
   name: string;
   amount: number;
   date: string;
@@ -18,7 +18,7 @@ type RepaymentSlip = {
 
 type Contract = {
   id: string;
-  lineUserId: string;
+  lineId: string;
   name: string;
   type: string;
   amount: number;
@@ -48,9 +48,13 @@ export default function RepaymentsPage() {
       const res = await fetch("/api/member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "admin_get_repayment_slips" })
+        body: JSON.stringify({
+          action: "admin_get_repayment_slips",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET
+        })
       });
       const data = await res.json();
+      console.log("Repayment Slips Data:", data);
       if (data.success) {
         setRepayments(data.data);
       }
@@ -67,20 +71,24 @@ export default function RepaymentsPage() {
       const res = await fetch("/api/member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "admin_get_contracts" })
+        body: JSON.stringify({
+          action: "admin_get_contracts",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET
+        })
       });
       const data = await res.json();
+      console.log("Contracts Data from API:", data);
       if (data.success) {
-        // Map GAS array [id, reqId, date, userId, name, type, amount, profit, total, monthly, duration, paid, balance, status, lineName]
-        const mapped = data.data.map((row: any) => ({
-          id: row[0],
-          lineUserId: row[3],
-          name: row[4],
-          type: row[5],
-          amount: Number(row[8]),
-          balance: Number(row[12]),
-          status: row[13]
+        const mapped = data.data.map((item: any) => ({
+          id: item.contractId,
+          lineId: item.lineId,
+          name: item.memberName,
+          type: item.loanType,
+          amount: Number(item.totalPayable),
+          balance: Number(item.remainingBalance),
+          status: item.status
         }));
+        console.log("Mapped Contracts:", mapped);
         setContracts(mapped);
       }
     } catch (err) {
@@ -103,7 +111,7 @@ export default function RepaymentsPage() {
 
   const memberActiveContracts = useMemo(() => {
     if (!selectedPay) return [];
-    return contracts.filter(c => c.lineUserId === selectedPay.lineUserId && c.status === "กำลังผ่อน");
+    return contracts.filter(c => c.lineId === selectedPay.lineId && c.status === "กำลังผ่อน");
   }, [selectedPay, contracts]);
 
   const handleApprove = async () => {
@@ -133,6 +141,7 @@ export default function RepaymentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "admin_update_loan_repayment",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
           depositId: selectedPay.id,
           status: "approved",
           contractId: selectedContractId,
@@ -177,6 +186,7 @@ export default function RepaymentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "admin_update_loan_repayment",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
           depositId: selectedPay.id,
           status: "rejected"
         })
@@ -322,8 +332,8 @@ export default function RepaymentsPage() {
               )}
             </tbody>
           </table>
-        </div>
       </div>
+    </div>
 
       {isModalOpen && selectedPay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">

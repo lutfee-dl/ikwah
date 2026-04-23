@@ -40,7 +40,7 @@ export interface LoanSchedule {
 
 export interface Member {
   memberId: string;
-  lineUserId: string;
+  lineId: string;
   lineName: string;
   prefix: string;
   fullName: string;
@@ -73,4 +73,5 @@ export interface MemberLoan {
   paidAmount: number;
   remainingBalance: number;
   status: string;
+  installmentAmount?: number;
 }

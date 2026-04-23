@@ -312,7 +312,7 @@ export default function MembersPage() {
 							<tbody className="divide-y divide-slate-100">
 								{currentMembers.length > 0 ? (
 									currentMembers.map((member, index) => (
-										<tr key={member.lineUserId || `unverified-${index}-${member.idCard || member.fullName}`} className="hover:bg-slate-50/80 transition-colors group">
+										<tr key={member.lineId || `unverified-${index}-${member.idCard || member.fullName}`} className="hover:bg-slate-50/80 transition-colors group">
 											<td className="py-4 px-6">
 												<div className="flex items-center gap-4">
 													{member.pictureUrl ? (

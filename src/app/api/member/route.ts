@@ -18,14 +18,24 @@ export async function POST(request: Request) {
         ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET || body.ADMIN_SECRET || body.adminSecret
       };
 
+      console.log("Admin API Request Action:", payload.action);
       const response = await fetch(gasUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-      return NextResponse.json(data);
+      const responseText = await response.text();
+      console.log("Raw Response from GAS:", responseText);
+
+      try {
+        const data = JSON.parse(responseText);
+        console.log("Admin API Response from GAS:", data);
+        return NextResponse.json(data);
+      } catch (e) {
+        console.error("Failed to parse GAS response as JSON:", e);
+        return NextResponse.json({ success: false, msg: "Invalid JSON from GAS", raw: responseText }, { status: 500 });
+      }
     }
 
     // ดึง URL ของ GAS จาก Environment Variable ที่ซ่อนไว้ในเซิร์ฟเวอร์
