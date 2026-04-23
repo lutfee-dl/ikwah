@@ -91,17 +91,15 @@ export default function RegisterPage() {
     }
 
     setIsVerifying(true);
-    const tid = toast.loading("กำลังตรวจสอบรายชื่อ...");
 
     try {
       const res = await gasApi.verifyName(fullName, profileData.idToken);
       setIsVerifying(false);
 
       if (res.success) {
-        toast.success("พบรายชื่อในระบบ", { id: tid });
+        toast.success("ตรวจสอบรายชื่อสำเร็จ");
         setStep(2);
       } else {
-        toast.error(res.msg || "ไม่พบรายชื่อในระบบ", { id: tid });
         Swal.fire({
           title: "ไม่พบข้อมูลสมาชิก",
           text: res.msg || "กรุณาตรวจสอบการสะกดชื่อ-นามสกุล หรือติดต่อแอดมินหากคุณเป็นสมาชิกใหม่",
@@ -111,7 +109,7 @@ export default function RegisterPage() {
       }
     } catch (error) {
       setIsVerifying(false);
-      toast.error("การเชื่อมต่อขัดข้อง", { id: tid });
+      toast.error("การเชื่อมต่อขัดข้อง");
       Swal.fire("ข้อผิดพลาด", "ติดต่อเซิร์ฟเวอร์ไม่ได้", "error");
     }
   };

@@ -7,13 +7,15 @@ import Image from "next/image";
 import { useAdminMembers } from "@/hooks/useAdminMembers";
 import MemberDetailModal from "./MemberDetailModal";
 import MemberEditModal from "./MemberEditModal";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 export default function MembersPage() {
 	const { members, loading, error, refetch: fetchMembers } = useAdminMembers();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 	const [editingMember, setEditingMember] = useState<Member | null>(null);
-	
+
 	// Sort state
 	const [sortConfig, setSortConfig] = useState<{
 		key: keyof Member | "fullName" | "accumulatedShares" | "remainingAmount";
@@ -26,15 +28,15 @@ export default function MembersPage() {
 
 	const filteredMembers = members.filter(m => {
 		// 1. Text Search
-		return (m.fullName?.includes(searchTerm) || false) || 
-			(m.idCard?.includes(searchTerm) || false) || 
+		return (m.fullName?.includes(searchTerm) || false) ||
+			(m.idCard?.includes(searchTerm) || false) ||
 			(m.lineName?.includes(searchTerm) || false);
 	});
 
 	// Use useMemo for sorting the filtered members
 	const sortedAndFilteredMembers = useMemo(() => {
 		const sortableItems = [...filteredMembers];
-		
+
 		if (sortConfig.direction !== null) {
 			sortableItems.sort((a, b) => {
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,7 +101,7 @@ export default function MembersPage() {
 					</p>
 				</div>
 				<div className="flex gap-3 w-full md:w-auto">
-					<button 
+					<button
 						onClick={fetchMembers}
 						className="cursor-pointer px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium whitespace-nowrap"
 					>
@@ -124,60 +126,21 @@ export default function MembersPage() {
 				<>
 					<div className="grid grid-cols-3 md:grid-cols-3 gap-2 md:gap-6 mb-8 mt-6">
 						{[1, 2, 3].map((i) => (
-							<div key={i} className="bg-white p-3 md:p-6 rounded-xl md:rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-2 md:gap-5 animate-pulse">
-								<div className="w-10 h-10 md:w-14 md:h-14 bg-slate-200 rounded-xl md:rounded-2xl shrink-0"></div>
+							<div key={i} className="bg-white p-3 md:p-6 rounded-xl md:rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-2 md:gap-5">
+								<Skeleton className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl shrink-0" />
 								<div className="w-full flex flex-col space-y-2 items-center md:items-start">
-									<div className="h-3 bg-slate-200 rounded-md w-16 md:w-24"></div>
-									<div className="h-6 bg-slate-200 rounded-md w-12 md:w-20"></div>
+									<Skeleton className="h-3 w-16 md:w-24" />
+									<Skeleton className="h-6 w-12 md:w-20" />
 								</div>
 							</div>
 						))}
 					</div>
 					<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mb-8">
-						<div className="p-4 border-b border-slate-200 h-14 bg-slate-50/50"></div>
-						<div className="overflow-x-auto">
-							<table className="w-full text-left border-collapse whitespace-nowrap">
-								<thead>
-									<tr className="bg-slate-50 border-b border-slate-200 animate-pulse">
-										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-24"></div></th>
-										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-32"></div></th>
-										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-20 ml-auto"></div></th>
-										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-20 ml-auto"></div></th>
-										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-16 mx-auto"></div></th>
-										<th className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-20 mx-auto"></div></th>
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-slate-100">
-									{[1, 2, 3, 4, 5].map((i) => (
-										<tr key={i} className="animate-pulse">
-											<td className="py-4 px-6">
-												<div className="flex items-center gap-4">
-													<div className="w-12 h-12 rounded-full bg-slate-200 shrink-0"></div>
-													<div className="space-y-2">
-														<div className="h-4 bg-slate-200 rounded-md w-24"></div>
-														<div className="h-3 bg-slate-100 rounded-md w-16"></div>
-													</div>
-												</div>
-											</td>
-											<td className="py-4 px-6">
-												<div className="space-y-2">
-													<div className="h-4 bg-slate-200 rounded-md w-32"></div>
-													<div className="h-3 bg-slate-100 rounded-md w-24"></div>
-												</div>
-											</td>
-											<td className="py-4 px-6"><div className="h-4 bg-slate-200 rounded-md w-16 ml-auto"></div></td>
-											<td className="py-4 px-6"><div className="h-6 bg-slate-200 rounded-lg w-20 ml-auto"></div></td>
-											<td className="py-4 px-6"><div className="h-6 bg-slate-200 rounded-full w-20 mx-auto"></div></td>
-											<td className="py-4 px-6 flex justify-center gap-2"><div className="h-8 bg-slate-200 rounded-lg w-16"></div><div className="h-8 bg-slate-200 rounded-lg w-16"></div></td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
+						<TableSkeleton rows={5} cols={6} hasHeader={true} />
 					</div>
 				</>
 			)}
-			
+
 			{error && (
 				<div className="text-center py-10 bg-red-50 rounded-2xl border border-red-100 flex flex-col items-center justify-center gap-3">
 					<X className="text-red-500 bg-red-100 p-2 rounded-full w-12 h-12" />
@@ -237,7 +200,7 @@ export default function MembersPage() {
 					<div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
 						<div className="flex items-center gap-2">
 							<span className="text-sm text-slate-500 font-medium">แสดง</span>
-							<select 
+							<select
 								value={itemsPerPage}
 								onChange={handleItemsPerPageChange}
 								className="border border-slate-200 rounded-lg text-sm p-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
@@ -312,16 +275,16 @@ export default function MembersPage() {
 							<tbody className="divide-y divide-slate-100">
 								{currentMembers.length > 0 ? (
 									currentMembers.map((member, index) => (
-										<tr key={member.lineId || `unverified-${index}-${member.idCard || member.fullName}`} className="hover:bg-slate-50/80 transition-colors group">
+										<tr key={member.lineId || `unverified-${index}-${member.idCard || member.fullName}`} className="hover:bg-slate-50/80 even:bg-slate-50/50 transition-colors group">
 											<td className="py-4 px-6">
 												<div className="flex items-center gap-4">
 													{member.pictureUrl ? (
-														<Image 
-															src={member.pictureUrl} 
-															alt={member.lineName} 
+														<Image
+															src={member.pictureUrl}
+															alt={member.lineName}
 															width={48}
 															height={48}
-															className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover bg-slate-100" 
+															className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover bg-slate-100"
 														/>
 													) : (
 														<div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 border-2 border-white shadow-sm flex items-center justify-center">
@@ -337,8 +300,15 @@ export default function MembersPage() {
 												</div>
 											</td>
 											<td className="py-4 px-6">
-												<div>
-													<p className="font-bold text-slate-700">{member.prefix} {member.fullName}</p>
+												<div className="flex flex-col">
+													<div className="flex items-center gap-2">
+														<p className="font-bold text-slate-700">{member.prefix} {member.fullName}</p>
+														{!member.lineId && (
+															<span className="px-2 py-0.5 rounded text-xs font-black bg-rose-50 text-rose-500 border border-rose-100 uppercase tracking-tighter">
+																ยังไม่ได้ยืนยันตัวตน
+															</span>
+														)}
+													</div>
 													<div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
 														<span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-medium">{member.phone || "ไม่มีเบอร์"}</span>
 														<span className="text-slate-300">|</span>
@@ -357,12 +327,11 @@ export default function MembersPage() {
 												</span>
 											</td>
 											<td className="py-4 px-6 text-center">
-												<span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ring-1 ${
-													member.status === "สมาชิก" 
-														? "bg-emerald-50 text-emerald-600 ring-emerald-200" 
-														: "bg-slate-50 text-slate-500 ring-slate-200"
-												}`}>
-													{member.status === "สมาชิก" ? "สมาชิกปกติ" : "ลาออก"}
+												<span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ring-1 ${member.status === "สมาชิก"
+													? "bg-emerald-50 text-emerald-600 ring-emerald-200"
+													: "bg-slate-50 text-slate-500 ring-slate-200"
+													}`}>
+													{member.status === "สมาชิก" ? "เป็นสมาชิก" : "ลาออก"}
 												</span>
 											</td>
 											<td className="py-4 px-6 text-center">
@@ -397,23 +366,23 @@ export default function MembersPage() {
 							</tbody>
 						</table>
 					</div>
-					
+
 					{/* Pagination Controls */}
 					{filteredMembers.length > 0 && (
 						<div className="bg-slate-50 border-t border-slate-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
 							<div className="text-sm font-medium text-slate-500">
 								แสดง {startIndex + 1} ถึง {Math.min(endIndex, filteredMembers.length)} จากทั้งหมด {filteredMembers.length} รายการ
 							</div>
-							
+
 							<div className="flex items-center gap-1">
-								<button 
+								<button
 									onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
 									disabled={currentPage === 1}
 									className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 								>
 									<ChevronLeft size={16} />
 								</button>
-								
+
 								<div className="flex items-center gap-1 px-2">
 									{Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
 										// Simple pagination logic to show max 5 pages centered around current
@@ -432,11 +401,10 @@ export default function MembersPage() {
 											<button
 												key={pageNum}
 												onClick={() => setCurrentPage(pageNum)}
-												className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-													currentPage === pageNum
-														? "bg-sky-500 text-white border-sky-500 shadow-sm"
-														: "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-												}`}
+												className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum
+													? "bg-sky-500 text-white border-sky-500 shadow-sm"
+													: "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+													}`}
 											>
 												{pageNum}
 											</button>
@@ -444,7 +412,7 @@ export default function MembersPage() {
 									})}
 								</div>
 
-								<button 
+								<button
 									onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
 									disabled={currentPage === totalPages}
 									className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -459,24 +427,24 @@ export default function MembersPage() {
 
 			{/* Detail Modal (The "Big Picture" View) */}
 			{selectedMember && (
-				<MemberDetailModal 
-					member={selectedMember} 
-					onClose={() => setSelectedMember(null)} 
+				<MemberDetailModal
+					member={selectedMember}
+					onClose={() => setSelectedMember(null)}
 				/>
 			)}
-			
+
 			{/* Edit Member Modal */}
 			{editingMember && (
-				<MemberEditModal 
-					member={editingMember} 
+				<MemberEditModal
+					member={editingMember}
 					onClose={(wasEdited?: boolean) => {
 						setEditingMember(null);
 						// Only trigger a re-fetch if data was actually saved successfully inside the edit modal
-						if(wasEdited === true) {
+						if (wasEdited === true) {
 							// If the backend was updated, we fetch the updated list so the table is fully sync'd
-							location.reload(); 
+							location.reload();
 						}
-					}} 
+					}}
 				/>
 			)}
 		</div>

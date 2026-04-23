@@ -165,4 +165,19 @@ export const gasApi = {
       return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
     }
   },
+
+  // 10. ดึงรายงานหุ้นสะสม (Admin)
+  getAdminSharesReport: async (options: { year?: number } = {}) => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "admin_get_shares_report", ADMIN_SECRET, options }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Admin Shares Report fetch error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
 };

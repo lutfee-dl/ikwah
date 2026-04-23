@@ -22,10 +22,13 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
+import { formatDate, formatDateTime } from "@/lib/utils";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 interface Contract {
   contractId: string;
   requestId: string;
+  memberId: string;
   approvedDate: string;
   lineId: string;
   fullName: string;
@@ -51,13 +54,25 @@ export default function ContractsPage() {
   const [filterType, setFilterType] = useState<string>("all");
 
   // New States for Sorting & Pagination
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "memberId", direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Header Filters
+  const [headerFilters, setHeaderFilters] = useState({
+    contractId: "",
+    memberId: "",
+    fullName: "",
+    items: ""
+  });
 
   useEffect(() => {
     fetchContracts();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, filterType, itemsPerPage]);
 
   const fetchContracts = async () => {
     setIsLoading(true);
@@ -65,9 +80,9 @@ export default function ContractsPage() {
       const res = await fetch("/api/member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           action: "admin_get_contracts",
-          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET 
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET
         }),
       });
       const result = await res.json();
@@ -91,9 +106,9 @@ export default function ContractsPage() {
               }
               monthsPassed = Math.max(0, monthsPassed);
               monthsPassed = Math.min(monthsPassed, totalInstallments);
-              
+
               const expectedPaid = monthsPassed * installmentPerMonth;
-              
+
               if (totalPaidAmount < expectedPaid) {
                 status = "ค้างชำระ";
               } else {
@@ -108,6 +123,7 @@ export default function ContractsPage() {
           return {
             contractId: String(item.contractId || ""),
             requestId: String(item.requestId || ""),
+            memberId: String(item.memberId || "-"),
             approvedDate: String(item.approvedDate || ""),
             lineId: String(item.lineId || ""),
             fullName: String(item.memberName || ""),
@@ -121,7 +137,7 @@ export default function ContractsPage() {
             remainingBalance: Number(item.remainingBalance || 0),
             status,
             lineName: String(item.lineName || ""),
-            items: String(item.items || "ทั่วไป"),
+            items: String(item.items || "-"),
             reason: String(item.reason || ""),
           };
         });
@@ -138,9 +154,17 @@ export default function ContractsPage() {
     const matchStatus = filterStatus === "all" || c.status === filterStatus;
     const matchType = filterType === "all" || c.loanType === filterType;
     const s = searchTerm.toLowerCase();
-    return matchStatus && matchType && (
+    
+    const matchHeader = 
+      c.contractId.toLowerCase().includes(headerFilters.contractId.toLowerCase()) &&
+      c.memberId.toLowerCase().includes(headerFilters.memberId.toLowerCase()) &&
+      c.fullName.toLowerCase().includes(headerFilters.fullName.toLowerCase()) &&
+      c.items.toLowerCase().includes(headerFilters.items.toLowerCase());
+
+    return matchStatus && matchType && matchHeader && (
       c.fullName.toLowerCase().includes(s) ||
       c.contractId.toLowerCase().includes(s) ||
+      c.memberId.toLowerCase().includes(s) ||
       c.items.toLowerCase().includes(s)
     );
   });
@@ -242,7 +266,7 @@ export default function ContractsPage() {
 
       {/* --- Section 1: สรุปภาพรวม & Auto-Tracker System --- */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div 
+        <div
           className="cursor-pointer bg-gradient-to-br from-slate-800 to-slate-950 p-5 rounded-2xl text-white shadow-lg shadow-slate-900/20 flex flex-col justify-between"
           onClick={() => setFilterStatus("all")}
         >
@@ -260,8 +284,8 @@ export default function ContractsPage() {
           { label: "กำลังผ่อน", count: stats.ongoing, icon: <RotateCcw size={24} />, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
           { label: "ปิดยอดแล้ว", count: stats.finished, icon: <CheckCircle2 size={24} />, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" }
         ].map((s, i) => (
-          <div 
-            key={i} 
+          <div
+            key={i}
             className={`cursor-pointer bg-white p-5 rounded-2xl border ${s.border} shadow-sm flex flex-col justify-between transition-transform hover:-translate-y-1 duration-300`}
             onClick={() => setFilterStatus(s.label)}
           >
@@ -326,6 +350,17 @@ export default function ContractsPage() {
               )}
             </div>
 
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="w-full sm:w-auto cursor-pointer bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={10}>10 / หน้า</option>
+              <option value={20}>20 / หน้า</option>
+              <option value={50}>50 / หน้า</option>
+              <option value={100}>100 / หน้า</option>
+            </select>
+
             <div className="hidden sm:flex gap-2">
               <button
                 onClick={exportToCSV}
@@ -350,21 +385,7 @@ export default function ContractsPage() {
 
           {/* Loading Skeletons */}
           {isLoading ? (
-            <div className="divide-y divide-slate-100 p-4 lg:p-0">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="animate-pulse flex flex-col lg:flex-row items-start lg:items-center p-4 lg:p-6 gap-4">
-                  <div className="flex-1 space-y-3 w-full">
-                    <div className="h-4 bg-slate-200 rounded-md w-1/3"></div>
-                    <div className="h-3 bg-slate-100 rounded-md w-1/2"></div>
-                  </div>
-                  <div className="flex-1 space-y-3 hidden lg:block">
-                    <div className="h-4 bg-slate-200 rounded-md w-1/4"></div>
-                    <div className="h-3 bg-slate-100 rounded-md w-1/3"></div>
-                  </div>
-                  <div className="h-8 bg-slate-200 rounded-full w-24"></div>
-                </div>
-              ))}
-            </div>
+            <TableSkeleton rows={5} cols={6} hasHeader={false} />
           ) : paginatedContracts.length === 0 ? (
             /* Empty State */
             <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
@@ -388,23 +409,65 @@ export default function ContractsPage() {
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-100/50 text-slate-500 text-xs uppercase tracking-widest font-black border-y border-slate-200">
-                      <th className="py-4 px-6 cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("approvedDate")}>
-                        <div className="flex items-center gap-1 group">ข้อมูลสัญญา {sortConfig?.key === "approvedDate" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
+                    <tr className="bg-slate-100/50 text-slate-500 text-[10px] uppercase tracking-widest font-black border-y border-slate-200">
+                      <th className="py-3 px-6">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("approvedDate")}>
+                            ข้อมูลสัญญา {sortConfig?.key === "approvedDate" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
+                          </div>
+                          <input 
+                            type="text" 
+                            placeholder="ค้นหาสัญญา..."
+                            className="font-medium bg-white border border-slate-200 rounded-md px-2 py-1 w-full focus:ring-1 focus:ring-blue-500 outline-none"
+                            value={headerFilters.contractId}
+                            onChange={(e) => setHeaderFilters(prev => ({ ...prev, contractId: e.target.value }))}
+                          />
+                        </div>
                       </th>
-                      <th className="py-4 px-6 cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("fullName")}>
-                        <div className="flex items-center gap-1 group">ผู้กู้ {sortConfig?.key === "fullName" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
+                      <th className="py-3 px-6">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("memberId")}>
+                            สมาชิก {sortConfig?.key === "memberId" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
+                          </div>
+                          <div className="flex gap-1">
+                            <input 
+                              type="text" 
+                              placeholder="รหัส..."
+                              className="font-medium bg-white border border-slate-200 rounded-md px-2 py-1 w-1/3 focus:ring-1 focus:ring-blue-500 outline-none"
+                              value={headerFilters.memberId}
+                              onChange={(e) => setHeaderFilters(prev => ({ ...prev, memberId: e.target.value }))}
+                            />
+                            <input 
+                              type="text" 
+                              placeholder="ชื่อ-นามสกุล..."
+                              className="font-medium bg-white border border-slate-200 rounded-md px-2 py-1 w-2/3 focus:ring-1 focus:ring-blue-500 outline-none"
+                              value={headerFilters.fullName}
+                              onChange={(e) => setHeaderFilters(prev => ({ ...prev, fullName: e.target.value }))}
+                            />
+                          </div>
+                        </div>
                       </th>
-                      <th className="py-4 px-6 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("loanType")}>
-                        <div className="flex justify-center items-center gap-1 group">ประเภท {sortConfig?.key === "loanType" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
+                      <th className="py-3 px-6 text-center">
+                        <div className="flex flex-col gap-2 items-center">
+                          <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("loanType")}>
+                            ประเภท {sortConfig?.key === "loanType" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
+                          </div>
+                          <input 
+                            type="text" 
+                            placeholder="สินค้า/รายการ..."
+                            className="font-medium bg-white border border-slate-200 rounded-md px-2 py-1 w-full focus:ring-1 focus:ring-blue-500 outline-none"
+                            value={headerFilters.items}
+                            onChange={(e) => setHeaderFilters(prev => ({ ...prev, items: e.target.value }))}
+                          />
+                        </div>
                       </th>
-                      <th className="py-4 px-6 text-right cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("remainingBalance")}>
+                      <th className="py-3 px-6 text-right cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("remainingBalance")}>
                         <div className="flex justify-end items-center gap-1 group">ยอดคงเหลือ {sortConfig?.key === "remainingBalance" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
                       </th>
-                      <th className="py-4 px-6 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("status")}>
+                      <th className="py-3 px-6 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("status")}>
                         <div className="flex justify-center items-center gap-1 group">สถานะ {sortConfig?.key === "status" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
                       </th>
-                      <th className="py-4 px-6 text-center w-24">จัดการ</th>
+                      <th className="py-3 px-6 text-center w-24">จัดการ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
@@ -413,20 +476,21 @@ export default function ContractsPage() {
                       const remaining = Math.max(0, item.totalInstallments - paidCount);
 
                       return (
-                        <tr key={idx} className="hover:bg-blue-50/30 transition-colors group">
+                        <tr key={idx} className="hover:bg-blue-50/30 even:bg-slate-50/50 transition-colors group">
                           <td className="py-5 px-6">
                             <div className="font-mono bg-slate-100 p-2 rounded-full text-[12px] font-bold text-slate-400 mb-1.5 uppercase w-max">ID: {item.contractId}</div>
                             <div className="flex items-center gap-2 font-black text-slate-800 text-sm">
                               <ShoppingBag size={14} className="text-blue-500 shrink-0" /> <span className="truncate">{item.items}</span>
                             </div>
                             <div className="text-[12px] text-slate-400 font-medium mt-1">
-                              อนุมัติเมื่อ: {item.approvedDate}
+                              อนุมัติเมื่อ: {formatDateTime(item.approvedDate)}
                             </div>
                           </td>
 
                           <td className="py-5 px-6">
                             <div className="flex items-center gap-3">
                               <div>
+                                <div className="font-mono text-[10px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded-md w-max mb-1">{item.memberId}</div>
                                 <div className="font-bold text-slate-900 text-sm border-b border-transparent group-hover:border-blue-200 transition-colors">{item.fullName}</div>
                                 <div className="text-[12px] text-slate-400 font-medium mt-0.5">Line: {item.lineName || '-'}</div>
                               </div>
@@ -514,24 +578,44 @@ export default function ContractsPage() {
               {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between p-4 lg:px-6 bg-white border-t border-slate-200/60 rounded-b-[2rem]">
-                  <p className="text-sm font-bold text-slate-500">
-                    หน้า <span className="text-slate-800">{currentPage}</span> จาก {totalPages}
-                    <span className="hidden sm:inline font-medium ml-2 text-slate-400">
-                      (รายการที่ {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, sortedContracts.length)} จากทั้งหมด {sortedContracts.length})
-                    </span>
+                  <p className="text-sm font-bold text-slate-500 hidden sm:block">
+                    แสดง {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, sortedContracts.length)} จากทั้งหมด {sortedContracts.length}
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                     <button
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
-                      className="p-2 sm:px-4 sm:py-2 flex items-center gap-1 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 disabled:hover:bg-slate-50 disabled:hover:text-slate-600 transition-colors font-bold text-sm"
+                      className="p-2 sm:px-4 sm:py-2 flex items-center gap-1 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-bold text-sm"
                     >
                       <ChevronLeft size={18} /> <span className="hidden sm:block">ก่อนหน้า</span>
                     </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                        let pageNum = 1;
+                        if (totalPages <= 5) pageNum = i + 1;
+                        else if (currentPage <= 3) pageNum = i + 1;
+                        else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                        else pageNum = currentPage - 2 + i;
+
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`w-9 h-9 rounded-xl text-sm font-bold transition-all ${currentPage === pageNum
+                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
+                              : 'bg-slate-50 text-slate-500 hover:bg-blue-50 hover:text-blue-600'}`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <button
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
-                      className="p-2 sm:px-4 sm:py-2 flex items-center gap-1 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 disabled:hover:bg-slate-50 disabled:hover:text-slate-600 transition-colors font-bold text-sm"
+                      className="p-2 sm:px-4 sm:py-2 flex items-center gap-1 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-bold text-sm"
                     >
                       <span className="hidden sm:block">ถัดไป</span> <ChevronRight size={18} />
                     </button>

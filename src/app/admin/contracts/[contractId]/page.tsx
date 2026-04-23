@@ -12,12 +12,14 @@ import {
   Wallet,
   ArrowRight,
   LayoutGrid,
-  ChevronLeft
+  ChevronLeft,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Swal from "sweetalert2";
 import Link from "next/link";
 import { NumericFormat } from "react-number-format";
+import { formatDate, formatDateTime, formatTime } from "@/lib/utils";
 
 interface Contract {
   contractId: string;
@@ -124,6 +126,15 @@ export default function ContractDetailPage() {
 
           setContract(parsedContract);
           setAmountPaid(parsedContract.installmentPerMonth);
+          
+          // คำนวณงวดถัดไปที่ต้องจ่าย
+          const paidCount = Math.floor(totalPaidAmount / installmentPerMonth);
+          const nextInstallment = paidCount + 1;
+          if (nextInstallment <= totalInstallments) {
+            setInstallmentNo(`งวดที่ ${nextInstallment}`);
+          } else {
+            setInstallmentNo("ปิดยอดสัญญา");
+          }
         } else {
           toast.error("ไม่พบข้อมูลสัญญา");
         }
@@ -170,27 +181,30 @@ export default function ContractDetailPage() {
     fetchContract();
     fetchRepayments();
   }, [fetchContract, fetchRepayments]);
-
   const handleAddRepayment = async () => {
     if (!contract) return;
     if (!amountPaid || amountPaid <= 0) return toast.error("กรุณาระบุยอดเงินให้ถูกต้อง");
 
-    if (amountPaid > contract.remainingBalance) {
-      const confirmResult = await Swal.fire({
-        title: 'ยอดรับชำระเกินหนี้คงเหลือ!',
-        text: `ยอดที่ระบุ (${amountPaid.toLocaleString()} ฿) มากกว่าหนี้คงเหลือ (${contract.remainingBalance.toLocaleString()} ฿) คุณแน่ใจหรือไม่ที่จะบันทึกยอดนี้?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'ยืนยัน',
-        cancelButtonText: 'ยกเลิก'
-      });
-      if (!confirmResult.isConfirmed) return;
-    }
+    const confirmResult = await Swal.fire({
+      title: 'ยืนยันการรับชำระเงิน?',
+      html: `
+        <div class="text-left space-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+          <p class="text-sm font-bold text-slate-600">ผู้ชำระ: <span class="text-blue-600">${contract.fullName}</span></p>
+          <p class="text-sm font-bold text-slate-600">รายการ: <span class="text-slate-800">${installmentNo || 'ชำระค่างวดปกติ'}</span></p>
+          <p class="text-2xl font-black text-emerald-600 text-center mt-4">ยอดเงิน: ${amountPaid.toLocaleString()} ฿</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ยืนยันบันทึกข้อมูล',
+      cancelButtonText: 'ตรวจสอบอีกครั้ง'
+    });
+
+    if (!confirmResult.isConfirmed) return;
 
     setIsAddingRepayment(true);
-    const tid = toast.loading("กำลังบันทึก...");
     try {
       const res = await fetch("/api/member", {
         method: "POST",
@@ -202,45 +216,23 @@ export default function ContractDetailPage() {
           amountPaid,
           installmentNo: installmentNo || `ชำระค่างวด`,
           status: "ยืนยันแล้ว",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET
         }),
       });
       const result = await res.json();
       if (result.success) {
-        toast.success("บันทึกรับเงินเรียบร้อย", { id: tid });
+        toast.success("บันทึกรับเงินเรียบร้อย");
         setInstallmentNo("");
         fetchContract();    // Refresh overall balance
         fetchRepayments();  // Refresh timeline
       } else {
-        toast.error(result.msg || "เกิดข้อผิดพลาด", { id: tid });
+        toast.error(result.msg || "เกิดข้อผิดพลาด");
       }
     } catch {
-      toast.error("เซิร์ฟเวอร์ขัดข้อง", { id: tid });
+      toast.error("เซิร์ฟเวอร์ขัดข้อง");
     } finally {
       setIsAddingRepayment(false);
     }
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return dateStr;
-
-    return date.toLocaleDateString("th-TH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const formatTime = (dateStr: string) => {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return "";
-
-    return date.toLocaleTimeString("th-TH", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   if (isLoadingContract) {
@@ -304,7 +296,7 @@ export default function ContractDetailPage() {
               <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mt-1">
                 <span className="flex items-center gap-1 font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[10px] text-slate-600 font-bold uppercase">{contract.contractId}</span>
                 <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                <span className="flex items-center gap-1"><Calendar size={12} className="text-slate-400" /> อนุมัติ: {contract.approvedDate}</span>
+                <span className="flex items-center gap-1"><Calendar size={12} className="text-slate-400" /> อนุมัติ: {formatDate(contract.approvedDate)}</span>
               </div>
             </div>
           </div>
@@ -376,69 +368,129 @@ export default function ContractDetailPage() {
 
         {/* Repayment Form */}
         {contract.remainingBalance > 0 && (
-          <div className="bg-white border border-blue-100 rounded-3xl p-5 sm:p-6 shadow-sm relative">
-            <h4 className="font-black text-slate-800 text-base mb-4 flex items-center gap-2">
-              <PlusCircle className="text-blue-500" size={18} /> บันทึกรับชำระเงิน
-            </h4>
+          <div className="bg-white border-2 border-blue-100 rounded-[2rem] p-6 shadow-xl shadow-blue-900/5 relative overflow-hidden">
+            {/* Decorative Background */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-50" />
 
-            <div className="flex flex-col lg:flex-row gap-4 items-end">
-              <div className="w-full lg:w-48 space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 ml-1">รายละเอียด / งวด (เลือกได้)</label>
-                <input
-                  type="text"
-                  placeholder="เช่น งวดที่ 1"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all"
-                  value={installmentNo}
-                  onChange={(e) => setInstallmentNo(e.target.value)}
-                />
-              </div>
-
-              <div className="flex-1 w-full space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 ml-1">จำนวนเงิน (บาท)</label>
-                <div className="flex flex-wrap sm:flex-nowrap gap-2">
-                  <div className="relative flex-1">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">฿</span>
-                    <NumericFormat
-                      thousandSeparator={true}
-                      inputMode="decimal"
-                      value={amountPaid}
-                      onValueChange={(values) => {
-                        setAmountPaid(values.floatValue);
-                      }}
-                      className="w-full pl-8 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-2xl text-xl font-black text-blue-700 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-right"
-                      placeholder="0.00"
-                    />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-6">
+                <h4 className="font-black text-slate-800 text-lg flex items-center gap-2.5">
+                  <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+                    <PlusCircle className="text-white" size={18} />
                   </div>
-
-                  {/* Quick action buttons */}
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <button
-                      onClick={() => setAmountPaid(contract.installmentPerMonth)}
-                      className="flex-1 sm:flex-none px-4 py-3 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-2xl text-[11px] sm:text-xs font-bold transition-colors border border-slate-200"
-                    >
-                      ค่างวดปกติ<br className="hidden lg:block" /> <span className="text-blue-600 ml-1 lg:ml-0">{contract.installmentPerMonth.toLocaleString()}</span>
-                    </button>
-                    <button
-                      onClick={() => setAmountPaid(contract.remainingBalance)}
-                      className="flex-1 sm:flex-none px-4 py-3 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-2xl text-[11px] sm:text-xs font-bold transition-colors border border-rose-200"
-                    >
-                      ปิดยอด<br className="hidden lg:block" /> <span className="text-rose-700 ml-1 lg:ml-0">{contract.remainingBalance.toLocaleString()}</span>
-                    </button>
-                  </div>
+                  บันทึกรับชำระเงิน
+                </h4>
+                <div className="hidden sm:block px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100">
+                  สัญญาปกติ
                 </div>
               </div>
 
-              <button
-                disabled={isAddingRepayment || !amountPaid || amountPaid <= 0}
-                onClick={handleAddRepayment}
-                className="w-full lg:w-32 py-3 lg:h-[3.25rem] bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-black shadow-lg shadow-blue-600/20 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all flex items-center justify-center gap-2"
-              >
-                {isAddingRepayment ? (
-                  <span className="animate-pulse">รอสักครู่...</span>
-                ) : (
-                  <>ยืนยัน <ArrowRight size={16} /></>
-                )}
-              </button>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-end">
+
+                {/* Installment No. Input */}
+                <div className="lg:col-span-3 space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">
+                    งวดที่ / รายละเอียด
+                  </label>
+                  <div className="relative group">
+                    <input
+                      list="installment-options"
+                      type="text"
+                      placeholder="ระบุงวด หรือพิมพ์เอง..."
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 group-focus-within:bg-white group-focus-within:border-blue-500 group-focus-within:ring-4 group-focus-within:ring-blue-50 outline-none transition-all"
+                      value={installmentNo}
+                      onChange={(e) => setInstallmentNo(e.target.value)}
+                    />
+                    <datalist id="installment-options">
+                      {Array.from({ length: contract.totalInstallments }).map((_, i) => {
+                        const num = i + 1;
+                        const isPaid = i < Math.floor(contract.totalPaidAmount / contract.installmentPerMonth);
+                        return (
+                          <option 
+                            key={num} 
+                            value={`งวดที่ ${num}`}
+                          >
+                            {isPaid ? 'ชำระแล้ว' : 'รอชำระ'}
+                          </option>
+                        );
+                      })}
+                      <option value="ปิดยอดสัญญา" />
+                      <option value="ค่าปรับ/ค่าธรรมเนียม" />
+                    </datalist>
+                  </div>
+                </div>
+
+                {/* Amount Input & Quick Actions */}
+                <div className="lg:col-span-6 space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">
+                    จำนวนเงินชำระ (บาท)
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1 group">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 font-black text-lg">฿</span>
+                      <NumericFormat
+                        thousandSeparator={true}
+                        inputMode="decimal"
+                        value={amountPaid}
+                        onValueChange={(values) => setAmountPaid(values.floatValue)}
+                        className="w-full pl-10 pr-4 py-3.5 bg-blue-50/30 border border-blue-100 rounded-2xl text-2xl font-black text-blue-700 group-focus-within:bg-white group-focus-within:border-blue-500 group-focus-within:ring-4 group-focus-within:ring-blue-50 outline-none transition-all text-right tabular-nums"
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    {/* Quick Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAmountPaid(contract.installmentPerMonth)}
+                        className={`flex-1 sm:flex-none px-4 py-2 rounded-2xl text-[11px] font-black transition-all border-2 flex flex-col items-center justify-center min-w-[80px] ${amountPaid === contract.installmentPerMonth
+                          ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200"
+                          : "bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:text-blue-600"
+                          }`}
+                      >
+                        <span>ค่างวด</span>
+                        <span className={amountPaid === contract.installmentPerMonth ? "text-blue-100" : "text-blue-600"}>
+                          {contract.installmentPerMonth.toLocaleString()}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAmountPaid(contract.remainingBalance)}
+                        className={`flex-1 sm:flex-none px-4 py-2 rounded-2xl text-[11px] font-black transition-all border-2 flex flex-col items-center justify-center min-w-[80px] ${amountPaid === contract.remainingBalance
+                          ? "bg-rose-600 border-rose-600 text-white shadow-md shadow-rose-200"
+                          : "bg-white border-slate-100 text-slate-600 hover:border-rose-200 hover:text-rose-600"
+                          }`}
+                      >
+                        <span>ปิดยอด</span>
+                        <span className={amountPaid === contract.remainingBalance ? "text-rose-100" : "text-rose-600"}>
+                          {contract.remainingBalance.toLocaleString()}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <div className="lg:col-span-3">
+                  <button
+                    disabled={isAddingRepayment || !amountPaid || amountPaid <= 0}
+                    onClick={handleAddRepayment}
+                    className="w-full h-[3.75rem] bg-slate-900 hover:bg-blue-600 text-white rounded-2xl text-sm font-black shadow-xl shadow-slate-200 hover:shadow-blue-200 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center gap-3 group"
+                  >
+                    {isAddingRepayment ? (
+                      <RefreshCw className="animate-spin" size={20} />
+                    ) : (
+                      <>
+                        ยืนยันชำระเงิน
+                        <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                          <ArrowRight size={14} />
+                        </div>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -480,7 +532,7 @@ export default function ContractDetailPage() {
                   </tr>
                 ) : (
                   repayments.map((rp, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={i} className="hover:bg-slate-50/50 even:bg-slate-50/50 transition-colors">
                       <td className="py-4 px-4 sm:px-6">
                         <div className="font-bold text-slate-700 text-base">
                           {formatDate(rp.date)}

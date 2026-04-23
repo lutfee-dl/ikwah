@@ -3,7 +3,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMemberData } from "@/hooks/useMemberData";
-import { BanknoteArrowDown, Eye, EyeOff } from "lucide-react";
+import { BanknoteArrowDown, Eye, EyeOff, Send, Search } from "lucide-react";
 import { ASSETS } from "@/config";
 
 export default function DashboardPage() {
@@ -100,8 +100,9 @@ export default function DashboardPage() {
             onClick={() => router.push("/dashboard/upload")}
             className="cursor-pointer group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:bg-sky-50 transition-all hover:bg-gray-50"
           >
-            <div className="w-10 h-10 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
-              <i className="fas fa-file-invoice-dollar text-lg"></i>
+            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
+              {/* <i className="fas fa-file-invoice-dollar text-lg"></i> */}
+              <Send size={24} />
             </div>
             <p className="font-bold text-sm text-slate-700">แจ้งฝาก/ชำระเงิน</p>
           </button>
@@ -110,7 +111,7 @@ export default function DashboardPage() {
             onClick={() => router.push("/dashboard/loan")}
             className="cursor-pointer group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:bg-sky-50 transition-all hover:bg-gray-50"
           >
-            <div className="w-10 h-10 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
+            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
               <BanknoteArrowDown size={24} />
             </div>
             <p className="font-bold text-sm text-slate-700">ยื่นขอสินเชื่อ</p>
@@ -120,8 +121,9 @@ export default function DashboardPage() {
             onClick={() => router.push("/dashboard/loans")}
             className="cursor-pointer group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:bg-violet-50 transition-all hover:bg-gray-50"
           >
-            <div className="w-10 h-10 bg-violet-50 text-violet-600 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
-              <i className="fas fa-search-dollar text-lg"></i>
+            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
+              {/* <i className="fas fa-search-dollar text-lg"></i> */}
+              <Search size={24} />
             </div>
             <p className="font-bold text-sm text-slate-700">ตรวจสอบสินเชื่อ</p>
           </button>

@@ -1,11 +1,13 @@
 "use client";
 
-import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2, FileClock, AlertCircle } from "lucide-react";
+import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2, FileClock, AlertCircle, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import { NumericFormat } from "react-number-format";
 import Swal from "sweetalert2";
 import { toast } from "react-hot-toast";
+import { formatDateTime } from "@/lib/utils";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 
 type Deposit = {
@@ -25,7 +27,6 @@ type FilterStatus = "pending" | "approved" | "rejected" | "all";
 type SortColumn = "id" | "name" | "amount" | "date" | "status";
 type SortDirection = "asc" | "desc";
 
-// นำ SortIcon ออกมาประกาศข้างนอกเพื่อป้องกัน Error: Cannot create components during render
 const SortIcon = ({ column, sortConfig }: { column: SortColumn, sortConfig: { column: SortColumn, direction: SortDirection } }) => {
   if (sortConfig.column !== column) return <ArrowUpDown size={14} className="inline ml-1 text-slate-300" />;
   return sortConfig.direction === "asc" ?
@@ -42,8 +43,12 @@ export default function DepositsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<{ column: SortColumn, direction: SortDirection }>({
     column: "date",
-    direction: "asc" // เก่า-ใหม่ (Ascending)
+    direction: "asc" 
   });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [selectedDeposit, setSelectedDeposit] = useState<Deposit | null>(null);
   const [editAmount, setEditAmount] = useState<number>(0);
@@ -53,48 +58,36 @@ export default function DepositsPage() {
 
   const getDriveImageUrl = (url: string) => {
     if (!url || typeof url !== 'string') return "";
-
-    // 1. ถ้าเป็นลิงก์ Google Drive
     if (url.includes("drive.google.com") || url.includes("googleusercontent.com")) {
-      // ดึง File ID: ค้นหาชุดตัวอักษรที่มีความยาวเหมือน ID ของ Google Drive (33 ตัว หรือใกล้เคียง)
-      // โดยเลี่ยงคำทั่วไปใน URL
       const matches = url.match(/[-\w]{25,}/g);
       const fileId = matches ? matches.find(m =>
         !['drive', 'google', 'file', 'view', 'drivesdk', 'usp', 'shared'].includes(m.toLowerCase())
       ) : null;
 
       if (fileId) {
-        const finalUrl = `https://docs.google.com/thumbnail?id=${fileId}&sz=w1200`;
-        return finalUrl;
+        return `https://docs.google.com/thumbnail?id=${fileId}&sz=w1200`;
       }
     }
-
-    // 2. ถ้าเป็นลิงก์รูปภาพทั่วไป ให้คืนค่าเดิม
     return url;
   };
 
-  const sortedAndFilteredDeposits = useMemo(() => {
-    // Ensure deposits is an array before filtering
+  const filteredAndSortedDeposits = useMemo(() => {
     if (!Array.isArray(deposits)) return [];
 
-    // 1. กรองข้อมูล (Filter)
     const result = deposits.filter((d) => {
-      const matchStatus =
-        filterStatus === "all" || d.status === filterStatus ||
-        (filterStatus === "pending" && String(d.status).includes("pending"));
+      const matchStatus = filterStatus === "all" || d.status === filterStatus;
       const matchSearch =
         (d.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (d.id || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (d.amount?.toString() || "").includes(searchQuery);
+        (d.memberId || "").toLowerCase().includes(searchQuery.toLowerCase());
       return matchStatus && matchSearch;
     });
 
-    // 2. เรียงข้อมูล (Sort)
     result.sort((a, b) => {
       let valA: string | number = a[sortConfig.column];
       let valB: string | number = b[sortConfig.column];
 
-      if (sortConfig.column === 'date') {
+      if (sortConfig.column === "date") {
         valA = new Date(a.date).getTime();
         valB = new Date(b.date).getTime();
       }
@@ -107,22 +100,23 @@ export default function DepositsPage() {
     return result;
   }, [deposits, filterStatus, searchQuery, sortConfig]);
 
-  const handleSort = (column: SortColumn) => {
-    setSortConfig(prev => ({
-      column,
-      direction: prev.column === column && prev.direction === "asc" ? "desc" : "asc"
-    }));
-  };
+  const paginatedDeposits = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedDeposits.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedDeposits, currentPage, itemsPerPage]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }) + ' น.';
+  const totalPages = Math.ceil(filteredAndSortedDeposits.length / itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, searchQuery, itemsPerPage]);
+
+  const handleSort = (column: SortColumn) => {
+    setSortConfig((prev) => ({
+      column,
+      direction:
+        prev.column === column && prev.direction === "asc" ? "desc" : "asc",
+    }));
   };
 
   const fetchDeposits = async () => {
@@ -151,31 +145,6 @@ export default function DepositsPage() {
     fetchDeposits();
   }, []);
 
-  const aiParsedData = useMemo(() => {
-    if (!selectedDeposit?.aiData) return null;
-    try {
-      return JSON.parse(selectedDeposit.aiData);
-    } catch (e) {
-      console.error("AI Data Parse Error:", e);
-      return null;
-    }
-  }, [selectedDeposit]);
-
-  const formatDateTime = (dateStr: string | null, timeStr: string | null): string | null => {
-    if (!dateStr) return null;
-    const monthsEN: { [key: string]: string } = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
-    let day, month, year;
-    let match = dateStr.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{4})/i);
-    if (match) { day = match[1].padStart(2, '0'); month = monthsEN[match[2].toLowerCase().substring(0, 3)]; year = match[3]; }
-    if (!month) {
-      match = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-      if (match) { day = match[1].padStart(2, '0'); month = match[2].padStart(2, '0'); year = match[3].length === 2 ? '20' + match[3] : match[3]; }
-    }
-    if (!month) return dateStr + (timeStr ? ' ' + timeStr : '');
-    const formattedTime = timeStr || '00:00:00';
-    return `${day}/${month}/${year} ${formattedTime}`;
-  };
-
   const handleApprove = async (id: string) => {
     const result = await Swal.fire({
       title: 'ยืนยันการอนุมัติ?',
@@ -184,7 +153,7 @@ export default function DepositsPage() {
       showCancelButton: true,
       confirmButtonText: 'อนุมัติ',
       cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#10b981', // emerald-500
+      confirmButtonColor: '#10b981',
     });
 
     if (!result.isConfirmed) return;
@@ -199,7 +168,7 @@ export default function DepositsPage() {
           ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
           status: "approved",
           depositId: id,
-          amount: editAmount // ส่งยอดที่อาจจะถูกแก้ไขไปด้วย
+          amount: editAmount
         })
       });
 
@@ -250,7 +219,7 @@ export default function DepositsPage() {
           ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
           status: "rejected",
           depositId: id,
-          note: note // ส่งเหตุผลกลับไปด้วย
+          note: note
         })
       });
 
@@ -278,11 +247,10 @@ export default function DepositsPage() {
     setIsModalOpen(true);
   };
 
-  // --- STATS CALCULATIONS ---
   const stats = useMemo(() => {
-    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const today = new Date().toLocaleDateString('en-CA');
     return deposits.reduce((acc, d) => {
-      if (d.status === "pending" || d.status.includes("(ซ้ำ!)")) {
+      if (d.status === "pending") {
         acc.pendingAmount += (Number(d.amount) || 0);
         acc.pendingCount++;
       } else if (d.status === "approved") {
@@ -298,13 +266,10 @@ export default function DepositsPage() {
 
   return (
     <div className="space-y-6 relative">
-      {/* 1. Header & Controls */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">ระบบจัดการเงินฝาก</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            ตรวจสอบและอนุมัติหลักฐานการโอนเงินกองทุนทั้งหมด
-          </p>
+          <p className="text-slate-500 text-sm mt-1">ตรวจสอบและอนุมัติหลักฐานการโอนเงินกองทุนทั้งหมด</p>
         </div>
         <button
           onClick={fetchDeposits}
@@ -315,9 +280,7 @@ export default function DepositsPage() {
         </button>
       </div>
 
-      {/* 2. SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Pending Amount */}
         <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl p-5 text-white shadow-lg shadow-amber-200 relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
             <Loader2 size={80} />
@@ -331,7 +294,6 @@ export default function DepositsPage() {
           </div>
         </div>
 
-        {/* Approved Today */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex items-center gap-4 hover:border-emerald-200 transition-all">
           <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-500">
             <CheckCircle2 size={24} />
@@ -342,7 +304,6 @@ export default function DepositsPage() {
           </div>
         </div>
 
-        {/* Total Approved */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex items-center gap-4 hover:border-blue-200 transition-all">
           <div className="bg-blue-50 p-4 rounded-2xl text-blue-500">
             <Search size={24} />
@@ -353,7 +314,6 @@ export default function DepositsPage() {
           </div>
         </div>
 
-        {/* Rejected Stats (Simplified) */}
         <div className="bg-slate-50 border border-slate-200 border-dashed rounded-3xl p-5 flex items-center gap-4">
           <div className="bg-white p-4 rounded-2xl text-slate-400 border border-slate-100">
             <XCircle size={24} />
@@ -367,9 +327,7 @@ export default function DepositsPage() {
         </div>
       </div>
 
-      {/* 3. CONTROLS (TABS & SEARCH) */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-        {/* Tabs for Filtering */}
         <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
           {[
             { id: "pending", label: "รอตรวจสอบ" },
@@ -386,135 +344,100 @@ export default function DepositsPage() {
                 }`}
             >
               {tab.label}
-              {tab.id === "pending" &&
-                Array.isArray(deposits) &&
-                deposits.filter((d) => d.status === "pending").length >
-                0 && (
-                  <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-rose-500 rounded-full">
-                    {
-                      deposits.filter((d) => d.status === "pending")
-                        .length
-                    }
-                  </span>
-                )}
+              {tab.id === "pending" && deposits.filter(d => d.status === "pending").length > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-rose-500 rounded-full">
+                  {deposits.filter(d => d.status === "pending").length}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-64">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            size={18}
-          />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ค้นหาชื่อ, รหัส..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
-          />
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ค้นหาชื่อ, รหัส..."
+              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm"
+            />
+          </div>
+          <select 
+            value={itemsPerPage}
+            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+            className="cursor-pointer bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            <option value={10}>10 รายการ / หน้า</option>
+            <option value={20}>20 รายการ / หน้า</option>
+            <option value={50}>50 รายการ / หน้า</option>
+            <option value={100}>100 รายการ / หน้า</option>
+          </select>
         </div>
       </div>
 
-      {/* Table View */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 cursor-pointer">
-                <th onClick={() => handleSort('id')} className="py-4 px-6 font-semibold text-slate-600 text-sm whitespace-nowrap hover:bg-slate-100 transition-colors">
+              <tr className="bg-slate-50/80 border-b border-slate-200">
+                <th onClick={() => handleSort('id')} className="py-4 px-6 font-semibold text-slate-600 text-sm whitespace-nowrap hover:bg-slate-100 transition-colors cursor-pointer">
                   รหัสรายการ <SortIcon column="id" sortConfig={sortConfig} />
                 </th>
-                <th className="py-4 px-6 font-semibold text-slate-600 text-sm">
-                  รหัสสมาชิก
-                </th>
-                <th onClick={() => handleSort('name')} className="py-4 px-6 font-semibold text-slate-600 text-sm hover:bg-slate-100 transition-colors">
+                <th className="py-4 px-6 font-semibold text-slate-600 text-sm">รหัสสมาชิก</th>
+                <th onClick={() => handleSort('name')} className="py-4 px-6 font-semibold text-slate-600 text-sm hover:bg-slate-100 transition-colors cursor-pointer">
                   ชื่อสมาชิก <SortIcon column="name" sortConfig={sortConfig} />
                 </th>
-                <th onClick={() => handleSort('amount')} className="py-4 px-6 font-semibold text-slate-600 text-sm text-right hover:bg-slate-100 transition-colors">
-                  จำนวนเงิน (บาท) <SortIcon column="amount" sortConfig={sortConfig} />
+                <th onClick={() => handleSort('amount')} className="py-4 px-6 font-semibold text-slate-600 text-sm text-right hover:bg-slate-100 transition-colors cursor-pointer">
+                  จำนวนเงิน <SortIcon column="amount" sortConfig={sortConfig} />
                 </th>
-                <th onClick={() => handleSort('date')} className="py-4 px-6 font-semibold text-slate-600 text-sm hover:bg-slate-100 transition-colors">
+                <th onClick={() => handleSort('date')} className="py-4 px-6 font-semibold text-slate-600 text-sm hover:bg-slate-100 transition-colors cursor-pointer">
                   วันที่แจ้งฝาก <SortIcon column="date" sortConfig={sortConfig} />
                 </th>
-                <th onClick={() => handleSort('status')} className="py-4 px-6 font-semibold text-slate-600 text-sm text-center hover:bg-slate-100 transition-colors">
+                <th onClick={() => handleSort('status')} className="py-4 px-6 font-semibold text-slate-600 text-sm text-center hover:bg-slate-100 transition-colors cursor-pointer">
                   สถานะ <SortIcon column="status" sortConfig={sortConfig} />
                 </th>
-                <th className="py-4 px-6 font-semibold text-slate-600 text-sm text-center">
-                  จัดการ
-                </th>
+                <th className="py-4 px-6 font-semibold text-slate-600 text-sm text-center">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-sky-500" />
-                    <p>กำลังโหลดข้อมูลการฝากเงิน...</p>
+                  <td colSpan={7} className="p-0">
+                    <TableSkeleton rows={5} cols={7} hasHeader={false} />
                   </td>
                 </tr>
-              ) : sortedAndFilteredDeposits.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    ไม่พบรายการที่ตรงกับเงื่อนไข
-                  </td>
-                </tr>
+              ) : paginatedDeposits.length === 0 ? (
+                <tr><td colSpan={7} className="py-12 text-center text-slate-400">ไม่พบรายการ...</td></tr>
               ) : (
-                sortedAndFilteredDeposits.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="py-4 px-6 text-slate-700 font-medium whitespace-nowrap">
-                      {item.id}
-                    </td>
-                    <td className="py-4 px-6 text-slate-600 font-bold">
-                      {item.memberId || "-"}
-                    </td>
-                    <td className="py-4 px-6 text-slate-600 font-medium">
-                      {item.name}
-                    </td>
-                    <td className="py-4 px-6 font-bold text-sky-600 text-right">
-                      {item.amount.toLocaleString()} บาท
-                    </td>
-                    <td className="py-4 px-6 text-slate-500 text-sm">
-                      {formatDate(item.date)}
-                    </td>
+                paginatedDeposits.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50 even:bg-slate-50/50 transition-colors">
+                    <td className="py-4 px-6 text-slate-700 font-medium whitespace-nowrap">{item.id}</td>
+                    <td className="py-4 px-6 text-slate-500 text-sm">{item.memberId || "-"}</td>
+                    <td className="py-4 px-6 text-slate-600 font-medium">{item.name}</td>
+                    <td className="py-4 px-6 text-right font-bold text-sky-600">{item.amount.toLocaleString()}</td>
+                    <td className="py-4 px-6 text-slate-500 text-sm">{formatDateTime(item.date)}</td>
                     <td className="py-4 px-6 text-center">
-                      <span
-                        className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap gap-1 items-center ${item.status === "approved"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : item.status === "rejected"
-                            ? "bg-rose-100 text-rose-700"
-                            : "bg-amber-100 text-amber-700"
-                          }`}
-                      >
-                        {item.rawStatus?.includes("(ซ้ำ!)") && (
-                          <span className="text-rose-500 animate-pulse">⚠️</span>
-                        )}
-                        {item.status === "pending"
-                          ? (item.rawStatus?.includes("รอส่งสลิป") ? "รอสลิป" : "รอตรวจสอบ")
-                          : item.status === "approved"
-                            ? "อนุมัติแล้ว"
-                            : "ปฏิเสธ"}
-                        {item.rawStatus?.includes("(ซ้ำ!)") && (
-                          <span className="text-[10px] ml-0.5 text-rose-600 font-black">ซ้ำ!</span>
-                        )}
+                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap gap-1 items-center ${
+                        item.status === "approved" ? "bg-emerald-100 text-emerald-700" :
+                        item.status === "rejected" ? "bg-rose-100 text-rose-700" :
+                        "bg-amber-100 text-amber-700"
+                      }`}>
+                        {item.status === "pending" ? "รอตรวจสอบ" : item.status === "approved" ? "อนุมัติแล้ว" : "มีปัญหา"}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-center">
                       <button
                         onClick={() => openDetails(item)}
-                        className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${item.status === "pending"
-                          ? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100 hover:border-sky-500"
-                          : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
-                          }`}
+                        className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                          item.status === "pending"
+                            ? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100"
+                            : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
+                        }`}
                       >
                         <Eye size={16} />
-                        {item.status === "pending"
-                          ? "ตรวจสลิป"
-                          : "ดูข้อมูล"}
+                        {item.status === "pending" ? "ตรวจสลิป" : "ดูสลิป"}
                       </button>
                     </td>
                   </tr>
@@ -523,40 +446,67 @@ export default function DepositsPage() {
             </tbody>
           </table>
         </div>
+
+        {!loading && filteredAndSortedDeposits.length > 0 && (
+          <div className="bg-slate-50 border-t border-slate-100 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              แสดง {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredAndSortedDeposits.length)} จากทั้งหมด {filteredAndSortedDeposits.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:bg-white hover:text-sky-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                  let pageNum = 1;
+                  if (totalPages <= 5) pageNum = i + 1;
+                  else if (currentPage <= 3) pageNum = i + 1;
+                  else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                  else pageNum = currentPage - 2 + i;
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${
+                        currentPage === pageNum
+                          ? "bg-sky-600 text-white shadow-lg shadow-sky-100"
+                          : "bg-white text-slate-500 border border-slate-100 hover:border-sky-200 hover:text-sky-600"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:bg-white hover:text-sky-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Modal - Mobile-first Bottom Sheet */}
       {isModalOpen && selectedDeposit && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setIsModalOpen(false)}
-        >
-          <div
-            className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[95svh] sm:max-h-[90vh] overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Handle bar for mobile */}
-            <div className="flex justify-center pt-3 pb-1 sm:hidden">
-              <div className="w-10 h-1 bg-slate-300 rounded-full" />
-            </div>
-
-            {/* Header */}
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[95svh] sm:max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="w-10 h-1 bg-slate-300 rounded-full" /></div>
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div>
                 <h3 className="font-bold text-base text-slate-800">ตรวจสอบสลิปฝากเงิน</h3>
                 <p className="text-xs text-slate-500 mt-0.5">{selectedDeposit.id}</p>
               </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 transition-colors"
-              >
-                <X size={20} />
-              </button>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 transition-colors"><X size={20} /></button>
             </div>
-
-            {/* Scrollable Content */}
             <div className="overflow-y-auto flex-1">
-              {/* Member Info */}
               <div className="px-5 pt-4 pb-3 bg-slate-50 border-b border-slate-100">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -565,64 +515,33 @@ export default function DepositsPage() {
                       {selectedDeposit.memberId && <span className="text-sky-600 mr-1">[{selectedDeposit.memberId}]</span>}
                       {selectedDeposit.name}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">{formatDate(selectedDeposit.date)}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{formatDateTime(selectedDeposit.date)}</p>
                   </div>
-                  <span className={`shrink-0 inline-flex px-3 py-1 rounded-full text-xs font-bold ${selectedDeposit.status === "pending"
-                    ? "bg-amber-100 text-amber-700"
-                    : selectedDeposit.status === "approved"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-rose-100 text-rose-700"
-                    }`}>
+                  <span className={`shrink-0 inline-flex px-3 py-1 rounded-full text-xs font-bold ${selectedDeposit.status === "pending" ? "bg-amber-100 text-amber-700" : selectedDeposit.status === "approved" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
                     {selectedDeposit.status === "pending" ? "รอตรวจสอบ" : selectedDeposit.status === "approved" ? "อนุมัติแล้ว" : "ปฏิเสธ"}
                   </span>
                 </div>
               </div>
-
-              {/* Slip Image */}
               <div className="px-5 pt-4">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">รูปสลิป</p>
                 <div className="bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex justify-center items-center min-h-[220px] relative">
                   {selectedDeposit.slipUrl ? (
-                    <div
-                      className="cursor-zoom-in relative group"
-                      onClick={() => setIsZoomOpen(true)}
-                    >
-                      <Image
-                        src={getDriveImageUrl(selectedDeposit.slipUrl)}
-                        alt="Slip"
-                        width={500}
-                        height={800}
-                        className="w-full h-auto max-h-[60svh] object-contain rounded-lg border border-slate-200 shadow-sm transition-transform duration-300 group-hover:scale-[1.02]"
-                        unoptimized
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = "https://placehold.co/400x600?text=Invalid+Image";
-                        }}
-                      />
+                    <div className="cursor-zoom-in relative group" onClick={() => setIsZoomOpen(true)}>
+                      <Image src={getDriveImageUrl(selectedDeposit.slipUrl)} alt="Slip" width={500} height={800} className="w-full h-auto max-h-[60svh] object-contain rounded-lg border border-slate-200 shadow-sm" unoptimized />
                     </div>
-                  ) : (
-                    <p className="text-slate-400 text-sm py-8">ไม่พบรูปสลิป</p>
-                  )}
+                  ) : ( <p className="text-slate-400 text-sm py-8">ไม่พบรูปสลิป</p> )}
                 </div>
+                <button onClick={() => window.open(selectedDeposit.slipUrl, '_blank')} className="mt-2 w-full text-xs text-sky-600 font-bold flex items-center gap-1 justify-center py-2 hover:bg-sky-50 rounded-lg transition-colors">
+                  <ExternalLink size={12} /> เปิดดูรูปต้นฉบับ
+                </button>
               </div>
-
-              {/* Amount */}
               {selectedDeposit.status === "pending" ? (
                 <div className="px-5 pt-4 pb-2">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">ยอดเงิน (แก้ไขได้)</p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-lg">฿</span>
-                    <NumericFormat
-                      thousandSeparator={true}
-                      inputMode="decimal"
-                      value={editAmount}
-                      onValueChange={(values) => {
-                        setEditAmount(values.floatValue || 0);
-                      }}
-                      className="w-full text-3xl font-black text-sky-600 bg-white border-2 border-sky-200 rounded-2xl pl-10 pr-4 py-3.5 focus:outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 transition-all text-right"
-                    />
+                    <NumericFormat thousandSeparator={true} inputMode="decimal" value={editAmount} onValueChange={(values) => setEditAmount(values.floatValue || 0)} className="w-full text-3xl font-black text-sky-600 bg-white border-2 border-sky-200 rounded-2xl pl-10 pr-4 py-3.5 focus:outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 text-right" />
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1.5 text-right">* แก้ไขได้ถ้ายอดไม่ตรงกับสลิป</p>
                 </div>
               ) : (
                 <div className="px-5 pt-4 pb-2 space-y-3">
@@ -638,74 +557,27 @@ export default function DepositsPage() {
                   )}
                 </div>
               )}
-
               <div className="h-4" />
             </div>
-
-            {/* Sticky Action Buttons */}
             <div className="p-4 border-t border-slate-100 bg-white">
               {selectedDeposit.status === "pending" ? (
                 <div className="flex gap-2">
-                  <button
-                    disabled={isUpdating}
-                    onClick={() => handleReject(selectedDeposit.id)}
-                    className="cursor-pointer flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl transition-all disabled:opacity-50 active:scale-95"
-                  >
-                    {isUpdating ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />} ไม่อนุมัติ
-                  </button>
-                  <button
-                    disabled={isUpdating}
-                    onClick={() => handleApprove(selectedDeposit.id)}
-                    className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-all shadow-sm shadow-emerald-200 disabled:opacity-50"
-                  >
-                    {isUpdating ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} อนุมัติยอดฝาก
-                  </button>
+                  <button disabled={isUpdating} onClick={() => handleReject(selectedDeposit.id)} className="cursor-pointer flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl transition-all disabled:opacity-50"><XCircle size={18} /> ไม่อนุมัติ</button>
+                  <button disabled={isUpdating} onClick={() => handleApprove(selectedDeposit.id)} className="cursor-pointer flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-2xl transition-all shadow-sm disabled:opacity-50"><CheckCircle2 size={18} /> อนุมัติ</button>
                 </div>
               ) : (
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="w-full py-3 text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
-                >
-                  ปิดหน้าต่าง
-                </button>
+                <button onClick={() => setIsModalOpen(false)} className="w-full py-3.5 text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">ปิดหน้าต่าง</button>
               )}
             </div>
           </div>
         </div>
       )}
-      {/* 🔍 Zoom Modal (Lightbox) */}
-      {isZoomOpen && selectedDeposit && (
-        <div
-          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/90 backdrop-blur-md transition-all duration-300 animate-in fade-in"
-          onClick={() => setIsZoomOpen(false)}
-        >
-          <div className="absolute top-6 right-6 flex gap-4">
-            <a
-              href={selectedDeposit.slipUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span className="i-lucide-external-link w-6 h-6" />
-            </a>
-            <button
-              className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-colors"
-              onClick={() => setIsZoomOpen(false)}
-            >
-              <span className="i-lucide-x w-6 h-6" />
-            </button>
-          </div>
 
-          <div
-            className="relative max-w-[95vw] max-h-[90vh] w-auto h-auto transition-transform duration-500 animate-in zoom-in-95"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={getDriveImageUrl(selectedDeposit.slipUrl)}
-              alt="Zoomed Slip"
-              className="w-auto h-auto max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl border border-white/10"
-            />
+      {isZoomOpen && selectedDeposit && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/90 backdrop-blur-md" onClick={() => setIsZoomOpen(false)}>
+          <div className="absolute top-6 right-6"><button className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full"><X size={24} /></button></div>
+          <div className="relative max-w-[95vw] max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <img src={getDriveImageUrl(selectedDeposit.slipUrl)} alt="Zoomed Slip" className="w-auto h-auto max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" />
           </div>
         </div>
       )}

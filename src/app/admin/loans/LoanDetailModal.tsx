@@ -1,4 +1,5 @@
 import { LoanData } from "./page";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import {
 	X,
 	CheckCircle2,
@@ -6,6 +7,7 @@ import {
 	Calculator,
 	CalendarClock,
 	CreditCard,
+	Loader2,
 } from "lucide-react";
 
 interface LoanDetailModalProps {
@@ -48,7 +50,7 @@ export default function LoanDetailModal({
 						</div>
 						<div className="text-right">
 							<p className="text-slate-500 text-sm mb-1">วันที่แจ้ง</p>
-							<p className="font-medium text-slate-700">{loan.date}</p>
+							<p className="font-medium text-slate-700">{formatDateTime(loan.date)}</p>
 						</div>
 					</div>
 
@@ -116,14 +118,24 @@ export default function LoanDetailModal({
 								onClick={() => onReject(loan.id)}
 								className="flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-xl transition-all disabled:opacity-50 cursor-pointer"
 							>
-								<XCircle size={18} /> ไม่อนุมัติคำขอ
+								{isLoading ? (
+									<Loader2 size={18} className="animate-spin" />
+								) : (
+									<XCircle size={18} />
+								)}
+								ไม่อนุมัติคำขอ
 							</button>
 							<button
 								disabled={isLoading}
 								onClick={() => onApprove(loan.id)}
 								className="flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 cursor-pointer"
 							>
-								<CheckCircle2 size={18} /> อนุมัติสินเชื่อ
+								{isLoading ? (
+									<Loader2 size={18} className="animate-spin" />
+								) : (
+									<CheckCircle2 size={18} />
+								)}
+								อนุมัติสินเชื่อ
 							</button>
 						</div>
 					) : (

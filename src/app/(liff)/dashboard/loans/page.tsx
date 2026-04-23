@@ -7,6 +7,7 @@ import { getLiffIdToken } from "@/services/liff";
 import { gasApi } from "@/services/gasApi";
 import { MemberLoan } from "@/types";
 import toast from "react-hot-toast";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 export default function MemberLoansPage() {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function MemberLoansPage() {
             </div>
             <div className="flex items-center gap-1.5 text-slate-500">
               <Calendar size={14} />
-              <span className="text-xs font-medium">{isClosed ? 'ปิดยอดเมื่อ' : 'อนุมัติเมื่อ'} {loan.approvedDate}</span>
+              <span className="text-xs font-medium">{isClosed ? 'ปิดยอดเมื่อ' : 'อนุมัติเมื่อ'} {formatDateTime(loan.approvedDate)}</span>
             </div>
           </div>
           <div className="text-right">

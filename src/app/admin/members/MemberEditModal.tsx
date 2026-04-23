@@ -16,7 +16,7 @@ export default function MemberEditModal({
 }: MemberEditModalProps) {
   const [editedMember, setEditedMember] = useState<Member>(member);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Validation states
   const [idCardRaw, setIdCardRaw] = useState(member.idCard ? String(member.idCard).replace(/-/g, "") : "");
   const [phoneRaw, setPhoneRaw] = useState(member.phone ? String(member.phone).replace(/-/g, "") : "");
@@ -34,7 +34,7 @@ export default function MemberEditModal({
     if (id.length !== 13 || !/^\d{13}$/.test(id)) return false;
     let sum = 0;
     for (let i = 0; i < 12; i++) {
-        sum += parseInt(id.charAt(i)) * (13 - i);
+      sum += parseInt(id.charAt(i)) * (13 - i);
     }
     const check = (11 - (sum % 11)) % 10;
     return check === parseInt(id.charAt(12));
@@ -59,24 +59,24 @@ export default function MemberEditModal({
 
   const handleSave = async () => {
     if (!isIdValid) {
-        toast.error("กรุณาตรวจสอบเลขบัตรประชาชนให้ถูกต้อง");
-        return;
+      toast.error("กรุณาตรวจสอบเลขบัตรประชาชนให้ถูกต้อง");
+      return;
     }
     if (!isPhoneValid) {
-        toast.error("กรุณาตรวจสอบเบอร์โทรศัพท์ให้ถูกต้อง");
-        return;
+      toast.error("กรุณาตรวจสอบเบอร์โทรศัพท์ให้ถูกต้อง");
+      return;
     }
 
     setIsSaving(true);
     const toastId = toast.loading("กำลังบันทึกข้อมูล...");
-    
+
     // Format ให้มีขีดแบบที่ GAS ต้องการ (17 และ 12 ตัวอักษร)
-    const formattedIdCard = idCardRaw.length === 13 
-      ? `${idCardRaw.slice(0, 1)}-${idCardRaw.slice(1, 5)}-${idCardRaw.slice(5, 10)}-${idCardRaw.slice(10, 12)}-${idCardRaw.slice(12)}` 
+    const formattedIdCard = idCardRaw.length === 13
+      ? `${idCardRaw.slice(0, 1)}-${idCardRaw.slice(1, 5)}-${idCardRaw.slice(5, 10)}-${idCardRaw.slice(10, 12)}-${idCardRaw.slice(12)}`
       : idCardRaw;
-      
-    const formattedPhone = phoneRaw.length === 10 
-      ? `${phoneRaw.slice(0, 2)}-${phoneRaw.slice(2, 6)}-${phoneRaw.slice(6)}` 
+
+    const formattedPhone = phoneRaw.length === 10
+      ? `${phoneRaw.slice(0, 2)}-${phoneRaw.slice(2, 6)}-${phoneRaw.slice(6)}`
       : phoneRaw;
 
     try {
@@ -101,9 +101,9 @@ export default function MemberEditModal({
         throw new Error("Failed to update");
       }
 
-      toast.success("บันทึกการแก้ไขเรียบร้อย ล่าสุดแล้ว!", { id: toastId }); 
+      toast.success("บันทึกการแก้ไขเรียบร้อย ล่าสุดแล้ว!", { id: toastId });
       onClose(true); // Automatically close after success and signal that an edit was made
-      
+
     } catch (e) {
       console.error(e);
       toast.error("เกิดข้อผิดพลาดในการบันทึกข้อมูล", { id: toastId });
@@ -146,14 +146,18 @@ export default function MemberEditModal({
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">
                 ข้อมูลบัญชี LINE
               </p>
+              {(!member.lineId || member.lineId === "" || member.lineId === "null" || member.lineId === "undefined") && (
+                <div className="mb-2">
+                  <span className="px-2 py-1 rounded-lg text-xs font-black bg-rose-50 text-rose-500 border border-rose-100 uppercase tracking-tight flex items-center gap-1 w-fit">
+                    <AlertCircle size={12} /> ยังไม่ได้ยืนยันตัวตน
+                  </span>
+                </div>
+              )}
               <h3 className="font-bold text-slate-700">
                 {member.lineName || "ไม่ระบุ"}
               </h3>
-              <p className="text-xs text-slate-500 font-mono mt-0.5">
-                LINE UID: {member.lineId ? `${member.lineId.substring(0, 10)}...` : "N/A"}
-              </p>
-              <p className="text-[10px] font-black text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100 inline-block mt-2">
-                OFFICIAL ID: {member.memberId || "IKW-"}
+              <p className="text-xs font-black text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100 inline-block mt-2">
+                รหัสสมาชิก : {member.memberId || "IKW-"}
               </p>
             </div>
           </div>
@@ -179,11 +183,11 @@ export default function MemberEditModal({
 
             <div className="col-span-2 flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase">ชื่อ - สกุล</label>
-              <input 
-                type="text" 
-                className="border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2.5 text-sm outline-none transition-all font-medium text-slate-800" 
-                value={editedMember.fullName} 
-                onChange={e => setEditedMember({...editedMember, fullName: e.target.value})}
+              <input
+                type="text"
+                className="border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2.5 text-sm outline-none transition-all font-medium text-slate-800"
+                value={editedMember.fullName}
+                onChange={e => setEditedMember({ ...editedMember, fullName: e.target.value })}
               />
             </div>
           </div>
@@ -200,11 +204,10 @@ export default function MemberEditModal({
               unmask={true}
               onAccept={handleIdAccept}
               placeholder="1-2345-67890-12-3"
-              className={`border focus:ring-1 rounded-lg px-3 py-2.5 text-sm outline-none transition-all font-mono ${
-                !isIdValid && idCardRaw.length > 0 
-                  ? "border-rose-300 focus:border-rose-500 focus:ring-rose-500 bg-rose-50/30" 
-                  : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-              }`}
+              className={`border focus:ring-1 rounded-lg px-3 py-2.5 text-sm outline-none transition-all font-mono ${!isIdValid && idCardRaw.length > 0
+                ? "border-rose-300 focus:border-rose-500 focus:ring-rose-500 bg-rose-50/30"
+                : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
+                }`}
             />
             {!isIdValid && idCardRaw.length > 0 && (
               <p className="text-[10px] text-rose-500 mt-1">เลขบัตรประชาชนไม่ถูกต้อง</p>
@@ -223,13 +226,12 @@ export default function MemberEditModal({
               unmask={true}
               onAccept={handlePhoneAccept}
               placeholder="08-1234-5678"
-              className={`border focus:ring-1 rounded-lg px-3 py-2.5 text-sm outline-none transition-all font-mono ${
-                !isPhoneValid && phoneRaw.length > 0 
-                  ? "border-rose-300 focus:border-rose-500 focus:ring-rose-500 bg-rose-50/30" 
-                  : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-              }`}
+              className={`border focus:ring-1 rounded-lg px-3 py-2.5 text-sm outline-none transition-all font-mono ${!isPhoneValid && phoneRaw.length > 0
+                ? "border-rose-300 focus:border-rose-500 focus:ring-rose-500 bg-rose-50/30"
+                : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
+                }`}
             />
-             {!isPhoneValid && phoneRaw.length > 0 && (
+            {!isPhoneValid && phoneRaw.length > 0 && (
               <p className="text-[10px] text-rose-500 mt-1">เบอร์โทรศัพท์ต้องขึ้นต้นด้วย 06, 08, 09 และมี 10 หลัก</p>
             )}
           </div>
@@ -239,17 +241,16 @@ export default function MemberEditModal({
               สถานะบัญชี
             </label>
             <select
-              className={`border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2.5 text-sm outline-none transition-all font-bold ${
-                editedMember.status === "สมาชิก"
-                  ? "text-emerald-600 bg-emerald-50/30"
-                  : "text-rose-600 bg-rose-50/30"
-              }`}
+              className={`border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2.5 text-sm outline-none transition-all font-bold ${editedMember.status === "สมาชิก"
+                ? "text-emerald-600 bg-emerald-50/30"
+                : "text-rose-600 bg-rose-50/30"
+                }`}
               value={editedMember.status || "สมาชิก"}
               onChange={(e) =>
                 setEditedMember({ ...editedMember, status: e.target.value })
               }
             >
-              <option value="สมาชิก">สมาชิกปกติ</option>
+              <option value="สมาชิก">เป็นสมาชิก</option>
               <option value="ลาออก">ลาออก</option>
             </select>
           </div>

@@ -138,7 +138,7 @@ export default function AdminDashboardPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {/* Mock Row 1 */}
-                <tr className="hover:bg-slate-50/50 transition-colors group">
+                <tr className="hover:bg-slate-50/50 even:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="font-medium text-slate-800">
@@ -171,7 +171,7 @@ export default function AdminDashboardPage() {
                 </tr>
 
                 {/* Mock Row 2 */}
-                <tr className="hover:bg-slate-50/50 transition-colors group">
+                <tr className="hover:bg-slate-50/50 even:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="font-medium text-slate-800">
@@ -204,7 +204,7 @@ export default function AdminDashboardPage() {
                 </tr>
 
                 {/* Mock Row 3 */}
-                <tr className="hover:bg-slate-50/50 transition-colors group">
+                <tr className="hover:bg-slate-50/50 even:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="font-medium text-slate-800">

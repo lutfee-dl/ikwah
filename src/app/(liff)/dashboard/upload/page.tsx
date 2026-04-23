@@ -554,12 +554,6 @@ function UploadForm() {
                 <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-sky-500 shadow-sm shrink-0">
                   <Info size={16} />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-sky-900">คำแนะนำการฝากหุ้น</p>
-                  <p className="text-[10px] text-sky-700 font-medium leading-relaxed">
-                    ท่านสามารถฝากหุ้นสะสมได้ตามความสมัครใจ ยอดหุ้นจะสะสมเพื่อใช้เป็นสวัสดิการและสิทธิการกู้ในอนาคต
-                  </p>
-                </div>
               </div>
             </div>
           )}
@@ -605,6 +599,7 @@ function UploadForm() {
                 <div className="px-2">
                   <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1">ชื่อบัญชี</p>
                   <p className="font-black text-lg">กองทุนสะสมอิควะห์ยะรัง</p>
+                  <p className="text-sky-300 text-xs">โดยน.ส.อัฟเสาะห์ กาซอ และ น.ส.มารีนา สาเม็ง</p>
                 </div>
               </div>
             </div>

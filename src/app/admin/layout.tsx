@@ -7,11 +7,12 @@ import { usePathname } from "next/navigation";
 import { Toaster, toast } from "react-hot-toast";
 import Cookies from "js-cookie";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import {
   LayoutDashboard, Users, CreditCard, LogOut, Menu, X,
   PiggyBank, Bell, Receipt, Wallet, Briefcase,
-  ChevronRight, Search, UserCircle, ShieldCheck, Settings
+  TrendingUp, ShieldCheck, Settings
 } from "lucide-react";
 import { ASSETS } from "@/config";
 import "@/app/globals.css";
@@ -37,7 +38,8 @@ const menuGroups = [
     links: [
       { name: "จัดการทะเบียนสมาชิก", href: "/admin/members", icon: Users },
       { name: "ทะเบียนสัญญาซื้อขาย", href: "/admin/contracts", icon: Briefcase },
-      { name: "สรุปบัญชีหุ้นสัจจะ", href: "/admin/shares", icon: Wallet },
+      { name: "สรุปบัญชีหุ้นสะสม", href: "/admin/shares", icon: Wallet },
+      { name: "บัญชีรับจ่ายกองทุน", href: "/admin/fund-accounting", icon: TrendingUp },
     ],
   },
   {
@@ -51,12 +53,19 @@ const menuGroups = [
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [adminData, setAdminData] = useState<{ displayName?: string } | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
     // 🛡️ ติดตามสถานะการล็อกอินจริงจาก Firebase
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        // Fetch additional data from Firestore
+        fetchAdminData(currentUser.uid);
+      } else {
+        setAdminData(null);
+      }
     });
 
     if (sessionStorage.getItem("login_success") === "true") {
@@ -66,6 +75,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  const fetchAdminData = async (uid: string) => {
+    try {
+      const q = query(collection(db, "system_admins"), where("uid", "==", uid), limit(1));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        setAdminData(snap.docs[0].data());
+      }
+    } catch (err) {
+      console.error("Error fetching admin data:", err);
+    }
+  };
 
   const handleLogout = () => {
     try {
@@ -156,13 +177,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <div className="p-4 border-t border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-3 px-3 py-4 mb-3 bg-white rounded-2xl border border-slate-200/50 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-black text-lg border border-slate-300/30">
-              {getInitials(user?.email || "AD")}
+              {getInitials(adminData?.displayName || user?.displayName || user?.email)}
             </div>
             <div className="overflow-hidden">
               <p className="text-[13px] font-black text-slate-800 truncate leading-tight">
-                {user?.displayName || (user?.email ? user.email.split('@')[0] : "Administrator")}
+                {adminData?.displayName || user?.displayName || (user?.email ? user.email.split('@')[0] : "Administrator")}
               </p>
-              <p className="text-[10px] text-slate-400 truncate mt-0.5 font-bold uppercase tracking-tighter">
+              <p className="text-xs text-slate-400 truncate mt-0.5 font-bold">
                 {user?.email || "Checking auth..."}
               </p>
             </div>
@@ -193,6 +214,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white shadow-sm"></span>
             </button>
             <div className="h-8 w-[1px] bg-slate-200 mx-1"></div>
+            {/* Header Profile Section */}
+            <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-2xl">
+              <div className="hidden sm:flex flex-col items-end">
+                <p className="text-[11px] font-black text-slate-800 truncate max-w-[120px]">
+                  {adminData?.displayName || user?.displayName || (user?.email ? user.email.split('@')[0] : "Admin")}
+                </p>
+                <p className="text-[9px] text-blue-600 font-bold uppercase tracking-tighter">Authorized Admin</p>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-600/20">
+                {getInitials(adminData?.displayName || user?.displayName || user?.email)}
+              </div>
+            </div>
+
+            <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden lg:block"></div>
             <div className="hidden lg:flex flex-col items-end">
               <p className="text-[11px] font-black text-slate-800 uppercase tracking-widest leading-none">
                 {new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
