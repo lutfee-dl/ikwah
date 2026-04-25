@@ -5,18 +5,18 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { gasApi } from "@/services/gasApi";
 import { getLiffIdToken } from "@/services/liff";
+import { formatDateTime } from "@/lib/utils";
 import {
   ArrowLeft,
   ArrowUpRight,
   ArrowDownLeft,
   Clock,
   CheckCircle2,
-  XCircle,
   Eye,
   X,
   ChevronDown,
   SearchX,
-  CalendarDays
+  Calendar
 } from "lucide-react";
 
 type Transaction = {
@@ -43,6 +43,7 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedSlip, setSelectedSlip] = useState<string | null>(null);
+  const [selectedSlipDate, setSelectedSlipDate] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // --- Filter States ---
@@ -95,15 +96,6 @@ export default function HistoryPage() {
   const displayedData = useMemo(() => {
     return filteredData.slice(0, visibleCount);
   }, [filteredData, visibleCount]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("th-TH", {
-      day: "numeric",
-      month: "short",
-      year: "numeric"
-    });
-  };
 
   const getStatusStyle = (status: string) => {
     if (status === "อนุมัติแล้ว" || status === "ยืนยันแล้ว") return "bg-emerald-50 text-emerald-600 border-emerald-100";
@@ -200,79 +192,90 @@ export default function HistoryPage() {
             <p className="text-slate-400 text-sm font-bold">ไม่พบประวัติในเดือนนี้</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+          <div className="space-y-4">
             {displayedData.map((item, idx) => (
               <div
                 key={idx}
-                className="group relative border-b border-slate-50 last:border-0 active:bg-slate-50 transition-colors"
+                className="w-full bg-white rounded-[20px] shadow-sm border border-slate-100 overflow-hidden animate-in slide-in-from-bottom duration-300"
+                style={{ animationDelay: `${idx * 50}ms` }}
               >
-                <div className="p-4 flex gap-4">
-                  {/* Icon Wrapper */}
-                  <div className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${item.type === "deposit" ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"
-                    }`}>
-                    {item.type === "deposit" ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
+                <div className="p-4">
+                  {/* Top Section: Icon and Title */}
+                  <div className="flex gap-3 items-start">
+                    <div className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center border transition-colors 
+                      ${item.type === "deposit" ? "bg-emerald-50 text-emerald-600 border-emerald-100/50" : "bg-blue-50 text-blue-600 border-blue-100/50"}`}>
+                      {item.type === "deposit" ? <ArrowUpRight size={20} strokeWidth={2.5} /> : <ArrowDownLeft size={20} strokeWidth={2.5} />}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <div className="min-w-0">
+                          <h3 className="text-[14px] font-extrabold text-slate-800 truncate leading-tight">
+                            {item.type === "deposit" ? "ฝากหุ้นสะสม" : "ชำระสินเชื่อ"}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                            {item.type === "deposit" && item.typeName && (
+                              <p className="text-[10px] text-slate-500 font-bold">{item.typeName}</p>
+                            )}
+                            {item.type === "repayment" && (
+                              <p className="text-[10px] text-slate-500 font-bold truncate max-w-[120px]">
+                                {item.itemName || "ชำระทั่วไป"}
+                              </p>
+                            )}
+                            {item.contractId && (
+                              <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tight">{item.contractId}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={`text-[16px] font-black block leading-none ${item.type === "deposit" ? "text-emerald-600" : "text-blue-700"}`}>
+                            {item.type === "deposit" ? "+" : ""}{(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-bold mt-1.5 block">ID: {item.id}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Info Area */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-bold text-slate-800 text-[14px] truncate pr-2">
-                        {item.type === "deposit" 
-                          ? (item.typeName || "ฝากหุ้นสะสม") 
-                          : (item.itemName ? `ชำระ: ${item.itemName}` : "ชำระสินเชื่อ/งวด")}
-                      </h3>
-                      <p className={`font-black text-[15px] ${item.type === "deposit" ? "text-emerald-600" : "text-blue-700"
-                        }`}>
-                        {item.type === "deposit" ? "+" : ""}{(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </p>
+                  {/* Middle Section: Status and Date */}
+                  <div className="mt-3 pt-3 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative flex h-1.5 w-1.5">
+                          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 
+                            ${item.status === "อนุมัติแล้ว" || item.status === "ยืนยันแล้ว" ? "bg-emerald-400" : "bg-amber-400"}`}></span>
+                          <span className={`relative inline-flex rounded-full h-1.5 w-1.5 
+                            ${item.status === "อนุมัติแล้ว" || item.status === "ยืนยันแล้ว" ? "bg-emerald-500" : "bg-amber-500"}`}></span>
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-700 leading-none">
+                          {item.status === "อนุมัติแล้ว" || item.status === "ยืนยันแล้ว" ? "ทำรายการสำเร็จ" : item.status}
+                        </span>
+                      </div>
+                      <span className="text-[9px] text-slate-400 font-medium mt-1.5">
+                        {formatDateTime(item.date)}
+                      </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
-                      <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium">
-                        <CalendarDays size={12} />
-                        {formatDate(item.date)}
-                      </div>
-                      <div className="text-[11px] text-slate-300 font-medium">•</div>
-                      <div className="text-[11px] text-slate-400 font-medium truncate max-w-[120px]">
-                        ID: {item.id}
-                      </div>
-                      {item.contractId && (
-                        <>
-                          <div className="text-[11px] text-slate-300 font-medium">•</div>
-                          <div className="text-[11px] text-blue-500 font-bold">
-                            {item.contractId}
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Status and Actions */}
-                    <div className="flex items-center justify-between">
-                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${getStatusStyle(item.status)}`}>
-                        {item.status === "อนุมัติแล้ว" || item.status === "ยืนยันแล้ว" ? <CheckCircle2 size={10} /> : <Clock size={10} />}
-                        {item.status}
-                      </div>
-
-                      {item.slipUrl && (
-                        <button
-                          onClick={() => { setSelectedSlip(item.slipUrl!); setIsModalOpen(true); }}
-                          className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700"
-                        >
-                          <Eye size={12} />
-                          ดูหลักฐาน
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Note section */}
-                    {item.note && (
-                      <div className="mt-2 pt-2 border-t border-slate-50">
-                        <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                          หมายเหตุ: {item.note}
-                        </p>
-                      </div>
+                    {item.slipUrl && (
+                      <button
+                        onClick={() => { setSelectedSlip(item.slipUrl!); setSelectedSlipDate(item.date); setIsModalOpen(true); }}
+                        className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50/50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-colors border border-blue-100/30 active:scale-95"
+                      >
+                        <Eye size={12} strokeWidth={2.5} />
+                        ดูหลักฐาน
+                      </button>
                     )}
                   </div>
+
+                  {/* Bottom Section: Note */}
+                  {item.note && (
+                    <div className="mt-2.5 bg-slate-50/50 rounded-lg p-2 border border-slate-100/30">
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        <span className="text-slate-400 font-bold uppercase text-[9px]">Note:</span>
+                        {" "}{item.note}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -290,26 +293,41 @@ export default function HistoryPage() {
         )}
       </div>
 
-      {/* Slip Modal */}
+      {/* Slip Modal - Full Screen Mobile Ready */}
       {isModalOpen && selectedSlip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" onClick={() => setIsModalOpen(false)}>
-          <div className="relative bg-white p-1.5 rounded-2xl shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[999] flex flex-col bg-black/95 animate-in fade-in duration-300">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 bg-black/20 backdrop-blur-md border-b border-white/10">
+            <div>
+              <h3 className="text-white font-black text-sm uppercase tracking-widest">หลักฐานการชำระเงิน</h3>
+              <p className="text-white/40 text-[10px] font-medium tracking-tight">ยืนยันรายการเมื่อ {formatDateTime(selectedSlipDate)}</p>
+            </div>
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute -top-3 -right-3 bg-white text-slate-900 w-8 h-8 rounded-full shadow-lg flex items-center justify-center z-10"
+              className="w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors active:scale-90"
             >
-              <X size={18} />
+              <X size={24} />
             </button>
-            <div className="overflow-hidden rounded-xl bg-slate-50">
+          </div>
+
+          {/* Image Container */}
+          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden" onClick={() => setIsModalOpen(false)}>
+            <div className="relative w-full h-full max-w-lg max-h-[80vh] rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
               <Image
                 src={getDriveImageUrl(selectedSlip)}
                 alt="slip"
-                width={400}
-                height={600}
-                className="w-full h-auto object-contain max-h-[75vh]"
-                unoptimized
+                fill
+                className="object-contain"
+                priority
               />
             </div>
+          </div>
+
+          {/* Footer Info */}
+          <div className="px-8 py-6 bg-gradient-to-t from-black/50 to-transparent text-center">
+            <p className="text-white/30 text-[10px] font-bold italic">
+              * แตะที่รูปภาพเพื่อบันทึก หรือกดกากบาทเพื่อปิด
+            </p>
           </div>
         </div>
       )}
