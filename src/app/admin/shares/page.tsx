@@ -25,6 +25,7 @@ import { formatDate, formatCurrency as fmt } from "@/lib/utils";
 import Link from "next/link";
 import HistoricalEditModal from "./HistoricalEditModal";
 import { toast } from "react-hot-toast";
+import Swal from "sweetalert2";
 
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
@@ -103,14 +104,6 @@ interface TableColumn {
 
 export default function AdminSharesPage() {
   const [data, setData] = useState<ShareRow[]>([]);
-
-  useEffect(() => {
-    if (data.length > 0) {
-      console.log("Frontend received data sample:", data[0]);
-      console.table(data)
-    }
-  }, [data]);
-
   const [stats, setStats] = useState<ShareStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -255,11 +248,21 @@ export default function AdminSharesPage() {
   }, [data, search, sortConfig, headerFilters]);
 
   const handleRebuild = async () => {
-    if (!confirm("ต้องการจัดระเบียบตารางใน Google Sheets ใหม่ทั้งหมดใช่หรือไม่? \n(ระบบจะล้างตารางสรุปและสร้างใหม่จากข้อมูลธุรกรรมจริง)")) return;
+    const result = await Swal.fire({
+      title: 'เริ่มการจัดระเบียบตาราง?',
+      text: "ระบบจะล้างตารางสรุปและสร้างใหม่จากข้อมูลธุรกรรมจริงเพื่อให้ข้อมูลตรงกันที่สุด",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'เริ่มจัดระเบียบ',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#2563eb',
+    });
+
+    if (!result.isConfirmed) return;
 
     setRebuilding(true);
-    setIsLoading(true);
-    toast.loading("กำลังจัดระเบียบตารางใน Google Sheets...", { id: "shares-rebuild" });
+    setLoading(true);
+    const toastId = toast.loading("กำลังจัดระเบียบตารางใน Google Sheets...", { id: "shares-rebuild" });
     try {
       const res = await fetch(API_URL, {
         method: "POST",
@@ -271,25 +274,35 @@ export default function AdminSharesPage() {
       });
       const result = await res.json();
       if (result.success) {
-        toast.success("จัดระเบียบตารางใหม่เรียบร้อยแล้ว", { id: "shares-rebuild" });
+        toast.success("จัดระเบียบตารางใหม่เรียบร้อยแล้ว ✅", { id: toastId });
         await fetchShares();
       } else {
-        toast.error(result.msg || "เกิดข้อผิดพลาด", { id: "shares-rebuild" });
+        toast.error(result.msg || "เกิดข้อผิดพลาด", { id: toastId });
       }
     } catch (err) {
-      toast.error("การเชื่อมต่อผิดพลาด", { id: "shares-rebuild" });
+      toast.error("การเชื่อมต่อผิดพลาด", { id: toastId });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
       setRebuilding(false);
     }
   };
 
   const handleRecalculateAll = async () => {
-    if (!confirm("ต้องการคำนวณยอดหุ้นสะสมใหม่จากข้อมูลดิบของสมาชิกทุกคนใช่หรือไม่? \n(ระบบจะไล่ตรวจสอบทุกรายการฝาก/ถอนเพื่อให้ยอดรวมถูกต้องที่สุด)")) return;
+    const result = await Swal.fire({
+      title: 'คำนวณยอดหุ้นใหม่ทั้งหมด?',
+      text: "ระบบจะตรวจสอบทุกรายการฝาก/ถอนเพื่อให้ยอดสะสมถูกต้องที่สุด (อาจใช้เวลาสักครู่)",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'เริ่มคำนวณใหม่',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#6366f1', // indigo-600
+    });
+
+    if (!result.isConfirmed) return;
 
     setRecalculating(true);
-    setIsLoading(true);
-    toast.loading("กำลังคำนวณยอดหุ้นสะสมใหม่...", { id: "shares-recalc" });
+    setLoading(true);
+    const toastId = toast.loading("กำลังคำนวณยอดหุ้นสะสมใหม่...", { id: "shares-recalc" });
     try {
       const res = await fetch(API_URL, {
         method: "POST",
@@ -301,15 +314,15 @@ export default function AdminSharesPage() {
       });
       const result = await res.json();
       if (result.success) {
-        toast.success(result.msg || "คำนวณยอดใหม่เรียบร้อยแล้ว", { id: "shares-recalc" });
+        toast.success(result.msg || "คำนวณยอดใหม่เรียบร้อยแล้ว ✅", { id: toastId });
         await fetchShares();
       } else {
-        toast.error(result.msg || "เกิดข้อผิดพลาด", { id: "shares-recalc" });
+        toast.error(result.msg || "เกิดข้อผิดพลาด", { id: toastId });
       }
     } catch (err) {
-      toast.error("การเชื่อมต่อผิดพลาด", { id: "shares-recalc" });
+      toast.error("การเชื่อมต่อผิดพลาด", { id: toastId });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
       setRecalculating(false);
     }
   };
@@ -380,6 +393,7 @@ export default function AdminSharesPage() {
     if (!editingHistorical) return;
 
     setSavingHist(true);
+    const toastId = toast.loading("กำลังบันทึกข้อมูลประวัติหุ้น...");
     try {
       const res = await fetch(API_URL, {
         method: "POST",
@@ -399,14 +413,14 @@ export default function AdminSharesPage() {
 
       if (result.success) {
         setEditingHistorical(null);
-        toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
+        toast.success("บันทึกข้อมูลเรียบร้อยแล้ว ✅", { id: toastId });
         await fetchShares();
       } else {
-        toast.error(result.msg || "เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+        toast.error(result.msg || "เกิดข้อผิดพลาดในการบันทึกข้อมูล", { id: toastId });
       }
     } catch (err) {
       console.error("Save Historical Error:", err);
-      toast.error("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
+      toast.error("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้", { id: toastId });
     } finally {
       setSavingHist(false);
     }

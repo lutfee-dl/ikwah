@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Landmark, Save, Search, User, AlertCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
+import Swal from "sweetalert2";
 import { Member } from "@/types";
 import { useAdminMembers } from "@/hooks/useAdminMembers";
 import { NumericFormat } from "react-number-format";
@@ -36,7 +37,22 @@ export default function LoanAddModal({ onClose }: LoanAddModalProps) {
     if (!selectedMember) return toast.error("กรุณาเลือกสมาชิก");
     if (formData.amount <= 0) return toast.error("กรุณาระบุยอดเงิน");
 
+    // --- ✨ SweetAlert2 Confirmation ---
+    const confirm = await Swal.fire({
+      title: "ยืนยันการออกสินเชื่อ?",
+      text: `คุณกำลังจะออกสินเชื่อประเภท ${formData.loanType} จำนวน ${formData.amount.toLocaleString()} บาท ให้กับคุณ ${selectedMember.fullName}`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ยืนยันออกสินเชื่อ",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#f59e0b", // amber-500
+      cancelButtonColor: "#64748b", // slate-500
+    });
+
+    if (!confirm.isConfirmed) return;
+
     setIsSubmitting(true);
+    const toastId = toast.loading("กำลังสร้างสัญญาและบันทึกข้อมูล...");
     try {
       const res = await fetch("/api/member", {
         method: "POST",
@@ -54,14 +70,14 @@ export default function LoanAddModal({ onClose }: LoanAddModalProps) {
       });
       const result = await res.json();
       if (result.success) {
-        toast.success("ออกสินเชื่อสำเร็จ");
+        toast.success("ออกสินเชื่อสำเร็จ เรียบร้อยแล้ว ✅", { id: toastId });
         onClose(true);
       } else {
-        toast.error(result.msg || "เกิดข้อผิดพลาด");
+        toast.error(result.msg || "เกิดข้อผิดพลาด", { id: toastId });
       }
     } catch (error) {
       console.error(error);
-      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้");
+      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้", { id: toastId });
     } finally {
       setIsSubmitting(false);
     }

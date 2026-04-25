@@ -526,7 +526,7 @@ function CustomTooltip({ active, payload, label }: any) {
       {payload.map((p: any, i: number) => (
         <div key={i} className="flex justify-between items-center gap-6">
           <span className="text-[10px] font-bold text-slate-300">{p.name}:</span>
-          <span className="text-xs font-black tabular-nums" style={{ color: p.color }}>฿ {p.value.toLocaleString()}</span>
+          <span className="text-xs font-black tabular-nums" style={{ color: p.color }}>฿ {(Number(p.value) || 0).toLocaleString()}</span>
         </div>
       ))}
     </div>

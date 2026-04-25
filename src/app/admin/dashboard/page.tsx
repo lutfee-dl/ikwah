@@ -290,7 +290,7 @@ export default function AdminDashboardPage() {
                 />
                 <Tooltip
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                  formatter={(value: number) => [`฿${value.toLocaleString()}`, ""]}
+                  formatter={(value: any) => [`฿${(Number(value) || 0).toLocaleString()}`, ""]}
                 />
                 <Area type="monotone" dataKey="shares" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorShares)" />
                 <Area type="monotone" dataKey="loans" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorLoans)" />
@@ -326,7 +326,7 @@ export default function AdminDashboardPage() {
                 </Pie>
                 <Tooltip
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                  formatter={(value: number) => [`฿${value.toLocaleString()}`, ""]}
+                  formatter={(value: any) => [`฿${(Number(value) || 0).toLocaleString()}`, ""]}
                 />
                 <Legend
                   verticalAlign="bottom"

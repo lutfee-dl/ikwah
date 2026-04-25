@@ -152,21 +152,35 @@ export default function LoansPage() {
 	}, [filteredLoans, currentPage, itemsPerPage]);
 
 	const handleApprove = async (id: string) => {
+		const loan = loans.find(l => l.id === id);
+		const result = await Swal.fire({
+			title: 'ยืนยันการอนุมัติสินเชื่อ?',
+			text: `คุณต้องการอนุมัติคำขอกู้ของคุณ ${loan?.name || ""} จำนวน ${loan?.amount.toLocaleString() || 0} บาท ใช่หรือไม่?`,
+			icon: 'question',
+			showCancelButton: true,
+			confirmButtonText: 'ยืนยันอนุมัติ',
+			cancelButtonText: 'ยกเลิก',
+			confirmButtonColor: '#10b981', // emerald-500
+		});
+
+		if (!result.isConfirmed) return;
+
 		setIsLoading(true);
+		const toastId = toast.loading("กำลังดำเนินการอนุมัติ...");
 		try {
 			const res = await gasApi.updateAdminLoanStatus(id, "อนุมัติ", adminName);
 			if (res.success) {
 				setLoans((prev) =>
 					prev.map((l) => (l.id === id ? { ...l, status: "อนุมัติ" } : l))
 				);
-				toast.success("อนุมัติเรียบร้อย");
+				toast.success("อนุมัติเรียบร้อยแล้ว ✅", { id: toastId });
 				setIsModalOpen(false);
 			} else {
-				toast.error(res.msg || "เกิดข้อผิดพลาดในการอนุมัติ");
+				toast.error(res.msg || "เกิดข้อผิดพลาดในการอนุมัติ", { id: toastId });
 			}
 		} catch (error) {
 			console.error(error);
-			toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+			toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ", { id: toastId });
 		} finally {
 			setIsLoading(false);
 		}
@@ -186,6 +200,7 @@ export default function LoansPage() {
 		if (!result.isConfirmed) return;
 
 		setIsLoading(true);
+		const toastId = toast.loading("กำลังดำเนินการปฏิเสธ...");
 		try {
 			const response = await fetch("/api/member", {
 				method: "POST",
@@ -202,11 +217,11 @@ export default function LoansPage() {
 			setLoans((prev) =>
 				prev.map((l) => (l.id === id ? { ...l, status: "ไม่อนุมัติ" } : l))
 			);
-			toast.success("ปฏิเสธคำขอเรียบร้อย");
+			toast.success("ปฏิเสธคำขอเรียบร้อย ✅", { id: toastId });
 			setIsModalOpen(false);
 		} catch (error) {
 			console.error(error);
-			toast.error("เกิดข้อผิดพลาดในการปฏิเสธ");
+			toast.error("เกิดข้อผิดพลาดในการปฏิเสธ", { id: toastId });
 		} finally {
 			setIsLoading(false);
 		}
