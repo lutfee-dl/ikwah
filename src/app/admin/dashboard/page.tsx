@@ -9,18 +9,96 @@ import {
   AlertTriangle,
   ArrowUpRight,
   TrendingUp,
+  Loader2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { gasApi } from "@/services/gasApi";
+import Link from "next/link";
+import { formatDateTime } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+type DashboardStats = {
+  totalMembers: number;
+  newMembersThisMonth: number;
+  activeMembers: number;
+  pendingLoans: number;
+  totalApprovedLoanAmount: number;
+  loanTypeBreakdown: Record<string, number>;
+  pendingRepayments: number;
+  pendingDeposits: number;
+  recentRequests: Array<{
+    id: string;
+    date: string;
+    name: string;
+    type: string;
+    amount: number;
+    status: string;
+  }>;
+};
+
+const DashboardSkeleton = () => (
+  <div className="space-y-6 animate-pulse">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+      <div className="mt-4 sm:mt-0 flex gap-3">
+        <Skeleton className="h-10 w-32 rounded-xl" />
+        <Skeleton className="h-10 w-48 rounded-xl" />
+      </div>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <Skeleton className="h-32 rounded-2xl" />
+      <Skeleton className="h-32 rounded-2xl" />
+      <Skeleton className="h-32 rounded-2xl lg:col-span-2" />
+    </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+      <Skeleton className="h-96 rounded-2xl lg:col-span-2" />
+      <Skeleton className="h-96 rounded-2xl" />
+    </div>
+  </div>
+);
 
 export default function AdminDashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchStats = async () => {
+    setIsLoading(true);
+    try {
+      const res = await gasApi.getAdminDashboardStats();
+      if (res.success) {
+        setStats(res.data);
+      } else {
+        toast.error(res.msg || "ดึงข้อมูลสถิติไม่สำเร็จ");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const success = sessionStorage.getItem("login_success");
     if (success) {
       toast.success("เข้าสู่ระบบสำเร็จ");
       sessionStorage.removeItem("login_success");
     }
+    fetchStats();
   }, []);
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (!stats) return null;
+
   return (
     <div className="space-y-6 animate-[fadeIn_0.5s]">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
@@ -31,29 +109,33 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex gap-3">
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
-            ดาวน์โหลดรายงาน
-          </button>
-          <button className="px-4 py-2 bg-sky-500 text-white rounded-xl text-sm font-medium hover:bg-sky-600 transition-colors shadow-sm shadow-sky-500/20">
-            อนุมัติรอดำเนินการ (8)
-          </button>
+          <Link
+            href="/admin/members"
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            รายชื่อสมาชิก
+          </Link>
+          <Link
+            href="/admin/loans"
+            className="px-4 py-2 bg-sky-500 text-white rounded-xl text-sm font-medium hover:bg-sky-600 transition-colors shadow-sm shadow-sky-500/20 flex items-center gap-2"
+          >
+            คำขอกู้เงินรอดำเนินการ ({stats.pendingLoans})
+          </Link>
         </div>
       </div>
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Stat 1 */}
+        {/* Stat 1: Total Members */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 group hover:shadow-md transition-shadow relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-sky-50 rounded-full group-hover:scale-150 transition-transform duration-500 ease-out"></div>
           <div className="relative z-10 flex justify-between">
             <div className="space-y-3">
-              <p className="text-sm font-medium text-slate-500">
-                สมาชิกทั้งหมด
-              </p>
+              <p className="text-sm font-medium text-slate-500">สมาชิกทั้งหมด</p>
               <div>
-                <p className="text-3xl font-bold text-slate-800">124</p>
+                <p className="text-3xl font-bold text-slate-800">{stats.totalMembers}</p>
                 <p className="text-xs font-medium text-emerald-500 flex items-center mt-1">
-                  <TrendingUp size={12} className="mr-1" /> +12 คน ในเดือนนี้
+                  <TrendingUp size={12} className="mr-1" /> ปกติ {stats.activeMembers} คน
                 </p>
               </div>
             </div>
@@ -63,18 +145,18 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Stat 2 */}
+        {/* Stat 2: Pending Loans */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 group hover:shadow-md transition-shadow relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-amber-50 mx-auto rounded-full group-hover:scale-150 transition-transform duration-500 ease-out"></div>
           <div className="relative z-10 flex justify-between">
             <div className="space-y-3">
-              <p className="text-sm font-medium text-slate-500">
-                รออนุมัติสินเชื่อ
-              </p>
+              <p className="text-sm font-medium text-slate-500">รออนุมัติสินเชื่อ</p>
               <div>
-                <p className="text-3xl font-bold text-amber-500">8</p>
+                <p className={`text-3xl font-bold ${stats.pendingLoans > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
+                  {stats.pendingLoans}
+                </p>
                 <p className="text-xs font-medium text-slate-400 mt-1">
-                  ต้องตรวจสอบด่วน: 3 รายการ
+                  รายการคำขอกู้ที่ยังไม่ได้ตรวจสอบ
                 </p>
               </div>
             </div>
@@ -84,25 +166,21 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Stat 3 */}
+        {/* Stat 3: Total Loan Amount */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 group hover:shadow-md transition-shadow relative overflow-hidden lg:col-span-2">
           <div className="absolute -right-6 -top-6 w-32 h-32 bg-emerald-50 rounded-full group-hover:scale-125 transition-transform duration-500 ease-out"></div>
           <div className="relative z-10 flex justify-between h-full items-center">
             <div className="space-y-3 flex-1 flex flex-col justify-center">
-              <p className="text-sm font-medium text-slate-500">
-                ยอดเงินอนุมัติแล้ว (สะสม)
-              </p>
+              <p className="text-sm font-medium text-slate-500">ยอดเงินกู้ที่อนุมัติแล้ว (สะสม)</p>
               <div>
-                <p className="text-3xl font-bold text-emerald-600">฿45,000</p>
-                <div className="flex gap-4 mt-2">
-                  <p className="text-xs font-medium text-slate-500 flex items-center">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 line-clamp-1"></span>{" "}
-                    สินเชื่อฉุกเฉิน: 15,000
-                  </p>
-                  <p className="text-xs font-medium text-slate-500 flex items-center">
-                    <span className="w-2 h-2 rounded-full bg-sky-400 mr-1.5 line-clamp-1"></span>{" "}
-                    ก้อดฮาซัน: 30,000
-                  </p>
+                <p className="text-3xl font-bold text-emerald-600">฿{stats.totalApprovedLoanAmount.toLocaleString()}</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                  {Object.entries(stats.loanTypeBreakdown).map(([type, amount], idx) => (
+                    <p key={type} className="text-[10px] font-bold text-slate-500 flex items-center">
+                      <span className={`w-2 h-2 rounded-full mr-1.5 ${idx % 2 === 0 ? 'bg-emerald-400' : 'bg-sky-400'}`}></span>
+                      {type}: {amount.toLocaleString()}
+                    </p>
+                  ))}
                 </div>
               </div>
             </div>
@@ -117,12 +195,10 @@ export default function AdminDashboardPage() {
         {/* Recent Transactions List */}
         <div className="bg-white shadow-sm rounded-2xl border border-slate-100 lg:col-span-2 overflow-hidden flex flex-col">
           <div className="px-6 py-5 border-b border-slate-50/80 flex justify-between items-center bg-white/50">
-            <h2 className="text-base font-bold text-slate-800">
-              รายการขอสินเชื่อล่าสุด
-            </h2>
-            <button className="text-sm font-semibold text-sky-600 hover:text-sky-700 transition">
+            <h2 className="text-base font-bold text-slate-800">รายการขอสินเชื่อล่าสุด</h2>
+            <Link href="/admin/loans" className="text-sm font-semibold text-sky-600 hover:text-sky-700 transition">
               ดูทั้งหมด
-            </button>
+            </Link>
           </div>
 
           <div className="overflow-x-auto">
@@ -130,173 +206,109 @@ export default function AdminDashboardPage() {
               <thead>
                 <tr className="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wider">
                   <th className="px-6 py-4 font-semibold">ชื่อ-นามสกุล</th>
-                  <th className="px-6 py-4 font-semibold">ประเภทสินเชื่อ</th>
+                  <th className="px-6 py-4 font-semibold">ประเภท</th>
                   <th className="px-6 py-4 font-semibold">จำนวนเงิน</th>
                   <th className="px-6 py-4 font-semibold">สถานะ</th>
                   <th className="px-6 py-4 font-semibold">จัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {/* Mock Row 1 */}
-                <tr className="hover:bg-slate-50/50 even:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-slate-800">
-                        สมชาย ใจดี
-                      </span>
-                      <span className="text-slate-400 text-xs">
-                        วันนี้, 10:24
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold border border-amber-100">
-                      ฉุกเฉิน
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-slate-700">
-                    ฿8,000
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1.5 text-amber-600 font-medium">
-                      <Clock size={14} />
-                      <span className="text-xs">รอตรวจสอบ</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button className="text-sky-600 hover:text-sky-700 font-semibold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                      ตรวจสอบ
-                    </button>
-                  </td>
-                </tr>
-
-                {/* Mock Row 2 */}
-                <tr className="hover:bg-slate-50/50 even:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-slate-800">
-                        มานี มีสุข
-                      </span>
-                      <span className="text-slate-400 text-xs">
-                        เมื่อวาน, 15:30
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-lg text-xs font-semibold border border-sky-100">
-                      ก้อดฮาซัน
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-slate-700">
-                    ฿150,000
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
-                      <CheckCircle size={14} />
-                      <span className="text-xs">อนุมัติแล้ว</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button className="text-slate-400 hover:text-slate-600 font-semibold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                      รายละเอียด
-                    </button>
-                  </td>
-                </tr>
-
-                {/* Mock Row 3 */}
-                <tr className="hover:bg-slate-50/50 even:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-slate-800">
-                        เอกชัย สายลม
-                      </span>
-                      <span className="text-slate-400 text-xs">
-                        เมื่อวาน, 09:15
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg text-xs font-semibold border border-violet-100">
-                      ซื้อขาย
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-slate-700">
-                    ฿45,000
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1.5 text-rose-500 font-medium">
-                      <AlertTriangle size={14} />
-                      <span className="text-xs">ปฏิเสธ</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button className="text-slate-400 hover:text-slate-600 font-semibold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                      รายละเอียด
-                    </button>
-                  </td>
-                </tr>
+                {stats.recentRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400 italic">ไม่พบรายการขอสินเชื่อในระบบ</td>
+                  </tr>
+                ) : (
+                  stats.recentRequests.map((req) => (
+                    <tr key={req.id} className="hover:bg-slate-50/50 even:bg-slate-50/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-slate-800">{req.name}</span>
+                          <span className="text-slate-400 text-[10px]">{formatDateTime(req.date)}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${req.type === 'ฉุกเฉิน' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                            req.type === 'ก้อดฮาซัน' ? 'bg-sky-50 text-sky-700 border-sky-100' :
+                              'bg-slate-50 text-slate-700 border-slate-100'
+                          }`}>
+                          {req.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-700">฿{req.amount.toLocaleString()}</td>
+                      <td className="px-6 py-4">
+                        <div className={`flex items-center gap-1.5 font-bold ${req.status === 'อนุมัติแล้ว' ? 'text-emerald-600' :
+                            req.status === 'ปฏิเสธ' ? 'text-rose-500' : 'text-amber-600'
+                          }`}>
+                          {req.status === 'อนุมัติแล้ว' ? <CheckCircle size={14} /> :
+                            req.status === 'ปฏิเสธ' ? <AlertTriangle size={14} /> : <Clock size={14} />}
+                          <span className="text-xs">{req.status}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Link href="/admin/loans" className="text-sky-600 hover:text-sky-700 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                          รายละเอียด
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
         {/* Small Analytics Widget */}
-        <div className="bg-linear-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-white shadow-lg border border-slate-700 relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-sky-500/20 blur-3xl rounded-full"></div>
-          <div className="absolute left-0 bottom-0 w-24 h-24 bg-sky-400/20 blur-2xl rounded-full"></div>
+        <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-lg border border-slate-800 relative overflow-hidden">
+          <div className="absolute right-0 top-0 w-32 h-32 bg-sky-500/10 blur-3xl rounded-full"></div>
 
-          <h2 className="text-lg font-semibold mb-6 flex items-center relative z-10">
+          <h2 className="text-lg font-bold mb-6 flex items-center relative z-10">
             <span className="bg-sky-500/20 p-2 rounded-xl mr-3 text-sky-400">
               <FileText size={18} />
             </span>
-            ภาพรวมรายเดือน
+            ภาพรวมงานที่ค้าง
           </h2>
 
-          <div className="space-y-5 relative z-10">
+          <div className="space-y-6 relative z-10">
             <div>
-              <div className="flex justify-between text-sm mb-1.5">
-                <span className="text-slate-300">ความสำเร็จในการอนุมัติ</span>
-                <span className="font-semibold text-sky-400">85%</span>
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest mb-2">
+                <span className="text-slate-400">รอตรวจสลิปค่างวด</span>
+                <span className={stats.pendingRepayments > 0 ? "text-amber-400" : "text-slate-500"}>
+                  {stats.pendingRepayments} รายการ
+                </span>
               </div>
-              <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden shadow-inner">
+              <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="bg-sky-500 h-2 rounded-full"
-                  style={{ width: "85%" }}
+                  className="bg-amber-400 h-1.5 rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min(stats.pendingRepayments * 10, 100)}%` }}
                 ></div>
               </div>
+              <Link href="/admin/repayments" className="text-[10px] text-slate-500 hover:text-sky-400 mt-2 block text-right">ไปที่หน้าตรวจสอบ →</Link>
             </div>
 
             <div>
-              <div className="flex justify-between text-sm mb-1.5">
-                <span className="text-slate-300">สัดส่วนสินเชื่อฉุกเฉิน</span>
-                <span className="font-semibold text-amber-400">60%</span>
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest mb-2">
+                <span className="text-slate-400">รอตรวจสลิปหุ้น</span>
+                <span className={stats.pendingDeposits > 0 ? "text-sky-400" : "text-slate-500"}>
+                  {stats.pendingDeposits} รายการ
+                </span>
               </div>
-              <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden shadow-inner">
+              <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="bg-amber-400 h-2 rounded-full"
-                  style={{ width: "60%" }}
+                  className="bg-sky-400 h-1.5 rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min(stats.pendingDeposits * 10, 100)}%` }}
                 ></div>
               </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-sm mb-1.5">
-                <span className="text-slate-300">สัดส่วนก้อดฮาซัน</span>
-                <span className="font-semibold text-emerald-400">30%</span>
-              </div>
-              <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden shadow-inner">
-                <div
-                  className="bg-emerald-400 h-2 rounded-full"
-                  style={{ width: "30%" }}
-                ></div>
-              </div>
+              <Link href="/admin/deposits" className="text-[10px] text-slate-500 hover:text-sky-400 mt-2 block text-right">ไปที่หน้าตรวจสอบ →</Link>
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-slate-700/50 relative z-10">
-            <button className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-              ดูรายงานฉบับเต็ม <ArrowUpRight size={16} />
-            </button>
+          <div className="mt-12 pt-6 border-t border-slate-800 relative z-10">
+            <Link
+              href="/admin/fund-accounting"
+              className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 border border-white/5"
+            >
+              ดูบัญชีกองทุน <ArrowUpRight size={16} />
+            </Link>
           </div>
         </div>
       </div>

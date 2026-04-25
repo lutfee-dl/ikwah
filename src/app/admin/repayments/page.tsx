@@ -13,6 +13,8 @@ type RepaymentSlip = {
   id: string;
   lineId: string;
   name: string;
+  itemName: string;
+  contractId: string;
   amount: number;
   date: string;
   status: "pending" | "approved" | "rejected";
@@ -286,7 +288,7 @@ export default function RepaymentsPage() {
   const openDetails = (pay: RepaymentSlip) => {
     setSelectedPay(pay);
     setEditAmount(pay.amount);
-    setSelectedContractId("");
+    setSelectedContractId(pay.contractId || "");
     setIsModalOpen(true);
   };
 
@@ -440,6 +442,9 @@ export default function RepaymentsPage() {
                 <th onClick={() => handleSort('name')} className="py-4 px-6 font-semibold text-slate-600 text-sm hover:bg-slate-100 transition-colors cursor-pointer">
                   ชื่อสมาชิก <SortIcon column="name" sortConfig={sortConfig} />
                 </th>
+                <th className="py-4 px-6 font-semibold text-slate-600 text-sm hover:bg-slate-100 transition-colors">
+                  ชื่อรายการ
+                </th>
                 <th onClick={() => handleSort('amount')} className="py-4 px-6 font-semibold text-slate-600 text-sm text-right hover:bg-slate-100 transition-colors cursor-pointer">
                   จำนวนเงิน <SortIcon column="amount" sortConfig={sortConfig} />
                 </th>
@@ -472,8 +477,11 @@ export default function RepaymentsPage() {
                     <td className="py-4 px-6 text-slate-600 font-medium">
                       {item.name}
                     </td>
+                    <td className="py-4 px-6 text-slate-500 text-sm">
+                      {item.itemName || "ชำระสินเชื่อ"}
+                    </td>
                     <td className="py-4 px-6 text-right font-bold text-indigo-600">
-                      {item.amount.toLocaleString()} ฿
+                      {(item.amount || 0).toLocaleString()} ฿
                     </td>
                     <td className="py-4 px-6 text-slate-500 text-sm">
                       {formatDateTime(item.date)}
@@ -687,7 +695,7 @@ export default function RepaymentsPage() {
                   <div className="space-y-4">
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ยอดเงินชำระ</p>
-                      <p className="text-3xl font-black text-indigo-600">฿{selectedPay.amount.toLocaleString()}</p>
+                      <p className="text-3xl font-black text-indigo-600">฿{(selectedPay.amount || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 )}

@@ -27,6 +27,7 @@ type Transaction = {
   date: string;
   amount: number;
   status: string;
+  itemName?: string; // เพิ่มฟิลด์ชื่อรายการ
   slipUrl?: string;
   note?: string;
 };
@@ -118,10 +119,10 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto animate-[fadeIn_0.3s] pb-20 pt-2">
+    <div className="max-w-md mx-auto animate-[fadeIn_0.3s] pb-24">
       {/* Sticky Header & Filters */}
-      <div className=" backdrop-blur-md sticky top-0 z-30 border-b border-slate-100">
-        <div className="px-5 pt-6 pb-4">
+      <div className="backdrop-blur-md sticky top-0 z-30 mb-4 bg-slate-50/80 -mx-5 px-5 py-4 border-b border-slate-100">
+        <div>
           <div className="flex items-center gap-3 mb-5">
             <button
               onClick={() => router.back()}
@@ -187,7 +188,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Transaction List Area */}
-      <div className="px-4 mt-4">
+      <div className="mt-2">
         {isLoading ? (
           <div className="py-20 text-center">
             <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -216,11 +217,13 @@ export default function HistoryPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1">
                       <h3 className="font-bold text-slate-800 text-[14px] truncate pr-2">
-                        {item.type === "deposit" ? (item.typeName || "ฝากหุ้นสะสม") : "ชำระสินเชื่อ/งวด"}
+                        {item.type === "deposit" 
+                          ? (item.typeName || "ฝากหุ้นสะสม") 
+                          : (item.itemName ? `ชำระ: ${item.itemName}` : "ชำระสินเชื่อ/งวด")}
                       </h3>
                       <p className={`font-black text-[15px] ${item.type === "deposit" ? "text-emerald-600" : "text-blue-700"
                         }`}>
-                        {item.type === "deposit" ? "+" : ""}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {item.type === "deposit" ? "+" : ""}{(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
 

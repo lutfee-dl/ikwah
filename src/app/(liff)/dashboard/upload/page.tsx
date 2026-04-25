@@ -527,34 +527,43 @@ function UploadForm() {
                   </div>
 
                   {/* Payment Hint */}
-                  {selectedContractId && (
-                    <div className="bg-violet-50 rounded-2xl p-4 border border-violet-100 flex items-start gap-3">
-                      <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-violet-500 shadow-sm shrink-0">
-                        <Info size={16} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-violet-900">แนะนำยอดชำระงวดนี้</p>
-                        <p className="text-[10px] text-violet-700 font-medium">
-                          ยอดต่องวดของคุณคือ <span className="font-black text-violet-900">฿{(loans.find(l => l.contractId === selectedContractId)?.installmentAmount || 0).toLocaleString()}</span><br />
-                          หรือยอดคงเหลือทั้งหมด <span className="font-black text-violet-900">฿{(loans.find(l => l.contractId === selectedContractId)?.remainingBalance || 0).toLocaleString()}</span>
+                  {selectedContractId && (() => {
+                    const selectedLoan = loans.find(l => l.contractId === selectedContractId);
+                    return (
+                      <div className="bg-gradient-to-br from-violet-50 to-white rounded-3xl p-5 border border-violet-100 shadow-sm animate-in zoom-in-95 duration-500">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-6 h-6 bg-violet-600 rounded-full flex items-center justify-center text-white">
+                            <Info size={14} />
+                          </div>
+                          <p className="text-xs font-black text-violet-900 uppercase tracking-widest">คำแนะนำยอดชำระ</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white/60 p-3 rounded-2xl border border-violet-100/50">
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">ยอดชำระต่องวด</p>
+                            <p className="text-lg font-black text-violet-700 tracking-tight">
+                              <span className="text-xs mr-0.5">฿</span>
+                              {(selectedLoan?.installmentAmount || 0).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="bg-violet-600 p-3 rounded-2xl shadow-lg shadow-violet-200">
+                            <p className="text-xs font-black text-violet-200 uppercase tracking-tighter mb-1">ยอดคงเหลือทั้งหมด</p>
+                            <p className="text-lg font-black text-white tracking-tight">
+                              <span className="text-xs mr-0.5">฿</span>
+                              {(selectedLoan?.remainingBalance || 0).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="mt-4 text-center text-xs text-slate-400 font-medium">
+                          * คุณสามารถชำระตามยอดที่แนะนำหรือระบุยอดเองได้
                         </p>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </>
               ) : (
                 <p className="text-center text-rose-500 font-bold text-sm py-4">ไม่พบสัญญาเงินกู้ที่สามารถชำระได้</p>
               )}
-            </div>
-          )}
-
-          {category === "ฝากหุ้นสะสม" && (
-            <div className="mt-6 pt-6 border-t border-slate-100 animate-in slide-in-from-top-4 duration-500">
-              <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100 flex items-start gap-3">
-                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-sky-500 shadow-sm shrink-0">
-                  <Info size={16} />
-                </div>
-              </div>
             </div>
           )}
         </div>

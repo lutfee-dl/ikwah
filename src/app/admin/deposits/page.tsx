@@ -43,7 +43,7 @@ export default function DepositsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<{ column: SortColumn, direction: SortDirection }>({
     column: "date",
-    direction: "asc" 
+    direction: "asc"
   });
 
   // Pagination state
@@ -125,9 +125,9 @@ export default function DepositsPage() {
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           action: "admin_get_deposits",
-          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET 
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET
         })
       });
       const data = await res.json();
@@ -364,7 +364,7 @@ export default function DepositsPage() {
               className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm"
             />
           </div>
-          <select 
+          <select
             value={itemsPerPage}
             onChange={(e) => setItemsPerPage(Number(e.target.value))}
             className="cursor-pointer bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500"
@@ -419,22 +419,20 @@ export default function DepositsPage() {
                     <td className="py-4 px-6 text-right font-bold text-sky-600">{item.amount.toLocaleString()}</td>
                     <td className="py-4 px-6 text-slate-500 text-sm">{formatDateTime(item.date)}</td>
                     <td className="py-4 px-6 text-center">
-                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap gap-1 items-center ${
-                        item.status === "approved" ? "bg-emerald-100 text-emerald-700" :
+                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap gap-1 items-center ${item.status === "approved" ? "bg-emerald-100 text-emerald-700" :
                         item.status === "rejected" ? "bg-rose-100 text-rose-700" :
-                        "bg-amber-100 text-amber-700"
-                      }`}>
+                          "bg-amber-100 text-amber-700"
+                        }`}>
                         {item.status === "pending" ? "รอตรวจสอบ" : item.status === "approved" ? "อนุมัติแล้ว" : "มีปัญหา"}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-center">
                       <button
                         onClick={() => openDetails(item)}
-                        className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                          item.status === "pending"
-                            ? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100"
-                            : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
-                        }`}
+                        className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${item.status === "pending"
+                          ? "bg-sky-50 text-sky-600 hover:bg-sky-500 hover:text-white border border-sky-100"
+                          : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
+                          }`}
                       >
                         <Eye size={16} />
                         {item.status === "pending" ? "ตรวจสลิป" : "ดูสลิป"}
@@ -472,11 +470,10 @@ export default function DepositsPage() {
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${
-                        currentPage === pageNum
-                          ? "bg-sky-600 text-white shadow-lg shadow-sky-100"
-                          : "bg-white text-slate-500 border border-slate-100 hover:border-sky-200 hover:text-sky-600"
-                      }`}
+                      className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${currentPage === pageNum
+                        ? "bg-sky-600 text-white shadow-lg shadow-sky-100"
+                        : "bg-white text-slate-500 border border-slate-100 hover:border-sky-200 hover:text-sky-600"
+                        }`}
                     >
                       {pageNum}
                     </button>
@@ -529,7 +526,7 @@ export default function DepositsPage() {
                     <div className="cursor-zoom-in relative group" onClick={() => setIsZoomOpen(true)}>
                       <Image src={getDriveImageUrl(selectedDeposit.slipUrl)} alt="Slip" width={500} height={800} className="w-full h-auto max-h-[60svh] object-contain rounded-lg border border-slate-200 shadow-sm" unoptimized />
                     </div>
-                  ) : ( <p className="text-slate-400 text-sm py-8">ไม่พบรูปสลิป</p> )}
+                  ) : (<p className="text-slate-400 text-sm py-8">ไม่พบรูปสลิป</p>)}
                 </div>
                 <button onClick={() => window.open(selectedDeposit.slipUrl, '_blank')} className="mt-2 w-full text-xs text-sky-600 font-bold flex items-center gap-1 justify-center py-2 hover:bg-sky-50 rounded-lg transition-colors">
                   <ExternalLink size={12} /> เปิดดูรูปต้นฉบับ

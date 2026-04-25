@@ -100,9 +100,9 @@ export default function LoanDetailModal({
 								<Calculator size={20} className="text-sky-300" />
 							</div>
 							<div>
-								<p className="text-slate-300 text-xs font-medium">เหตุผลที่ขอกู้</p>
+								<p className="text-slate-300 text-xs font-medium">ชื่อรายการ / วัตถุประสงค์</p>
 								<p className="font-bold text-sm tracking-wide text-amber-300 mt-1">
-									{loan.reason}
+									{loan.itemName}
 								</p>
 							</div>
 						</div>

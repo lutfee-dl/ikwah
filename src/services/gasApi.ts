@@ -180,4 +180,18 @@ export const gasApi = {
       return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
     }
   },
+  // 11. ดึงสถิติหน้า Dashboard (Admin)
+  getAdminDashboardStats: async () => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "admin_get_dashboard_stats", ADMIN_SECRET }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Admin Dashboard Stats fetch error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
 };

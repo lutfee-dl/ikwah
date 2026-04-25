@@ -19,7 +19,7 @@ export interface LoanData {
 	type: string;         // ประเภทสินเชื่อ (Column F)
 	amount: number;       // จำนวนเงิน (บาท) (Column G)
 	duration: number;     // ผ่อนชำระ (เดือน) (Column H)
-	reason: string;       // เหตุผล (Column I)
+	itemName: string;     // ชื่อรายการ (Column I - เปลี่ยนจาก reason)
 	status: string;       // สถานะ (Column J)
 }
 
@@ -76,7 +76,7 @@ export default function LoansPage() {
 						type: isArray ? String(row[7] || "-") : String(row.type || row.loanType || "-"),
 						amount: Number(isArray ? row[5] : row.amount || 0),
 						duration: Number(isArray ? row[8] : row.duration || 0),
-						reason: isArray ? String(row[6] || "-") : String(row.reason || "-"),
+						itemName: isArray ? String(row[6] || "-") : String(row.reason || row.itemName || "-"),
 						status: isArray ? String(row[9] || "รอตรวจสอบ") : String(row.status || "รอตรวจสอบ"),
 					};
 				});
