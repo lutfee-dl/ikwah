@@ -98,7 +98,7 @@ export default function MemberAddModal({ onClose }: MemberAddModalProps) {
         ...formData,
         idCard: formattedIdCard,
         phone: formattedPhone
-      });
+      }, "ADMIN");
       if (res.success) {
         toast.success(res.msg || "เพิ่มสมาชิกสำเร็จ");
         onClose(true);
