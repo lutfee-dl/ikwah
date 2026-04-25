@@ -115,7 +115,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="font-sans bg-[#f8fafc] h-screen flex overflow-hidden text-slate-900 border-t-4 border-blue-600">
+    <div className="font-sans bg-[#f8fafc] h-[100dvh] flex overflow-hidden text-slate-900">
       <Toaster position="top-right" toastOptions={{ className: 'text-sm font-bold' }} />
 
       {/* --- SIDEBAR --- */}

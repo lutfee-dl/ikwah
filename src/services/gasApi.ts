@@ -194,4 +194,46 @@ export const gasApi = {
       return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
     }
   },
+  // 12. ซิงค์ยอดเงินทั้งหมด (Admin)
+  syncAllBalances: async () => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "admin_sync_all_balances", ADMIN_SECRET }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Sync All Balances error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
+  // 13. Rebuild ชีทสรุปหุ้นใหม่ทั้งหมด (Admin)
+  rebuildShareSummary: async () => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "admin_rebuild_summary", ADMIN_SECRET }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Rebuild Share Summary error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
+  // 14. เพิ่มสมาชิกใหม่โดยแอดมิน
+  adminAddMember: async (payload: any) => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "admin_add_member", payload, ADMIN_SECRET }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Admin Add Member error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
 };

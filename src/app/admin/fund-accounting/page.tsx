@@ -21,8 +21,14 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  BookOpen
+  BookOpen,
+  PlusCircle,
+  History,
+  Tag,
+  Clock
 } from "lucide-react";
+import FundTransactionModal from "./FundTransactionModal";
+import { formatDate } from "@/lib/utils";
 import { toast } from "react-hot-toast";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 import { 
@@ -45,10 +51,37 @@ export default function FundAccountingPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [data, setData] = useState<FundFlowRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAddingTransaction, setIsAddingTransaction] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoadingTx, setIsLoadingTx] = useState(false);
 
   useEffect(() => {
     fetchFundFlow();
+    fetchTransactions();
   }, [selectedYear]);
+
+  const fetchTransactions = async () => {
+    setIsLoadingTx(true);
+    try {
+      const response = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "admin_get_fund_transactions",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+          year: selectedYear.toString()
+        }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setTransactions(result.data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingTx(false);
+    }
+  };
 
   const fetchFundFlow = async () => {
     setIsLoading(true);
@@ -209,6 +242,12 @@ export default function FundAccountingPage() {
             <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-blue-200 text-[11px] font-black shadow-sm transition-all">
               <Printer size={14} /> พิมพ์รายงาน
             </button>
+            <button 
+              onClick={() => setIsAddingTransaction(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-[11px] font-black shadow-lg shadow-blue-200 transition-all"
+            >
+              <PlusCircle size={16} /> บันทึกรายการละเอียด
+            </button>
           </div>
         </div>
 
@@ -325,6 +364,92 @@ export default function FundAccountingPage() {
           <p className="font-black text-sm">ลงชื่อ...................................................... ประธานกองทุน</p>
         </div>
       </div>
+
+      {/* ── Detailed Transactions Table ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mt-8">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+             <div className="p-2 bg-slate-800 text-white rounded-xl">
+               <History size={18} />
+             </div>
+             <h3 className="font-black text-slate-800 tracking-tight">สมุดรายวันรับ-จ่าย (ละเอียด)</h3>
+          </div>
+          <span className="text-[10px] font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">
+             ปี พ.ศ. {selectedYear + 543}
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+           <table className="w-full text-sm text-left border-collapse whitespace-nowrap">
+             <thead>
+               <tr className="bg-white border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                 <th className="py-4 px-6">วันที่ / เวลา</th>
+                 <th className="py-4 px-6">ประเภท / หมวดหมู่</th>
+                 <th className="py-4 px-6">รายการ</th>
+                 <th className="py-4 px-6 text-right">จำนวนเงิน</th>
+                 <th className="py-4 px-6 text-center">ผู้บันทึก</th>
+               </tr>
+             </thead>
+             <tbody className="divide-y divide-slate-50">
+               {isLoadingTx ? (
+                 <tr><td colSpan={5} className="py-8 text-center"><RefreshCw className="animate-spin mx-auto text-slate-300" /></td></tr>
+               ) : transactions.length === 0 ? (
+                 <tr><td colSpan={5} className="py-12 text-center text-slate-400 font-medium">ยังไม่มีรายการบันทึกแบบละเอียด</td></tr>
+               ) : (
+                 transactions.map((tx, i) => (
+                   <tr key={i} className="hover:bg-slate-50/80 transition-colors group">
+                     <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white transition-colors">
+                            <Clock size={14} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-700">{formatDate(tx.date)}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">บันทึกเมื่อ {new Date(tx.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</p>
+                          </div>
+                        </div>
+                     </td>
+                     <td className="py-4 px-6">
+                        <div className="flex flex-col gap-1">
+                          <span className={`w-max px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${tx.type === "รายรับ" ? "bg-blue-50 text-blue-600" : "bg-rose-50 text-rose-600"}`}>
+                            {tx.type}
+                          </span>
+                          <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold">
+                            <Tag size={10} /> {tx.category}
+                          </div>
+                        </div>
+                     </td>
+                     <td className="py-4 px-6">
+                        <p className="font-bold text-slate-800 text-sm">{tx.item}</p>
+                        {tx.note && <p className="text-[10px] text-slate-400 font-medium italic mt-0.5">{tx.note}</p>}
+                     </td>
+                     <td className={`py-4 px-6 text-right font-black text-base tabular-nums ${tx.type === "รายรับ" ? "text-blue-600" : "text-rose-600"}`}>
+                        {tx.type === "รายรับ" ? "+" : "-"}{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                     </td>
+                     <td className="py-4 px-6 text-center">
+                        <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
+                          {tx.recorder || "Admin"}
+                        </span>
+                     </td>
+                   </tr>
+                 ))
+               )}
+             </tbody>
+           </table>
+        </div>
+      </div>
+
+      {isAddingTransaction && (
+        <FundTransactionModal
+          onClose={(wasAdded) => {
+            setIsAddingTransaction(false);
+            if (wasAdded) {
+              fetchTransactions();
+              fetchFundFlow(); // Refresh totals too
+            }
+          }}
+        />
+      )}
 
       <style jsx global>{`
         .tabular-nums { font-variant-numeric: tabular-nums; }

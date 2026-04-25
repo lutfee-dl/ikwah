@@ -18,8 +18,10 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Landmark
 } from "lucide-react";
+import LoanAddModal from "../loans/LoanAddModal";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
 import { formatDate, formatDateTime } from "@/lib/utils";
@@ -57,6 +59,7 @@ export default function ContractsPage() {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "memberId", direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [isAddingLoan, setIsAddingLoan] = useState(false);
 
   // Header Filters
   const [headerFilters, setHeaderFilters] = useState({
@@ -137,7 +140,7 @@ export default function ContractsPage() {
             remainingBalance: Number(item.remainingBalance || 0),
             status,
             lineName: String(item.lineName || ""),
-            items: String(item.items || "-"),
+            items: String(item.itemName || "-"),
             reason: String(item.reason || ""),
           };
         });
@@ -154,8 +157,8 @@ export default function ContractsPage() {
     const matchStatus = filterStatus === "all" || c.status === filterStatus;
     const matchType = filterType === "all" || c.loanType === filterType;
     const s = searchTerm.toLowerCase();
-    
-    const matchHeader = 
+
+    const matchHeader =
       c.contractId.toLowerCase().includes(headerFilters.contractId.toLowerCase()) &&
       c.memberId.toLowerCase().includes(headerFilters.memberId.toLowerCase()) &&
       c.fullName.toLowerCase().includes(headerFilters.fullName.toLowerCase()) &&
@@ -361,7 +364,14 @@ export default function ContractsPage() {
               <option value={100}>100 / หน้า</option>
             </select>
 
-            <div className="hidden sm:flex gap-2">
+            <div className="flex gap-2 w-full lg:w-auto">
+               <button
+                onClick={() => setIsAddingLoan(true)}
+                className="flex-1 lg:flex-none cursor-pointer flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-black shadow-lg shadow-amber-200 transition-all"
+              >
+                <Landmark size={18} />
+                ออกสินเชื่อใหม่
+              </button>
               <button
                 onClick={exportToCSV}
                 className="p-2.5 bg-emerald-50 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all active:scale-95 shadow-sm"
@@ -415,35 +425,12 @@ export default function ContractsPage() {
                           <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("approvedDate")}>
                             ข้อมูลสัญญา {sortConfig?.key === "approvedDate" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
                           </div>
-                          <input 
-                            type="text" 
-                            placeholder="ค้นหาสัญญา..."
-                            className="font-medium bg-white border border-slate-200 rounded-md px-2 py-1 w-full focus:ring-1 focus:ring-blue-500 outline-none"
-                            value={headerFilters.contractId}
-                            onChange={(e) => setHeaderFilters(prev => ({ ...prev, contractId: e.target.value }))}
-                          />
                         </div>
                       </th>
                       <th className="py-3 px-6">
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("memberId")}>
                             สมาชิก {sortConfig?.key === "memberId" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
-                          </div>
-                          <div className="flex gap-1">
-                            <input 
-                              type="text" 
-                              placeholder="รหัส..."
-                              className="font-medium bg-white border border-slate-200 rounded-md px-2 py-1 w-1/3 focus:ring-1 focus:ring-blue-500 outline-none"
-                              value={headerFilters.memberId}
-                              onChange={(e) => setHeaderFilters(prev => ({ ...prev, memberId: e.target.value }))}
-                            />
-                            <input 
-                              type="text" 
-                              placeholder="ชื่อ-นามสกุล..."
-                              className="font-medium bg-white border border-slate-200 rounded-md px-2 py-1 w-2/3 focus:ring-1 focus:ring-blue-500 outline-none"
-                              value={headerFilters.fullName}
-                              onChange={(e) => setHeaderFilters(prev => ({ ...prev, fullName: e.target.value }))}
-                            />
                           </div>
                         </div>
                       </th>
@@ -452,14 +439,14 @@ export default function ContractsPage() {
                           <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("loanType")}>
                             ประเภท {sortConfig?.key === "loanType" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
                           </div>
-                          <input 
-                            type="text" 
-                            placeholder="สินค้า/รายการ..."
-                            className="font-medium bg-white border border-slate-200 rounded-md px-2 py-1 w-full focus:ring-1 focus:ring-blue-500 outline-none"
-                            value={headerFilters.items}
-                            onChange={(e) => setHeaderFilters(prev => ({ ...prev, items: e.target.value }))}
-                          />
                         </div>
+                      </th>
+                      <th className="py-3 px-6">
+                         <div className="flex flex-col gap-2">
+                           <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("items")}>
+                             ชื่อรายการ {sortConfig?.key === "items" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
+                           </div>
+                         </div>
                       </th>
                       <th className="py-3 px-6 text-right cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("remainingBalance")}>
                         <div className="flex justify-end items-center gap-1 group">ยอดคงเหลือ {sortConfig?.key === "remainingBalance" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
@@ -479,9 +466,6 @@ export default function ContractsPage() {
                         <tr key={idx} className="hover:bg-blue-50/30 even:bg-slate-50/50 transition-colors group">
                           <td className="py-5 px-6">
                             <div className="font-mono bg-slate-100 p-2 rounded-full text-[12px] font-bold text-slate-400 mb-1.5 uppercase w-max">ID: {item.contractId}</div>
-                            <div className="flex items-center gap-2 font-black text-slate-800 text-sm">
-                              <ShoppingBag size={14} className="text-blue-500 shrink-0" /> <span className="truncate">{item.items}</span>
-                            </div>
                             <div className="text-[12px] text-slate-400 font-medium mt-1">
                               อนุมัติเมื่อ: {formatDateTime(item.approvedDate)}
                             </div>
@@ -501,6 +485,13 @@ export default function ContractsPage() {
                             <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getTypeStyle(item.loanType)}`}>
                               {item.loanType}
                             </span>
+                          </td>
+
+                          <td className="py-5 px-6">
+                             <div className="flex items-center gap-2 font-bold text-slate-700 text-sm">
+                               <ShoppingBag size={14} className="text-blue-500 shrink-0" /> 
+                               <span className="truncate max-w-[150px]">{item.items}</span>
+                             </div>
                           </td>
 
                           <td className="py-5 px-6 text-right">
@@ -626,6 +617,15 @@ export default function ContractsPage() {
           )}
         </div>
       </div>
+      {/* Modal ออกสินเชื่อใหม่ */}
+      {isAddingLoan && (
+        <LoanAddModal
+          onClose={(wasAdded) => {
+            setIsAddingLoan(false);
+            if (wasAdded) fetchContracts();
+          }}
+        />
+      )}
     </div>
   );
 }

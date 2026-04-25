@@ -10,6 +10,8 @@ import {
   ArrowUpRight,
   TrendingUp,
   Loader2,
+  RefreshCw,
+  Zap,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useEffect, useState } from "react";
@@ -66,6 +68,33 @@ const DashboardSkeleton = () => (
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncAll = async () => {
+    if (!confirm("คุณต้องการเริ่มการซิงค์และล้างสูตรในชีทที่เพี้ยนใหม่ทั้งหมดใช่หรือไม่? (อาจใช้เวลา 10-20 วินาที)")) return;
+    
+    setIsSyncing(true);
+    const tid = toast.loading("กำลังเริ่มต้นกระบวนการซิงค์...");
+    try {
+      // 1. Sync Balances (Member Table)
+      toast.loading("กำลังอัปเดตยอดเงินสมาชิก (1/2)...", { id: tid });
+      const resSync = await gasApi.syncAllBalances();
+      if (!resSync.success) throw new Error(resSync.msg);
+
+      // 2. Rebuild Summary Sheet (Matrix Table)
+      toast.loading("กำลัง Rebuild ชีทสรุปหุ้นใหม่ (2/2)...", { id: tid });
+      const resRebuild = await gasApi.rebuildShareSummary();
+      if (!resRebuild.success) throw new Error(resRebuild.msg);
+
+      toast.success("ซิงค์และปรับปรุงข้อมูลในชีททั้งหมดเรียบร้อยแล้ว!", { id: tid });
+      await fetchStats();
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "เกิดข้อผิดพลาดในการซิงค์", { id: tid });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -115,9 +144,17 @@ export default function AdminDashboardPage() {
           >
             รายชื่อสมาชิก
           </Link>
+          <button
+            onClick={handleSyncAll}
+            disabled={isSyncing}
+            className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-sm shadow-emerald-500/20 flex items-center gap-2 disabled:opacity-50"
+          >
+            {isSyncing ? <RefreshCw size={16} className="animate-spin" /> : <Zap size={16} />}
+            ซิงค์ยอดเงินทั้งหมด
+          </button>
           <Link
             href="/admin/loans"
-            className="px-4 py-2 bg-sky-500 text-white rounded-xl text-sm font-medium hover:bg-sky-600 transition-colors shadow-sm shadow-sky-500/20 flex items-center gap-2"
+            className="px-4 py-2 bg-sky-500 text-white rounded-xl text-sm font-bold hover:bg-sky-600 transition-all shadow-sm shadow-sky-500/20 flex items-center gap-2"
           >
             คำขอกู้เงินรอดำเนินการ ({stats.pendingLoans})
           </Link>

@@ -13,13 +13,17 @@ import {
   ArrowRight,
   LayoutGrid,
   ChevronLeft,
-  RefreshCw
+  RefreshCw,
+  Image as ImageIcon,
+  X,
+  Eye
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Swal from "sweetalert2";
 import Link from "next/link";
 import { NumericFormat } from "react-number-format";
 import { formatDate, formatDateTime, formatTime } from "@/lib/utils";
+import ContractRepaymentModal from "../ContractRepaymentModal";
 
 interface Contract {
   contractId: string;
@@ -44,6 +48,7 @@ interface Repayment {
   date: string;
   installmentNo: string;
   amount: number;
+  slipUrl: string;
   status: string;
   approver: string;
 }
@@ -59,10 +64,7 @@ export default function ContractDetailPage() {
   const [repayments, setRepayments] = useState<Repayment[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isAddingRepayment, setIsAddingRepayment] = useState(false);
-
-  // Form states
-  const [amountPaid, setAmountPaid] = useState<number | undefined>(undefined);
-  const [installmentNo, setInstallmentNo] = useState("");
+  const [selectedSlipUrl, setSelectedSlipUrl] = useState<string | null>(null); // For lightbox
 
   const fetchContract = useCallback(async () => {
     setIsLoadingContract(true);
@@ -121,20 +123,10 @@ export default function ContractDetailPage() {
             totalPaidAmount,
             remainingBalance: Number(found.remainingBalance || 0),
             status,
-            items: String(found.items || "ทั่วไป"),
+            items: String(found.itemName || "ทั่วไป"),
           };
 
           setContract(parsedContract);
-          setAmountPaid(parsedContract.installmentPerMonth);
-          
-          // คำนวณงวดถัดไปที่ต้องจ่าย
-          const paidCount = Math.floor(totalPaidAmount / installmentPerMonth);
-          const nextInstallment = paidCount + 1;
-          if (nextInstallment <= totalInstallments) {
-            setInstallmentNo(`งวดที่ ${nextInstallment}`);
-          } else {
-            setInstallmentNo("ปิดยอดสัญญา");
-          }
         } else {
           toast.error("ไม่พบข้อมูลสัญญา");
         }
@@ -165,6 +157,7 @@ export default function ContractDetailPage() {
           date: String(item.date || ""),
           installmentNo: String(item.installmentNo || ""),
           amount: Number(item.amount || 0),
+          slipUrl: String(item.slipUrl || ""),
           status: String(item.status || ""),
           approver: item.approver,
         }));
@@ -181,59 +174,8 @@ export default function ContractDetailPage() {
     fetchContract();
     fetchRepayments();
   }, [fetchContract, fetchRepayments]);
-  const handleAddRepayment = async () => {
-    if (!contract) return;
-    if (!amountPaid || amountPaid <= 0) return toast.error("กรุณาระบุยอดเงินให้ถูกต้อง");
 
-    const confirmResult = await Swal.fire({
-      title: 'ยืนยันการรับชำระเงิน?',
-      html: `
-        <div class="text-left space-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-          <p class="text-sm font-bold text-slate-600">ผู้ชำระ: <span class="text-blue-600">${contract.fullName}</span></p>
-          <p class="text-sm font-bold text-slate-600">รายการ: <span class="text-slate-800">${installmentNo || 'ชำระค่างวดปกติ'}</span></p>
-          <p class="text-2xl font-black text-emerald-600 text-center mt-4">ยอดเงิน: ${amountPaid.toLocaleString()} ฿</p>
-        </div>
-      `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#10b981',
-      cancelButtonColor: '#64748b',
-      confirmButtonText: 'ยืนยันบันทึกข้อมูล',
-      cancelButtonText: 'ตรวจสอบอีกครั้ง'
-    });
-
-    if (!confirmResult.isConfirmed) return;
-
-    setIsAddingRepayment(true);
-    try {
-      const res = await fetch("/api/member", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "admin_add_repayment",
-          contractId: contract.contractId,
-          lineId: contract.lineId,
-          amountPaid,
-          installmentNo: installmentNo || `ชำระค่างวด`,
-          status: "ยืนยันแล้ว",
-          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET
-        }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        toast.success("บันทึกรับเงินเรียบร้อย");
-        setInstallmentNo("");
-        fetchContract();    // Refresh overall balance
-        fetchRepayments();  // Refresh timeline
-      } else {
-        toast.error(result.msg || "เกิดข้อผิดพลาด");
-      }
-    } catch {
-      toast.error("เซิร์ฟเวอร์ขัดข้อง");
-    } finally {
-      setIsAddingRepayment(false);
-    }
-  };
+  // Removed handleFileChange and handleAddRepayment (Moved to ContractRepaymentModal)
 
   if (isLoadingContract) {
     return (
@@ -366,132 +308,19 @@ export default function ContractDetailPage() {
           </div>
         )}
 
-        {/* Repayment Form */}
+        {/* Record Payment Button */}
         {contract.remainingBalance > 0 && (
-          <div className="bg-white border-2 border-blue-100 rounded-[2rem] p-6 shadow-xl shadow-blue-900/5 relative overflow-hidden">
-            {/* Decorative Background */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-50" />
-
-            <div className="relative">
-              <div className="flex items-center justify-between mb-6">
-                <h4 className="font-black text-slate-800 text-lg flex items-center gap-2.5">
-                  <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
-                    <PlusCircle className="text-white" size={18} />
-                  </div>
-                  บันทึกรับชำระเงิน
-                </h4>
-                <div className="hidden sm:block px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100">
-                  สัญญาปกติ
-                </div>
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={() => setIsAddingRepayment(true)}
+              className="w-full h-[3.75rem] bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-base font-black shadow-xl shadow-blue-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
+            >
+              <PlusCircle className="animate-pulse" size={22} />
+              บันทึกรับชำระเงิน
+              <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                <ArrowRight size={14} />
               </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-end">
-
-                {/* Installment No. Input */}
-                <div className="lg:col-span-3 space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">
-                    งวดที่ / รายละเอียด
-                  </label>
-                  <div className="relative group">
-                    <input
-                      list="installment-options"
-                      type="text"
-                      placeholder="ระบุงวด หรือพิมพ์เอง..."
-                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 group-focus-within:bg-white group-focus-within:border-blue-500 group-focus-within:ring-4 group-focus-within:ring-blue-50 outline-none transition-all"
-                      value={installmentNo}
-                      onChange={(e) => setInstallmentNo(e.target.value)}
-                    />
-                    <datalist id="installment-options">
-                      {Array.from({ length: contract.totalInstallments }).map((_, i) => {
-                        const num = i + 1;
-                        const isPaid = i < Math.floor(contract.totalPaidAmount / contract.installmentPerMonth);
-                        return (
-                          <option 
-                            key={num} 
-                            value={`งวดที่ ${num}`}
-                          >
-                            {isPaid ? 'ชำระแล้ว' : 'รอชำระ'}
-                          </option>
-                        );
-                      })}
-                      <option value="ปิดยอดสัญญา" />
-                      <option value="ค่าปรับ/ค่าธรรมเนียม" />
-                    </datalist>
-                  </div>
-                </div>
-
-                {/* Amount Input & Quick Actions */}
-                <div className="lg:col-span-6 space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">
-                    จำนวนเงินชำระ (บาท)
-                  </label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-1 group">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 font-black text-lg">฿</span>
-                      <NumericFormat
-                        thousandSeparator={true}
-                        inputMode="decimal"
-                        value={amountPaid}
-                        onValueChange={(values) => setAmountPaid(values.floatValue)}
-                        className="w-full pl-10 pr-4 py-3.5 bg-blue-50/30 border border-blue-100 rounded-2xl text-2xl font-black text-blue-700 group-focus-within:bg-white group-focus-within:border-blue-500 group-focus-within:ring-4 group-focus-within:ring-blue-50 outline-none transition-all text-right tabular-nums"
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                    {/* Quick Action Buttons */}
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setAmountPaid(contract.installmentPerMonth)}
-                        className={`flex-1 sm:flex-none px-4 py-2 rounded-2xl text-[11px] font-black transition-all border-2 flex flex-col items-center justify-center min-w-[80px] ${amountPaid === contract.installmentPerMonth
-                          ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200"
-                          : "bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:text-blue-600"
-                          }`}
-                      >
-                        <span>ค่างวด</span>
-                        <span className={amountPaid === contract.installmentPerMonth ? "text-blue-100" : "text-blue-600"}>
-                          {contract.installmentPerMonth.toLocaleString()}
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setAmountPaid(contract.remainingBalance)}
-                        className={`flex-1 sm:flex-none px-4 py-2 rounded-2xl text-[11px] font-black transition-all border-2 flex flex-col items-center justify-center min-w-[80px] ${amountPaid === contract.remainingBalance
-                          ? "bg-rose-600 border-rose-600 text-white shadow-md shadow-rose-200"
-                          : "bg-white border-slate-100 text-slate-600 hover:border-rose-200 hover:text-rose-600"
-                          }`}
-                      >
-                        <span>ปิดยอด</span>
-                        <span className={amountPaid === contract.remainingBalance ? "text-rose-100" : "text-rose-600"}>
-                          {contract.remainingBalance.toLocaleString()}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Submit Button */}
-                <div className="lg:col-span-3">
-                  <button
-                    disabled={isAddingRepayment || !amountPaid || amountPaid <= 0}
-                    onClick={handleAddRepayment}
-                    className="w-full h-[3.75rem] bg-slate-900 hover:bg-blue-600 text-white rounded-2xl text-sm font-black shadow-xl shadow-slate-200 hover:shadow-blue-200 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center gap-3 group"
-                  >
-                    {isAddingRepayment ? (
-                      <RefreshCw className="animate-spin" size={20} />
-                    ) : (
-                      <>
-                        ยืนยันชำระเงิน
-                        <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center group-hover:translate-x-1 transition-transform">
-                          <ArrowRight size={14} />
-                        </div>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
+            </button>
           </div>
         )}
 
@@ -542,8 +371,18 @@ export default function ContractDetailPage() {
                         </div>
                       </td>
                       <td className="py-4 px-6 hidden sm:table-cell">
-                        <div className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200/50">
-                          {rp.installmentNo || "-"}
+                        <div className="flex items-center gap-2">
+                          <div className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200/50">
+                            {rp.installmentNo || "-"}
+                          </div>
+                          {rp.slipUrl && (
+                            <button
+                              onClick={() => setSelectedSlipUrl(rp.slipUrl)}
+                              className="p-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-100 transition-colors"
+                            >
+                              <ImageIcon size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-4 sm:px-6 text-right font-black text-emerald-600 text-base sm:text-lg">
@@ -562,6 +401,55 @@ export default function ContractDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Lightbox for Slips */}
+      {selectedSlipUrl && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/90 flex items-center justify-center p-4 animate-[fadeIn_0.3s]">
+          <div className="relative max-w-2xl w-full bg-white rounded-[2rem] overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-md">
+              <h3 className="font-black text-slate-800 flex items-center gap-2">
+                <ImageIcon className="text-blue-600" size={18} /> หลักฐานการชำระเงิน
+              </h3>
+              <button
+                onClick={() => setSelectedSlipUrl(null)}
+                className="p-2 bg-slate-100 text-slate-500 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 bg-slate-50 flex items-center justify-center">
+              <img
+                src={selectedSlipUrl}
+                alt="Slip"
+                className="max-h-[70vh] object-contain rounded-2xl shadow-lg"
+              />
+            </div>
+            <div className="p-4 bg-white text-center">
+              <a
+                href={selectedSlipUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-blue-600 font-bold hover:underline"
+              >
+                <Eye size={16} /> ดูภาพขนาดเต็ม
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal */}
+      {isAddingRepayment && contract && (
+        <ContractRepaymentModal
+          contract={contract}
+          onClose={(wasAdded) => {
+            setIsAddingRepayment(false);
+            if (wasAdded) {
+              fetchContract();
+              fetchRepayments();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

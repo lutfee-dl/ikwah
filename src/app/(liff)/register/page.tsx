@@ -48,6 +48,7 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasExistingData, setHasExistingData] = useState(false);
 
   // Validation states
   const [isIdValid, setIsIdValid] = useState(false);
@@ -98,6 +99,20 @@ export default function RegisterPage() {
 
       if (res.success) {
         toast.success("ตรวจสอบรายชื่อสำเร็จ");
+        if (res.existingData) {
+          const rawId = res.existingData.idCard.replace(/-/g, "");
+          const rawPhone = res.existingData.phone.replace(/-/g, "");
+          
+          if (rawId.length === 13) {
+            setIdCard(rawId);
+            setIsIdValid(validateThaiID(rawId));
+          }
+          if (rawPhone.length === 10) {
+            setPhone(rawPhone);
+            setIsPhoneValid(validateThaiPhone(rawPhone));
+          }
+          if (rawId || rawPhone) setHasExistingData(true);
+        }
         setStep(2);
       } else {
         Swal.fire({
@@ -254,6 +269,16 @@ export default function RegisterPage() {
                 <h2 className="text-xl font-bold text-gray-800">กรอกข้อมูลสมาชิก</h2>
                 <p className="text-blue-600 font-semibold mt-1">คุณ <span id="showName">{fullName}</span></p>
                 <p className="text-gray-400 text-sm mt-1 leading-tight">ระบุข้อมูลเพิ่มเติม เพื่อความปลอดภัย</p>
+                {hasExistingData && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-2 text-left animate-in slide-in-from-top-2">
+                    <div className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                    </div>
+                    <p className="text-[11px] text-blue-700 font-bold leading-normal">
+                      ระบบพบข้อมูลของคุณในฐานข้อมูลแล้ว กรุณาตรวจสอบความถูกต้องและกด "ยืนยันการลงทะเบียน" ได้ทันที
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="space-y-4 mb-6">
                 <div>
@@ -261,6 +286,7 @@ export default function RegisterPage() {
                   <IMaskInput
                     mask="0-0000-00000-00-0"
                     unmask={true}
+                    value={idCard}
                     onAccept={handleIdAccept}
                     placeholder="X-XXXX-XXXXX-XX-X"
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-gray-700 tracking-tighter"
@@ -274,6 +300,7 @@ export default function RegisterPage() {
                   <IMaskInput
                     mask="00-0000-0000"
                     unmask={true}
+                    value={phone}
                     onAccept={handlePhoneAccept}
                     placeholder="08-1234-5678"
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-gray-700 tracking-widest"

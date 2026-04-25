@@ -9,12 +9,15 @@ import MemberDetailModal from "./MemberDetailModal";
 import MemberEditModal from "./MemberEditModal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import MemberAddModal from "./MemberAddModal";
+import { UserPlus } from "lucide-react";
 
 export default function MembersPage() {
 	const { members, loading, error, refetch: fetchMembers } = useAdminMembers();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 	const [editingMember, setEditingMember] = useState<Member | null>(null);
+	const [isAddingMember, setIsAddingMember] = useState(false);
 
 	// Sort state
 	const [sortConfig, setSortConfig] = useState<{
@@ -107,6 +110,13 @@ export default function MembersPage() {
 					>
 						<RefreshCw className="inline-block mr-1" size={16} />
 						รีเฟรชข้อมูล
+					</button>
+					<button
+						onClick={() => setIsAddingMember(true)}
+						className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-bold whitespace-nowrap shadow-md shadow-blue-200 flex items-center gap-2"
+					>
+						<UserPlus size={16} />
+						เพิ่มสมาชิก
 					</button>
 					<div className="relative flex-1 md:w-64">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -439,11 +449,17 @@ export default function MembersPage() {
 					member={editingMember}
 					onClose={(wasEdited?: boolean) => {
 						setEditingMember(null);
-						// Only trigger a re-fetch if data was actually saved successfully inside the edit modal
-						if (wasEdited === true) {
-							// If the backend was updated, we fetch the updated list so the table is fully sync'd
-							location.reload();
-						}
+						if (wasEdited === true) fetchMembers();
+					}}
+				/>
+			)}
+
+			{/* Add Member Modal */}
+			{isAddingMember && (
+				<MemberAddModal
+					onClose={(wasAdded?: boolean) => {
+						setIsAddingMember(false);
+						if (wasAdded === true) fetchMembers();
 					}}
 				/>
 			)}

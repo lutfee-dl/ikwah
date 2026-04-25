@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Banknote, Calendar, ChevronRight, Loader2, Wallet, History, Info } from "lucide-react";
+import { ArrowLeft, Banknote, Calendar, ChevronRight, Loader2, Wallet, History, Info, CheckCircle2, Receipt, Clock, X, Circle } from "lucide-react";
+import LoanScheduleModal from "./LoanScheduleModal";
 import { getLiffIdToken } from "@/services/liff";
 import { gasApi } from "@/services/gasApi";
 import { MemberLoan } from "@/types";
@@ -13,6 +14,7 @@ export default function MemberLoansPage() {
   const router = useRouter();
   const [loans, setLoans] = useState<MemberLoan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedLoanForSchedule, setSelectedLoanForSchedule] = useState<any | null>(null);
 
   useEffect(() => {
     const fetchLoans = async () => {
@@ -116,26 +118,32 @@ export default function MemberLoansPage() {
           </div>
         </div>
 
-        {/* Card Bottom: Action */}
-        {!isClosed ? (
-          <div className="p-4 bg-slate-900 flex items-center justify-between hover:bg-black transition-colors cursor-pointer"
-            onClick={() => router.push(`/dashboard/upload?category=${encodeURIComponent('ชำระยอดสินเชื่อ')}&contractId=${loan.contractId}`)}
+        {/* Card Bottom: Actions */}
+        <div className="flex divide-x divide-slate-100 border-t border-slate-100 overflow-hidden rounded-b-3xl">
+          <button 
+            onClick={() => setSelectedLoanForSchedule(loan)}
+            className="flex-1 py-4 bg-white hover:bg-slate-50 flex items-center justify-center gap-2 text-slate-600 transition-colors"
           >
-            <div className="flex items-center gap-2 ml-2">
+            <Calendar size={16} className="text-slate-400" />
+            <span className="font-bold text-xs">ตารางผ่อนชำระ</span>
+          </button>
+          
+          {!isClosed ? (
+            <button 
+              onClick={() => router.push(`/dashboard/upload?category=${encodeURIComponent('ชำระยอดสินเชื่อ')}&contractId=${loan.contractId}`)}
+              className="flex-1 py-4 bg-slate-900 hover:bg-black flex items-center justify-center gap-2 text-white transition-colors"
+            >
               <Wallet size={16} className="text-sky-400" />
-              <span className="text-white font-bold text-sm">ไปที่หน้าชำระเงิน</span>
+              <span className="font-bold text-xs">ไปชำระเงิน</span>
+              <ChevronRight size={14} className="text-white/50" />
+            </button>
+          ) : (
+            <div className="flex-1 py-4 bg-slate-50 flex items-center justify-center gap-2 text-slate-400">
+              <CheckCircle2 size={14} className="text-emerald-500" />
+              <span className="font-bold text-[10px] uppercase tracking-widest">Closed</span>
             </div>
-            <div className="bg-white/10 p-2 rounded-xl text-white group-hover:translate-x-1 transition-transform">
-              <ChevronRight size={18} />
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 bg-slate-50 flex items-center justify-center border-t border-slate-100">
-            <span className="text-slate-400 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-              <CheckCircle2 size={14} className="text-emerald-500" /> ปิดยอดสัญญาเรียบร้อยแล้ว
-            </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
@@ -232,9 +240,13 @@ export default function MemberLoansPage() {
           </div>
         </div>
       )}
+
+      {selectedLoanForSchedule && (
+        <LoanScheduleModal 
+          loan={selectedLoanForSchedule} 
+          onClose={() => setSelectedLoanForSchedule(null)} 
+        />
+      )}
     </div>
   );
 }
-
-// Helper icons needed for the redesign
-import { CheckCircle2 } from "lucide-react";
