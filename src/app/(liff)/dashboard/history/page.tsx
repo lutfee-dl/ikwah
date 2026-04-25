@@ -6,12 +6,11 @@ import { useRouter } from "next/navigation";
 import { gasApi } from "@/services/gasApi";
 import { getLiffIdToken } from "@/services/liff";
 import { formatDateTime } from "@/lib/utils";
+import Swal from "sweetalert2";
 import {
   ArrowLeft,
   ArrowUpRight,
   ArrowDownLeft,
-  Clock,
-  CheckCircle2,
   Eye,
   X,
   ChevronDown,
@@ -42,9 +41,6 @@ export default function HistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedSlip, setSelectedSlip] = useState<string | null>(null);
-  const [selectedSlipDate, setSelectedSlipDate] = useState<string>("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // --- Filter States ---
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
@@ -108,6 +104,25 @@ export default function HistoryPage() {
     const matches = url.match(/[-\w]{25,}/g);
     const fileId = matches ? matches.find(m => !['drive', 'google', 'file', 'view'].includes(m.toLowerCase())) : null;
     return fileId ? `https://docs.google.com/thumbnail?id=${fileId}&sz=w1200` : url;
+  };
+
+  const handleShowSlip = (url: string, date: string) => {
+    Swal.fire({
+      title: '<span class="text-lg font-black uppercase tracking-widest text-slate-800">หลักฐานการชำระเงิน</span>',
+      html: `<p class="text-[10px] font-bold text-slate-400 mb-2">ยืนยันรายการเมื่อ ${formatDateTime(date)}</p>`,
+      imageUrl: getDriveImageUrl(url),
+      imageAlt: 'Slip',
+      imageWidth: '100%',
+      showConfirmButton: false,
+      showCloseButton: true,
+      background: '#fff',
+      padding: '1.5rem',
+      customClass: {
+        popup: 'rounded-[2rem] border-none shadow-2xl',
+        image: 'rounded-xl shadow-lg border border-slate-100',
+        closeButton: 'focus:outline-none'
+      }
+    });
   };
 
   return (
@@ -256,14 +271,18 @@ export default function HistoryPage() {
                       </span>
                     </div>
 
-                    {item.slipUrl && (
+                    {item.slipUrl ? (
                       <button
-                        onClick={() => { setSelectedSlip(item.slipUrl!); setSelectedSlipDate(item.date); setIsModalOpen(true); }}
+                        onClick={() => handleShowSlip(item.slipUrl!, item.date)}
                         className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50/50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-colors border border-blue-100/30 active:scale-95"
                       >
                         <Eye size={12} strokeWidth={2.5} />
                         ดูหลักฐาน
                       </button>
+                    ) : (
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-300 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 cursor-not-allowed">
+                        ไม่มีหลักฐาน
+                      </div>
                     )}
                   </div>
 
@@ -292,45 +311,6 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
-
-      {/* Slip Modal - Full Screen Mobile Ready */}
-      {isModalOpen && selectedSlip && (
-        <div className="fixed inset-0 z-[999] flex flex-col bg-black/95 animate-in fade-in duration-300">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 bg-black/20 backdrop-blur-md border-b border-white/10">
-            <div>
-              <h3 className="text-white font-black text-sm uppercase tracking-widest">หลักฐานการชำระเงิน</h3>
-              <p className="text-white/40 text-[10px] font-medium tracking-tight">ยืนยันรายการเมื่อ {formatDateTime(selectedSlipDate)}</p>
-            </div>
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors active:scale-90"
-            >
-              <X size={24} />
-            </button>
-          </div>
-
-          {/* Image Container */}
-          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden" onClick={() => setIsModalOpen(false)}>
-            <div className="relative w-full h-full max-w-lg max-h-[80vh] rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
-              <Image
-                src={getDriveImageUrl(selectedSlip)}
-                alt="slip"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
-          </div>
-
-          {/* Footer Info */}
-          <div className="px-8 py-6 bg-gradient-to-t from-black/50 to-transparent text-center">
-            <p className="text-white/30 text-[10px] font-bold italic">
-              * แตะที่รูปภาพเพื่อบันทึก หรือกดกากบาทเพื่อปิด
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

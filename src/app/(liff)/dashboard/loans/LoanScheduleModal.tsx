@@ -33,7 +33,9 @@ export default function LoanScheduleModal({ loan, onClose }: LoanScheduleModalPr
 
     for (let i = 1; i <= totalInstallments; i++) {
       const dueDate = new Date(startDate);
+      // ตั้งค่าเป็นวันที่ 5 ของเดือนถัดๆ ไป
       dueDate.setMonth(startDate.getMonth() + i);
+      dueDate.setDate(5);
       
       const isPaid = i <= paidCount;
       const isCurrent = i === paidCount + 1 && loan.remainingBalance > 0;
