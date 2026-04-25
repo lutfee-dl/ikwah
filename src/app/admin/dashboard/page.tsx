@@ -9,9 +9,10 @@ import {
   AlertTriangle,
   ArrowUpRight,
   TrendingUp,
-  Loader2,
   RefreshCw,
   Zap,
+  PieChart as PieChartIcon,
+  TrendingDown,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Swal from "sweetalert2";
@@ -20,6 +21,23 @@ import { gasApi } from "@/services/gasApi";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/Skeleton";
+
+// Import Recharts
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  BarChart,
+  Bar,
+} from "recharts";
 
 type DashboardStats = {
   totalMembers: number;
@@ -30,6 +48,11 @@ type DashboardStats = {
   loanTypeBreakdown: Record<string, number>;
   pendingRepayments: number;
   pendingDeposits: number;
+  monthlyData: Array<{
+    month: string;
+    shares: number;
+    loans: number;
+  }>;
   recentRequests: Array<{
     id: string;
     date: string;
@@ -39,6 +62,8 @@ type DashboardStats = {
     status: string;
   }>;
 };
+
+const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6"];
 
 const DashboardSkeleton = () => (
   <div className="space-y-6 animate-pulse">
@@ -70,28 +95,35 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   const handleSyncAll = async () => {
-    if (!confirm("คุณต้องการเริ่มการซิงค์และล้างสูตรในชีทที่เพี้ยนใหม่ทั้งหมดใช่หรือไม่? (อาจใช้เวลา 10-20 วินาที)")) return;
-    
+    const result = await Swal.fire({
+      title: 'เริ่มการซิงค์ข้อมูล?',
+      text: "ระบบจะคำนวณยอดเงินคงเหลือของทุกคนใหม่เพื่อให้ตรงกับสลิปจริง (ใช้เวลาประมาณ 10-20 วินาที)",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'เริ่มซิงค์เลย',
+      cancelButtonText: 'ยกเลิก'
+    });
+
+    if (!result.isConfirmed) return;
+
     setIsSyncing(true);
-    const tid = toast.loading("กำลังเริ่มต้นกระบวนการซิงค์...");
+    toast.loading("กำลังอัปเดตข้อมูล (1/2)...", { id: "sync-stats" });
     try {
-      // 1. Sync Balances (Member Table)
-      toast.loading("กำลังอัปเดตยอดเงินสมาชิก (1/2)...", { id: tid });
-      const resSync = await gasApi.syncAllBalances();
+      const resSync = await gasApi.call("admin_sync_all_balances", {});
       if (!resSync.success) throw new Error(resSync.msg);
 
-      // 2. Rebuild Summary Sheet (Matrix Table)
-      toast.loading("กำลัง Rebuild ชีทสรุปหุ้นใหม่ (2/2)...", { id: tid });
-      const resRebuild = await gasApi.rebuildShareSummary();
+      toast.loading("กำลังจัดระเบียบชีทสรุป (2/2)...", { id: "sync-stats" });
+      const resRebuild = await gasApi.call("admin_rebuild_summary", {});
       if (!resRebuild.success) throw new Error(resRebuild.msg);
 
-      toast.success("ซิงค์และปรับปรุงข้อมูลในชีททั้งหมดเรียบร้อยแล้ว!", { id: tid });
+      toast.success("ซิงค์ข้อมูลทั้งระบบสำเร็จ!", { id: "sync-stats" });
       await fetchStats();
     } catch (error: any) {
       console.error(error);
-      toast.error(error.message || "เกิดข้อผิดพลาดในการซิงค์", { id: tid });
+      toast.error(error.message || "เกิดข้อผิดพลาดในการซิงค์", { id: "sync-stats" });
     } finally {
       setIsSyncing(false);
     }
@@ -100,7 +132,7 @@ export default function AdminDashboardPage() {
   const fetchStats = async () => {
     setIsLoading(true);
     try {
-      const res = await gasApi.getAdminDashboardStats();
+      const res = await gasApi.call("admin_get_dashboard_stats", {});
       if (res.success) {
         setStats(res.data);
       } else {
@@ -115,207 +147,261 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    const success = sessionStorage.getItem("login_success");
-    if (success) {
-      toast.success("เข้าสู่ระบบสำเร็จ");
-      sessionStorage.removeItem("login_success");
-    }
     fetchStats();
   }, []);
 
-  if (isLoading) {
-    return <DashboardSkeleton />;
-  }
-
+  if (isLoading) return <DashboardSkeleton />;
   if (!stats) return null;
 
   const handleInitSystem = async () => {
     const result = await Swal.fire({
-      title: '⚠️ ยืนยันการตั้งค่าโครงสร้างชีท?',
-      text: "ระบบจะสร้าง/ปรับปรุงหัวตารางในชีททั้งหมดให้เป็นเวอร์ชันล่าสุด (ไม่ลบข้อมูลเดิม แต่แนะนำให้สำรองข้อมูลไว้ก่อน)",
+      title: '⚠️ ตั้งค่าโครงสร้างชีท?',
+      text: "ระบบจะปรับปรุงหัวตารางให้เป็นเวอร์ชันล่าสุด แนะนำให้สำรองข้อมูลก่อนเริ่ม",
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'ตกลง, เริ่มกระบวนการ',
+      confirmButtonText: 'เริ่มปรับปรุง',
       cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#f43f5e', // rose-500
     });
 
     if (!result.isConfirmed) return;
 
-    const tid = toast.loading("กำลังปรับปรุงโครงสร้างชีท...");
+    setIsInitializing(true);
+    toast.loading("กำลังปรับปรุงโครงสร้างชีท...", { id: "init-system" });
     try {
-      const res = await gasApi.initSystem();
+      const res = await gasApi.call("admin_init_system", {});
       if (res.success) {
-        toast.success("ปรับปรุงโครงสร้างชีทเรียบร้อยแล้ว!", { id: tid });
+        toast.success("ปรับปรุงสำเร็จ!", { id: "init-system" });
         fetchStats();
       } else {
-        toast.error(res.msg || "เกิดข้อผิดพลาด", { id: tid });
+        toast.error(res.msg || "เกิดข้อผิดพลาด", { id: "init-system" });
       }
     } catch (error) {
-      console.error(error);
-      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้", { id: tid });
+      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้", { id: "init-system" });
+    } finally {
+      setIsInitializing(false);
     }
   };
 
+  // Prepare Pie Chart Data
+  const pieData = Object.entries(stats.loanTypeBreakdown).map(([name, value]) => ({
+    name,
+    value,
+  }));
+
   return (
-    <div className="space-y-6 animate-[fadeIn_0.5s]">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
+    <div className="space-y-8 animate-[fadeIn_0.5s] pb-10">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">แดชบอร์ดภาพรวม</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            สรุปข้อมูลสถิติของระบบ Ikuwah App ประจำวันนี้
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Analytics Dashboard</h1>
+          <p className="mt-1 text-slate-500 font-medium">
+            ภาพรวมสถานะการเงินและกิจกรรมของกองทุน Ikuwah
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={handleInitSystem}
-            className="px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-sm font-bold hover:bg-rose-500 hover:text-white transition-all shadow-sm flex items-center gap-2"
-            title="ปรับปรุงโครงสร้างตาราง Google Sheets"
+            disabled={isInitializing}
+            className="px-4 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-2xl text-xs font-black hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
           >
-            <RefreshCw size={16} />
-            ตั้งค่าโครงสร้างชีท
+            <RefreshCw size={14} className={isInitializing ? "animate-spin" : ""} /> 
+            {isInitializing ? "INITIALIZING..." : "SYSTEM INIT"}
           </button>
           <button
             onClick={handleSyncAll}
             disabled={isSyncing}
-            className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-sm shadow-emerald-500/20 flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2.5 bg-indigo-600 text-white rounded-2xl text-xs font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:opacity-50"
           >
-            {isSyncing ? <RefreshCw size={16} className="animate-spin" /> : <Zap size={16} />}
-            ซิงค์ยอดเงินทั้งหมด
+            {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
+            SYNC BALANCES
           </button>
-          <Link
-            href="/admin/loans"
-            className="px-4 py-2 bg-sky-500 text-white rounded-xl text-sm font-bold hover:bg-sky-600 transition-all shadow-sm shadow-sky-500/20 flex items-center gap-2"
-          >
-            คำขอกู้เงินรอดำเนินการ ({stats.pendingLoans})
-          </Link>
         </div>
       </div>
 
-      {/* Main Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Stat 1: Total Members */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 group hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-sky-50 rounded-full group-hover:scale-150 transition-transform duration-500 ease-out"></div>
-          <div className="relative z-10 flex justify-between">
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-slate-500">สมาชิกทั้งหมด</p>
-              <div>
-                <p className="text-3xl font-bold text-slate-800">{stats.totalMembers}</p>
-                <p className="text-xs font-medium text-emerald-500 flex items-center mt-1">
-                  <TrendingUp size={12} className="mr-1" /> ปกติ {stats.activeMembers} คน
-                </p>
+      {/* Main Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          label="สมาชิกทั้งหมด"
+          value={stats.totalMembers}
+          sub={`ปกติ ${stats.activeMembers} คน`}
+          icon={<Users size={24} />}
+          color="blue"
+        />
+        <StatCard
+          label="รอดำเนินการ"
+          value={stats.pendingLoans + stats.pendingRepayments + stats.pendingDeposits}
+          sub={`${stats.pendingLoans} คำขอกู้ / ${stats.pendingRepayments + stats.pendingDeposits} สลิป`}
+          icon={<Clock size={24} />}
+          color="amber"
+          trend={stats.pendingLoans > 5 ? "up" : "down"}
+        />
+        <StatCard
+          label="ยอดหนี้ที่ปล่อยกู้"
+          value={`฿${stats.totalApprovedLoanAmount.toLocaleString()}`}
+          sub="ยอดรวมสัญญาที่ยังไม่ปิด"
+          icon={<CreditCard size={24} />}
+          color="emerald"
+          isCurrency
+          className="lg:col-span-2"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Growth Chart (Area Chart) */}
+        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 lg:col-span-2 flex flex-col">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-50 p-2.5 rounded-2xl text-indigo-600">
+                <TrendingUp size={20} />
               </div>
+              <h2 className="text-lg font-black text-slate-800">กราฟการเติบโตรายเดือน</h2>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-sky-100 flex items-center justify-center text-sky-600 shadow-inner">
-              <Users size={24} />
+            <div className="flex gap-4 text-[10px] font-black uppercase tracking-widest">
+              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500"></span> หุ้นสะสม</div>
+              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> ส่งงวดหนี้</div>
             </div>
+          </div>
+
+          <div className="h-[320px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats.monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorShares" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorLoans" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
+                  dy={10}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
+                  tickFormatter={(val) => `฿${val >= 1000 ? (val / 1000) + 'k' : val}`}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                  formatter={(value: number) => [`฿${value.toLocaleString()}`, ""]}
+                />
+                <Area type="monotone" dataKey="shares" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorShares)" />
+                <Area type="monotone" dataKey="loans" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorLoans)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Stat 2: Pending Loans */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 group hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-amber-50 mx-auto rounded-full group-hover:scale-150 transition-transform duration-500 ease-out"></div>
-          <div className="relative z-10 flex justify-between">
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-slate-500">รออนุมัติสินเชื่อ</p>
-              <div>
-                <p className={`text-3xl font-bold ${stats.pendingLoans > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
-                  {stats.pendingLoans}
-                </p>
-                <p className="text-xs font-medium text-slate-400 mt-1">
-                  รายการคำขอกู้ที่ยังไม่ได้ตรวจสอบ
-                </p>
-              </div>
+        {/* Loan Distribution (Pie Chart) */}
+        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="bg-amber-50 p-2.5 rounded-2xl text-amber-600">
+              <PieChartIcon size={20} />
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-amber-100/50 flex items-center justify-center text-amber-500 shadow-inner">
-              <Clock size={24} />
-            </div>
+            <h2 className="text-lg font-black text-slate-800">สัดส่วนประเภทสินเชื่อ</h2>
           </div>
-        </div>
 
-        {/* Stat 3: Total Loan Amount */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 group hover:shadow-md transition-shadow relative overflow-hidden lg:col-span-2">
-          <div className="absolute -right-6 -top-6 w-32 h-32 bg-emerald-50 rounded-full group-hover:scale-125 transition-transform duration-500 ease-out"></div>
-          <div className="relative z-10 flex justify-between h-full items-center">
-            <div className="space-y-3 flex-1 flex flex-col justify-center">
-              <p className="text-sm font-medium text-slate-500">ยอดเงินกู้ที่อนุมัติแล้ว (สะสม)</p>
-              <div>
-                <p className="text-3xl font-bold text-emerald-600">฿{stats.totalApprovedLoanAmount.toLocaleString()}</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                  {Object.entries(stats.loanTypeBreakdown).map(([type, amount], idx) => (
-                    <p key={type} className="text-[10px] font-bold text-slate-500 flex items-center">
-                      <span className={`w-2 h-2 rounded-full mr-1.5 ${idx % 2 === 0 ? 'bg-emerald-400' : 'bg-sky-400'}`}></span>
-                      {type}: {amount.toLocaleString()}
-                    </p>
+          <div className="h-[280px] w-full flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
-                </div>
-              </div>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100/50 flex items-center justify-center text-emerald-600 shadow-inner -mt-4">
-              <CreditCard size={24} />
+                </Pie>
+                <Tooltip
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                  formatter={(value: number) => [`฿${value.toLocaleString()}`, ""]}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  align="center"
+                  iconType="circle"
+                  wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 'bold' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-auto pt-6 border-t border-slate-50">
+            <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
+              <span>ยอดเงินกู้รวม</span>
+              <span className="text-slate-800">฿{stats.totalApprovedLoanAmount.toLocaleString()}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recent Transactions List */}
-        <div className="bg-white shadow-sm rounded-2xl border border-slate-100 lg:col-span-2 overflow-hidden flex flex-col">
-          <div className="px-6 py-5 border-b border-slate-50/80 flex justify-between items-center bg-white/50">
-            <h2 className="text-base font-bold text-slate-800">รายการขอสินเชื่อล่าสุด</h2>
-            <Link href="/admin/loans" className="text-sm font-semibold text-sky-600 hover:text-sky-700 transition">
+        <div className="bg-white shadow-sm rounded-[2.5rem] border border-slate-100 lg:col-span-2 overflow-hidden flex flex-col p-2">
+          <div className="px-6 py-6 flex justify-between items-center">
+            <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
+              <FileText size={18} className="text-indigo-500" />
+              รายการขอสินเชื่อล่าสุด
+            </h2>
+            <Link href="/admin/loans" className="text-xs font-black text-indigo-600 hover:text-indigo-700 transition uppercase tracking-widest bg-indigo-50 px-4 py-2 rounded-xl">
               ดูทั้งหมด
             </Link>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse whitespace-nowrap">
+          <div className="overflow-x-auto pb-4">
+            <table className="w-full text-left border-separate border-spacing-y-2 px-4">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wider">
-                  <th className="px-6 py-4 font-semibold">ชื่อ-นามสกุล</th>
-                  <th className="px-6 py-4 font-semibold">ประเภท</th>
-                  <th className="px-6 py-4 font-semibold">จำนวนเงิน</th>
-                  <th className="px-6 py-4 font-semibold">สถานะ</th>
-                  <th className="px-6 py-4 font-semibold">จัดการ</th>
+                <tr className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                  <th className="px-4 py-2 font-black">ชื่อ-นามสกุล</th>
+                  <th className="px-4 py-2 font-black">ประเภท</th>
+                  <th className="px-4 py-2 font-black">จำนวนเงิน</th>
+                  <th className="px-4 py-2 font-black">สถานะ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
+              <tbody className="text-sm">
                 {stats.recentRequests.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400 italic">ไม่พบรายการขอสินเชื่อในระบบ</td>
+                    <td colSpan={4} className="px-4 py-10 text-center text-slate-400 italic font-medium">ไม่พบรายการขอสินเชื่อในระบบ</td>
                   </tr>
                 ) : (
                   stats.recentRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-50/50 even:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4">
+                    <tr key={req.id} className="bg-slate-50/50 hover:bg-slate-100/50 transition-all rounded-2xl">
+                      <td className="px-4 py-4 rounded-l-2xl">
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-800">{req.name}</span>
-                          <span className="text-slate-400 text-[10px]">{formatDateTime(req.date)}</span>
+                          <span className="font-bold text-slate-800">{req.name}</span>
+                          <span className="text-slate-400 text-[10px] font-medium">{formatDateTime(req.date)}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${req.type === 'ฉุกเฉิน' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                            req.type === 'ก้อดฮาซัน' ? 'bg-sky-50 text-sky-700 border-sky-100' :
-                              'bg-slate-50 text-slate-700 border-slate-100'
+                      <td className="px-4 py-4">
+                        <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black border ${req.type === 'ฉุกเฉิน' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                            req.type === 'ก้อดฮาซัน' ? 'bg-sky-100 text-sky-700 border-sky-200' :
+                              'bg-indigo-100 text-indigo-700 border-indigo-200'
                           }`}>
                           {req.type}
                         </span>
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-700">฿{req.amount.toLocaleString()}</td>
-                      <td className="px-6 py-4">
-                        <div className={`flex items-center gap-1.5 font-bold ${req.status === 'อนุมัติแล้ว' ? 'text-emerald-600' :
+                      <td className="px-4 py-4 font-black text-slate-700">฿{req.amount.toLocaleString()}</td>
+                      <td className="px-4 py-4 rounded-r-2xl">
+                        <div className={`flex items-center gap-1.5 font-black ${req.status === 'อนุมัติแล้ว' ? 'text-emerald-600' :
                             req.status === 'ปฏิเสธ' ? 'text-rose-500' : 'text-amber-600'
                           }`}>
-                          {req.status === 'อนุมัติแล้ว' ? <CheckCircle size={14} /> :
-                            req.status === 'ปฏิเสธ' ? <AlertTriangle size={14} /> : <Clock size={14} />}
-                          <span className="text-xs">{req.status}</span>
+                          <span className={`w-2 h-2 rounded-full ${req.status === 'อนุมัติแล้ว' ? 'bg-emerald-500' :
+                              req.status === 'ปฏิเสธ' ? 'bg-rose-500' : 'bg-amber-500'
+                            }`}></span>
+                          <span className="text-[11px] uppercase tracking-wider">{req.status}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Link href="/admin/loans" className="text-sky-600 hover:text-sky-700 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                          รายละเอียด
-                        </Link>
                       </td>
                     </tr>
                   ))
@@ -325,61 +411,109 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Small Analytics Widget */}
-        <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-lg border border-slate-800 relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-sky-500/10 blur-3xl rounded-full"></div>
+        {/* Small Progress Widget */}
+        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-slate-200 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <h2 className="text-lg font-black mb-8 flex items-center">
+              <span className="bg-indigo-500/20 p-2.5 rounded-2xl mr-4 text-indigo-400 border border-indigo-500/20">
+                <PieChartIcon size={20} />
+              </span>
+              Pending Tasks
+            </h2>
 
-          <h2 className="text-lg font-bold mb-6 flex items-center relative z-10">
-            <span className="bg-sky-500/20 p-2 rounded-xl mr-3 text-sky-400">
-              <FileText size={18} />
-            </span>
-            ภาพรวมงานที่ค้าง
-          </h2>
-
-          <div className="space-y-6 relative z-10">
-            <div>
-              <div className="flex justify-between text-xs font-bold uppercase tracking-widest mb-2">
-                <span className="text-slate-400">รอตรวจสลิปค่างวด</span>
-                <span className={stats.pendingRepayments > 0 ? "text-amber-400" : "text-slate-500"}>
-                  {stats.pendingRepayments} รายการ
-                </span>
-              </div>
-              <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-amber-400 h-1.5 rounded-full transition-all duration-1000"
-                  style={{ width: `${Math.min(stats.pendingRepayments * 10, 100)}%` }}
-                ></div>
-              </div>
-              <Link href="/admin/repayments" className="text-[10px] text-slate-500 hover:text-sky-400 mt-2 block text-right">ไปที่หน้าตรวจสอบ →</Link>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs font-bold uppercase tracking-widest mb-2">
-                <span className="text-slate-400">รอตรวจสลิปหุ้น</span>
-                <span className={stats.pendingDeposits > 0 ? "text-sky-400" : "text-slate-500"}>
-                  {stats.pendingDeposits} รายการ
-                </span>
-              </div>
-              <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-sky-400 h-1.5 rounded-full transition-all duration-1000"
-                  style={{ width: `${Math.min(stats.pendingDeposits * 10, 100)}%` }}
-                ></div>
-              </div>
-              <Link href="/admin/deposits" className="text-[10px] text-slate-500 hover:text-sky-400 mt-2 block text-right">ไปที่หน้าตรวจสอบ →</Link>
+            <div className="space-y-8">
+              <ProgressItem
+                label="คำขอกู้เงินรอดำเนินการ"
+                value={stats.pendingLoans}
+                max={10}
+                color="bg-amber-400"
+                href="/admin/loans"
+              />
+              <ProgressItem
+                label="สลิปผ่อนหนี้รอตรวจ"
+                value={stats.pendingRepayments}
+                max={20}
+                color="bg-emerald-400"
+                href="/admin/repayments"
+              />
+              <ProgressItem
+                label="สลิปฝากหุ้นรอตรวจ"
+                value={stats.pendingDeposits}
+                max={20}
+                color="bg-sky-400"
+                href="/admin/deposits"
+              />
             </div>
           </div>
 
-          <div className="mt-12 pt-6 border-t border-slate-800 relative z-10">
+          <div className="mt-12">
             <Link
               href="/admin/fund-accounting"
-              className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 border border-white/5"
+              className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-3 border border-white/10 group"
             >
-              ดูบัญชีกองทุน <ArrowUpRight size={16} />
+              ดูบัญชีกองทุน <ArrowUpRight size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </Link>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// --- Sub-components for cleaner code ---
+
+function StatCard({ label, value, sub, icon, color, trend, className = "", isCurrency = false }: any) {
+  const colorMap: any = {
+    blue: "bg-blue-100 text-blue-600 bg-opacity-50",
+    amber: "bg-amber-100 text-amber-600 bg-opacity-50",
+    emerald: "bg-emerald-100 text-emerald-600 bg-opacity-50",
+  };
+
+  return (
+    <div className={`bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 group hover:shadow-xl hover:shadow-slate-200/50 transition-all relative overflow-hidden ${className}`}>
+      <div className="relative z-10 flex flex-col justify-between h-full">
+        <div className="flex justify-between items-start mb-6">
+          <div className={`w-14 h-14 rounded-2xl ${colorMap[color]} flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500`}>
+            {icon}
+          </div>
+          {trend && (
+            <div className={`flex items-center gap-1 font-black text-[10px] px-2 py-1 rounded-lg ${trend === 'up' ? 'text-rose-500 bg-rose-50' : 'text-emerald-500 bg-emerald-50'}`}>
+              {trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {trend === 'up' ? 'HIGH' : 'LOW'}
+            </div>
+          )}
+        </div>
+        <div className="space-y-1">
+          <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{label}</p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-3xl font-black text-slate-800 tracking-tighter">
+              {value}
+            </p>
+          </div>
+          <p className="text-xs font-bold text-slate-400 mt-1">{sub}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressItem({ label, value, max, color, href }: any) {
+  const percentage = Math.min((value / max) * 100, 100);
+  return (
+    <div>
+      <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.15em] mb-3">
+        <span className="text-slate-400">{label}</span>
+        <span className={value > 0 ? "text-white" : "text-slate-600"}>
+          {value} <span className="opacity-40">/ {max}</span>
+        </span>
+      </div>
+      <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
+        <div
+          className={`${color} h-2 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.1)]`}
+          style={{ width: `${percentage}%` }}
+        ></div>
+      </div>
+      <Link href={href} className="text-[9px] font-black text-slate-500 hover:text-sky-400 mt-2 block text-right tracking-widest uppercase transition-colors">GO TO VIEW →</Link>
     </div>
   );
 }

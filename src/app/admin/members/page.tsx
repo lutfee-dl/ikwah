@@ -2,7 +2,7 @@
 
 import { Member } from "@/types";
 import { useState, useMemo } from "react";
-import { Search, Eye, X, CheckCircle2, UserCircle, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowDownUp, Edit3 } from "lucide-react";
+import { Search, Eye, X, CheckCircle2, UserCircle, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowDownUp, Edit3, Download } from "lucide-react";
 import Image from "next/image";
 import { useAdminMembers } from "@/hooks/useAdminMembers";
 import MemberDetailModal from "./MemberDetailModal";
@@ -93,6 +93,30 @@ export default function MembersPage() {
 		setCurrentPage(1);
 	};
 
+	const exportToCSV = () => {
+		if (members.length === 0) return;
+		const headers = ["รหัสสมาชิก", "ชื่อ-นามสกุล", "เบอร์โทร", "เลขบัตรประชาชน", "หุ้นสะสม", "หนี้สินเชื่อคงเหลือ", "สถานะ"].join(",");
+		const rows = members.map(m => [
+			m.memberId,
+			`"${m.prefix}${m.fullName}"`,
+			`"${m.phone || ""}"`,
+			`"${m.idCard || ""}"`,
+			m.accumulatedShares || 0,
+			m.totalLoanDebt || 0,
+			m.status
+		].join(","));
+		
+		const csvContent = "\uFEFF" + [headers, ...rows].join("\n");
+		const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.setAttribute("href", url);
+		link.setAttribute("download", "IKWAH_Members_List.csv");
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+	};
+
 	return (
 		<div className="space-y-6 relative">
 			{/* Header */}
@@ -109,7 +133,14 @@ export default function MembersPage() {
 						className="cursor-pointer px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium whitespace-nowrap"
 					>
 						<RefreshCw className="inline-block mr-1" size={16} />
-						รีเฟรชข้อมูล
+						รีเฟรช
+					</button>
+					<button
+						onClick={exportToCSV}
+						className="cursor-pointer px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-medium whitespace-nowrap flex items-center gap-2"
+					>
+						<Download size={16} />
+						Export CSV
 					</button>
 					<button
 						onClick={() => setIsAddingMember(true)}

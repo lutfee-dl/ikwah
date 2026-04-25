@@ -12,7 +12,7 @@ import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import {
   LayoutDashboard, Users, CreditCard, LogOut, Menu, X,
   BanknoteArrowDown, Receipt, Wallet, Briefcase,
-  TrendingUp, Settings
+  TrendingUp, Settings, RefreshCw
 } from "lucide-react";
 import { ASSETS } from "@/config";
 import { gasApi } from "@/services/gasApi";
@@ -47,6 +47,7 @@ const menuGroups = [
     title: "ธุรการ / ตั้งค่า",
     links: [
       { name: "จัดการผู้ดูแลระบบ", href: "/admin/manage-admins", icon: Settings },
+      { name: "ตั้งค่าระบบและไฟล์", href: "/admin/settings", icon: RefreshCw },
     ],
   },
 ];

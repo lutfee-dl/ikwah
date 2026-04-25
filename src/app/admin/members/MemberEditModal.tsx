@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { IMaskInput } from "react-imask";
 import { toast } from "react-hot-toast";
+import Swal from "sweetalert2";
 
 interface MemberEditModalProps {
   member: Member;
@@ -66,6 +67,20 @@ export default function MemberEditModal({
       toast.error("กรุณาตรวจสอบเบอร์โทรศัพท์ให้ถูกต้อง");
       return;
     }
+
+    // --- ✨ SweetAlert2 Confirmation ---
+    const confirm = await Swal.fire({
+      title: "ยืนยันการแก้ไขข้อมูล?",
+      text: `คุณกำลังจะบันทึกการเปลี่ยนแปลงข้อมูลของคุณ ${editedMember.fullName}`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "ยืนยันบันทึก",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#10b981", // emerald-500
+      cancelButtonColor: "#64748b", // slate-500
+    });
+
+    if (!confirm.isConfirmed) return;
 
     setIsSaving(true);
     const toastId = toast.loading("กำลังบันทึกข้อมูล...");

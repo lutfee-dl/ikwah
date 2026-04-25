@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { formatDateTime } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 interface Transaction {
   type: "deposit" | "repayment";
@@ -122,16 +124,20 @@ export default function MemberDetailModal({
               <div className="w-12 h-12 rounded-full bg-sky-50 flex items-center justify-center text-sky-500 z-10">
                 <Wallet size={24} />
               </div>
-              <div className="z-10">
+              <div className="z-10 w-full">
                 <p className="text-sm font-medium text-slate-500 mb-1">
                   ยอดหุ้น/เงินอาสัจจะสะสมรวม
                 </p>
-                <p className="text-3xl font-bold text-slate-800">
-                  {member.accumulatedShares
-                    ? member.accumulatedShares.toLocaleString()
-                    : "0"}{" "}
-                  <span className="text-lg text-slate-400 font-medium">฿</span>
-                </p>
+                {isLoadingHistory ? (
+                  <Skeleton className="h-10 w-32 mt-1" />
+                ) : (
+                  <p className="text-3xl font-bold text-slate-800">
+                    {member.accumulatedShares
+                      ? member.accumulatedShares.toLocaleString()
+                      : "0"}{" "}
+                    <span className="text-lg text-slate-400 font-medium">฿</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -140,13 +146,17 @@ export default function MemberDetailModal({
               <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 z-10">
                 <Activity size={24} />
               </div>
-              <div className="z-10">
+              <div className="z-10 w-full">
                 <p className="text-sm font-medium text-slate-500 mb-1">
                   ยอดหนี้สินคงเหลือรวม
                 </p>
-                <p className="text-3xl font-bold text-rose-600">
-                  {(member.totalLoanDebt || 0).toLocaleString()} <span className="text-lg text-slate-400 font-medium">฿</span>
-                </p>
+                {isLoadingHistory ? (
+                  <Skeleton className="h-10 w-32 mt-1" />
+                ) : (
+                  <p className="text-3xl font-bold text-rose-600">
+                    {(member.totalLoanDebt || 0).toLocaleString()} <span className="text-lg text-slate-400 font-medium">฿</span>
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -167,10 +177,7 @@ export default function MemberDetailModal({
 
             <div className="p-0 overflow-x-auto">
               {isLoadingHistory ? (
-                <div className="py-20 text-center">
-                  <Loader2 size={32} className="animate-spin mx-auto text-slate-300 mb-2" />
-                  <p className="text-slate-400 text-sm">กำลังโหลดข้อมูล...</p>
-                </div>
+                <TableSkeleton rows={5} cols={5} hasHeader={false} />
               ) : history.length === 0 ? (
                 <div className="py-12 text-center">
                   <div className="flex flex-col items-center justify-center text-slate-400 gap-3">

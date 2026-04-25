@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
-import { Search, X, XCircle, Receipt, CheckCircle, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, FileClock, AlertCircle, Eye, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, X, XCircle, Receipt, CheckCircle, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, FileClock, AlertCircle, Eye, CheckCircle2, ChevronLeft, ChevronRight, Save, RotateCw, Calculator } from "lucide-react";
 import toast from "react-hot-toast";
 import { NumericFormat } from "react-number-format";
 import Swal from "sweetalert2";
@@ -28,6 +28,7 @@ type RepaymentSlip = {
   actualTime?: string;
   approvedBy?: string;
   note?: string;
+  [key: string]: any;
 };
 
 type Contract = {
@@ -70,6 +71,7 @@ export default function RepaymentsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const [selectedContractId, setSelectedContractId] = useState("");
   const [editAmount, setEditAmount] = useState(0);
@@ -307,6 +309,34 @@ export default function RepaymentsPage() {
     }
   };
 
+  const handleRecalculate = async () => {
+    const confirmResult = await Swal.fire({
+      title: 'คำนวณยอดหนี้ใหม่?',
+      text: 'ระบบจะไล่ตรวจสอบรายการอนุมัติทั้งหมดเพื่อปรับปรุงยอดคงเหลือในสัญญาให้ถูกต้อง คุณต้องการดำเนินการใช่หรือไม่?',
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonText: 'ยืนยัน',
+      cancelButtonText: 'ยกเลิก'
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    setIsRecalculating(true);
+    try {
+      const res = await gasApi.call("admin_recalculate_loans", {});
+      if (res.success) {
+        Swal.fire("สำเร็จ", res.msg, "success");
+        fetchContracts();
+      } else {
+        toast.error(res.msg || "เกิดข้อผิดพลาด");
+      }
+    } catch (err) {
+      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้");
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
   const openDetails = (pay: RepaymentSlip) => {
     setSelectedPay(pay);
     setEditAmount(pay.amount);
@@ -358,13 +388,25 @@ export default function RepaymentsPage() {
             ตรวจสลิปยืนยันการจ่ายค่างวดสินเชื่อของสมาชิก
           </p>
         </div>
-        <button
-          onClick={fetchRepaymentSlips}
-          className="group flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all hover:border-slate-300"
-        >
-          <Loader2 size={16} className={`${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
-          รีเฟรชข้อมูล
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleRecalculate}
+            disabled={isRecalculating}
+            className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all hover:border-blue-300 hover:text-blue-600 shadow-sm disabled:opacity-50"
+            title="คำนวณยอดหนี้ใหม่ทั้งหมดจากข้อมูลสลิป"
+          >
+            <Calculator size={16} className={isRecalculating ? "animate-bounce" : ""} />
+            <span className="hidden sm:inline">{isRecalculating ? "กำลังคำนวณ..." : "คำนวณยอดใหม่"}</span>
+          </button>
+
+          <button
+            onClick={fetchRepaymentSlips}
+            className="group flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all hover:border-slate-300 shadow-sm"
+          >
+            <RotateCw size={16} className={`${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+            <span className="hidden sm:inline">รีเฟรชข้อมูล</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. SUMMARY CARDS */}
@@ -711,10 +753,12 @@ export default function RepaymentsPage() {
 
               {/* Contract Selection & Amount */}
               <div className="px-5 pt-4 pb-2 space-y-4">
-                {selectedPay.status === "pending" ? (
+                {(selectedPay.status === "pending" || selectedPay.status === "approved") ? (
                   <>
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">ตรวจสอบข้อมูลจากสลิป (AI สแกน)</label>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        {selectedPay.status === "approved" ? "แก้ไขข้อมูล (ที่อนุมัติไปแล้ว)" : "ตรวจสอบข้อมูลจากสลิป (AI สแกน)"}
+                      </label>
                       <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                         <div className="col-span-2">
                           <p className="text-[10px] font-bold text-slate-400 uppercase">ชื่อผู้โอน</p>
@@ -760,7 +804,9 @@ export default function RepaymentsPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">ยอดเงินชำระ (แก้ไขได้)</label>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        {selectedPay.status === "approved" ? "แก้ไขยอดเงินชำระ" : "ยอดเงินชำระ (แก้ไขได้)"}
+                      </label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-lg">฿</span>
                         <NumericFormat
@@ -774,6 +820,18 @@ export default function RepaymentsPage() {
                         />
                       </div>
                     </div>
+                    {selectedPay.status === "approved" && (
+                      <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex justify-between items-center">
+                        <div>
+                          <p className="text-[10px] font-bold text-emerald-600 uppercase">ยอดเดิมที่อนุมัติ</p>
+                          <p className="text-sm font-bold text-emerald-700">฿{selectedPay.amount.toLocaleString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-emerald-600 uppercase">สัญญาเดิม</p>
+                          <p className="text-xs font-bold text-emerald-700">{selectedPay.contractId || "-"}</p>
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="space-y-4">
@@ -821,6 +879,17 @@ export default function RepaymentsPage() {
                     className="cursor-pointer flex-2 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl transition-all shadow-sm shadow-indigo-100 disabled:opacity-50 active:scale-95"
                   >
                     {isUpdating ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} อนุมัติยอด
+                  </button>
+                </div>
+              ) : selectedPay.status === "approved" ? (
+                <div className="flex gap-2">
+                  <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-2xl transition-colors">ปิดหน้าต่าง</button>
+                  <button
+                    disabled={isUpdating || !selectedContractId}
+                    onClick={handleApprove}
+                    className="flex-2 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-white bg-sky-500 hover:bg-sky-600 rounded-2xl transition-all shadow-sm disabled:opacity-50 active:scale-95"
+                  >
+                    {isUpdating ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} อัปเดตข้อมูล
                   </button>
                 </div>
               ) : (
