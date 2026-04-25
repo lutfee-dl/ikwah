@@ -50,13 +50,14 @@ interface Contract {
 
 export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
+  const [members, setMembers] = useState<any[]>([]); // สำหรับแมป LINE Data
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("กำลังผ่อน");
   const [filterType, setFilterType] = useState<string>("all");
 
   // New States for Sorting & Pagination
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "memberId", direction: "asc" });
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "approvedDate", direction: "desc" });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [isAddingLoan, setIsAddingLoan] = useState(false);
@@ -80,6 +81,7 @@ export default function ContractsPage() {
   const fetchContracts = async () => {
     setIsLoading(true);
     try {
+      // 1. ดึงข้อมูลสัญญา
       const res = await fetch("/api/member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -89,6 +91,19 @@ export default function ContractsPage() {
         }),
       });
       const result = await res.json();
+
+      // 2. ดึงข้อมูลสมาชิกมาแมป Line Name
+      const memRes = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "admin_get_members",
+          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET
+        }),
+      });
+      const memResult = await memRes.json();
+      if (memResult.success) setMembers(memResult.data);
+
       if (result.success && Array.isArray(result.data)) {
         const mapped = result.data.map((item: any) => {
           const totalPaidAmount = Number(item.paidAmount || 0);
@@ -308,38 +323,41 @@ export default function ContractsPage() {
 
         {/* Toolbar */}
         <div className="p-4 lg:p-5 bg-white border-b border-slate-100 flex flex-col lg:flex-row gap-4 justify-between items-center">
-          <div className="flex gap-2 p-1.5 bg-slate-100/80 rounded-xl w-full lg:w-auto overflow-x-auto no-scrollbar">
-            {["all", "กำลังผ่อน", "ค้างชำระ", "ปิดยอดแล้ว"].map((st) => (
+          <div className="flex flex-wrap lg:flex-nowrap gap-1.5 sm:gap-2 p-1 bg-slate-100/50 rounded-2xl w-full lg:w-auto border border-slate-200/50 backdrop-blur-sm">
+            {[
+              { id: "all", label: "ทั้งหมด", color: "bg-slate-400", count: contracts.length },
+              { id: "กำลังผ่อน", label: "กำลังผ่อน", color: "bg-amber-500", count: stats.ongoing },
+              { id: "ค้างชำระ", label: "ค้างชำระ", color: "bg-rose-500", count: stats.overdue },
+              { id: "ปิดยอดแล้ว", label: "ปิดยอดแล้ว", color: "bg-emerald-500", count: stats.finished },
+            ].map((st) => (
               <button
-                key={st}
-                onClick={() => setFilterStatus(st)}
-                className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all flex-1 lg:flex-none text-center ${filterStatus === st ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200/50" : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                key={st.id}
+                onClick={() => setFilterStatus(st.id)}
+                className={`group relative px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-sm font-black transition-all duration-300 flex items-center gap-2 flex-1 lg:flex-none justify-center ${filterStatus === st.id
+                  ? "bg-white text-blue-600 shadow-md ring-1 ring-slate-200"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-white/50"
                   }`}
               >
-                {st === "all" ? "ทั้งหมด" : st}
+                <span className={`w-1.5 h-1.5 rounded-full ${st.color} ${filterStatus === st.id ? "animate-pulse" : "opacity-60"}`} />
+                <span className="whitespace-nowrap">{st.label}</span>
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${filterStatus === st.id
+                  ? "bg-blue-50 text-blue-600"
+                  : "bg-slate-200/50 text-slate-500"
+                  }`}>
+                  {st.count}
+                </span>
               </button>
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-center">
-            <select
-              className="w-full sm:w-auto px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right .5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
-            >
-              <option value="all">ทุกประเภท</option>
-              <option value="ฉุกเฉิน">ฉุกเฉิน</option>
-              <option value="ก้อดฮาซัน">ก้อดฮาซัน</option>
-              <option value="ซื้อขาย">ซื้อขาย</option>
-            </select>
-
-            <div className="relative flex-1 w-full sm:w-80 group">
+          <div className="flex flex-col md:flex-row gap-3 w-full lg:w-auto items-stretch md:items-center">
+            {/* Search Input */}
+            <div className="relative flex-1 group">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input
                 type="text"
                 placeholder="ค้นหาชื่อ, สินค้า, หรือสัญญา..."
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white outline-none font-medium transition-all"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white outline-none font-medium transition-all text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -353,35 +371,25 @@ export default function ContractsPage() {
               )}
             </div>
 
-            <select
-              value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              className="w-full sm:w-auto cursor-pointer bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value={10}>10 / หน้า</option>
-              <option value={20}>20 / หน้า</option>
-              <option value={50}>50 / หน้า</option>
-              <option value={100}>100 / หน้า</option>
-            </select>
-
-            <div className="flex gap-2 w-full lg:w-auto">
-               <button
+            {/* Action Buttons */}
+            <div className="flex gap-2 items-center">
+              <button
                 onClick={() => setIsAddingLoan(true)}
-                className="flex-1 lg:flex-none cursor-pointer flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-black shadow-lg shadow-amber-200 transition-all"
+                className="flex-1 md:flex-none cursor-pointer flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-lg shadow-amber-200 transition-all whitespace-nowrap"
               >
-                <Landmark size={18} />
-                ออกสินเชื่อใหม่
+                <Landmark size={18} className="hidden sm:block" />
+                ออกสินเชื่อ
               </button>
               <button
                 onClick={exportToCSV}
-                className="p-2.5 bg-emerald-50 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all active:scale-95 shadow-sm"
+                className="p-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all active:scale-95 shadow-sm shrink-0"
                 title="ดาวน์โหลด CSV"
               >
                 <Download size={20} />
               </button>
               <button
                 onClick={fetchContracts}
-                className="p-2.5 bg-slate-50 text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 rounded-xl transition-all active:scale-95 shadow-sm"
+                className="p-2.5 bg-slate-50 text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 rounded-xl transition-all active:scale-95 shadow-sm shrink-0"
                 title="รีเฟรชข้อมูล"
               >
                 <RotateCcw size={20} className={isLoading ? "animate-spin" : ""} />
@@ -390,242 +398,285 @@ export default function ContractsPage() {
           </div>
         </div>
 
-        {/* --- Content Area --- */}
-        <div className="bg-slate-50/30">
+      {/* --- Content Area --- */}
+      <div className="bg-slate-50/30">
 
-          {/* Loading Skeletons */}
-          {isLoading ? (
-            <TableSkeleton rows={5} cols={6} hasHeader={false} />
-          ) : paginatedContracts.length === 0 ? (
-            /* Empty State */
-            <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                <SearchX size={28} className="text-slate-400" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">ไม่พบข้อมูลสัญญา</h3>
-              <p className="text-slate-500 text-sm max-w-sm">ไม่พบเอกสารที่ตรงกับคำค้นหาหรือตัวกรองที่คุณเลือก กรุณาลองค้นหาด้วยคำอื่น</p>
-              {(searchTerm !== "" || filterStatus !== "all" || filterType !== "all") && (
-                <button
-                  onClick={() => { setSearchTerm(""); setFilterStatus("all"); setFilterType("all"); }}
-                  className="mt-4 px-5 py-2 bg-blue-50 text-blue-600 font-bold rounded-xl hover:bg-blue-100 text-sm transition-colors"
-                >
-                  ล้างตัวกรองทั้งหมด
-                </button>
-              )}
+        {/* Loading Skeletons */}
+        {isLoading ? (
+          <TableSkeleton rows={5} cols={6} hasHeader={false} />
+        ) : paginatedContracts.length === 0 ? (
+          /* Empty State */
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+              <SearchX size={28} className="text-slate-400" />
             </div>
-          ) : (
-            <>
-              {/* Desktop Table View (Hidden on mobile) */}
-              <div className="hidden lg:block overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100/50 text-slate-500 text-[10px] uppercase tracking-widest font-black border-y border-slate-200">
-                      <th className="py-3 px-6">
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("approvedDate")}>
-                            ข้อมูลสัญญา {sortConfig?.key === "approvedDate" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
-                          </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">ไม่พบข้อมูลสัญญา</h3>
+            <p className="text-slate-500 text-sm max-w-sm">ไม่พบเอกสารที่ตรงกับคำค้นหาหรือตัวกรองที่คุณเลือก กรุณาลองค้นหาด้วยคำอื่น</p>
+            {(searchTerm !== "" || filterStatus !== "all" || filterType !== "all") && (
+              <button
+                onClick={() => { setSearchTerm(""); setFilterStatus("all"); setFilterType("all"); }}
+                className="mt-4 px-5 py-2 bg-blue-50 text-blue-600 font-bold rounded-xl hover:bg-blue-100 text-sm transition-colors"
+              >
+                ล้างตัวกรองทั้งหมด
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table View (Hidden on mobile) */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-100/50 text-slate-500 text-[10px] uppercase tracking-widest font-black border-y border-slate-200">
+                    <th className="py-3 px-6">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("approvedDate")}>
+                          ข้อมูลสัญญา {sortConfig?.key === "approvedDate" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
                         </div>
-                      </th>
-                      <th className="py-3 px-6">
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("memberId")}>
-                            สมาชิก {sortConfig?.key === "memberId" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
-                          </div>
+                      </div>
+                    </th>
+                    <th className="py-3 px-6">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("memberId")}>
+                          สมาชิก {sortConfig?.key === "memberId" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
                         </div>
-                      </th>
-                      <th className="py-3 px-6 text-center">
-                        <div className="flex flex-col gap-2 items-center">
-                          <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("loanType")}>
-                            ประเภท {sortConfig?.key === "loanType" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
-                          </div>
+                      </div>
+                    </th>
+                    <th className="py-3 px-6 text-center">
+                      <div className="flex flex-col gap-2 items-center">
+                        <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("loanType")}>
+                          ประเภท {sortConfig?.key === "loanType" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
                         </div>
-                      </th>
-                      <th className="py-3 px-6">
-                         <div className="flex flex-col gap-2">
-                           <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("items")}>
-                             ชื่อรายการ {sortConfig?.key === "items" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
-                           </div>
-                         </div>
-                      </th>
-                      <th className="py-3 px-6 text-right cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("remainingBalance")}>
-                        <div className="flex justify-end items-center gap-1 group">ยอดคงเหลือ {sortConfig?.key === "remainingBalance" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
-                      </th>
-                      <th className="py-3 px-6 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("status")}>
-                        <div className="flex justify-center items-center gap-1 group">สถานะ {sortConfig?.key === "status" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
-                      </th>
-                      <th className="py-3 px-6 text-center w-24">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {paginatedContracts.map((item, idx) => {
-                      const paidCount = Math.round(item.totalPaidAmount / item.installmentPerMonth);
-                      const remaining = Math.max(0, item.totalInstallments - paidCount);
+                      </div>
+                    </th>
+                    <th className="py-3 px-6">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("items")}>
+                          ชื่อรายการ {sortConfig?.key === "items" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}
+                        </div>
+                      </div>
+                    </th>
+                    <th className="py-3 px-6 text-right cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("remainingBalance")}>
+                      <div className="flex justify-end items-center gap-1 group">ยอดคงเหลือ {sortConfig?.key === "remainingBalance" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
+                    </th>
+                    <th className="py-3 px-6 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => handleSort("status")}>
+                      <div className="flex justify-center items-center gap-1 group">สถานะ {sortConfig?.key === "status" && (sortConfig.direction === "asc" ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-blue-500" />)}</div>
+                    </th>
+                    <th className="py-3 px-6 text-center w-24">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {paginatedContracts.map((item, idx) => {
+                    const paidCount = Math.round(item.totalPaidAmount / item.installmentPerMonth);
+                    const remaining = Math.max(0, item.totalInstallments - paidCount);
 
-                      return (
-                        <tr key={idx} className="hover:bg-blue-50/30 even:bg-slate-50/50 transition-colors group">
-                          <td className="py-5 px-6">
-                            <div className="font-mono bg-slate-100 p-2 rounded-full text-[12px] font-bold text-slate-400 mb-1.5 uppercase w-max">ID: {item.contractId}</div>
-                            <div className="text-[12px] text-slate-400 font-medium mt-1">
-                              อนุมัติเมื่อ: {formatDateTime(item.approvedDate)}
-                            </div>
-                          </td>
+                    return (
+                      <tr key={idx} className="hover:bg-blue-50/30 even:bg-slate-50/50 transition-colors group">
+                        <td className="py-5 px-6">
+                          <div className="font-mono bg-slate-100 p-2 rounded-full text-[12px] font-bold text-slate-400 mb-1.5 uppercase w-max">ID: {item.contractId}</div>
+                          <div className="text-[12px] text-slate-400 font-medium mt-1">
+                            อนุมัติเมื่อ: {formatDateTime(item.approvedDate)}
+                          </div>
+                        </td>
 
-                          <td className="py-5 px-6">
-                            <div className="flex items-center gap-3">
-                              <div>
-                                <div className="font-mono text-[10px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded-md w-max mb-1">{item.memberId}</div>
-                                <div className="font-bold text-slate-900 text-sm border-b border-transparent group-hover:border-blue-200 transition-colors">{item.fullName}</div>
-                                <div className="text-[12px] text-slate-400 font-medium mt-0.5">Line: {item.lineName || '-'}</div>
+                        <td className="py-5 px-6">
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col gap-0.5">
+                              <div className="mb-1">
+                                {members.find(m => m.memberNo === item.memberId)?.lineName ? (
+                                  <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                    {members.find(m => m.memberNo === item.memberId)?.lineName}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100">
+                                    ยังไม่ได้ยืนยันตัวตน
+                                  </span>
+                                )}
+                              </div>
+                              <div className="font-bold text-slate-900 text-[15px] border-b border-transparent group-hover:border-blue-200 transition-colors w-max">
+                                {item.fullName}
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-mono">
+                                รหัสสมาชิก: {item.memberId}
                               </div>
                             </div>
-                          </td>
-
-                          <td className="py-5 px-6 text-center">
-                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getTypeStyle(item.loanType)}`}>
-                              {item.loanType}
-                            </span>
-                          </td>
-
-                          <td className="py-5 px-6">
-                             <div className="flex items-center gap-2 font-bold text-slate-700 text-sm">
-                               <ShoppingBag size={14} className="text-blue-500 shrink-0" /> 
-                               <span className="truncate max-w-[150px]">{item.items}</span>
-                             </div>
-                          </td>
-
-                          <td className="py-5 px-6 text-right">
-                            <div className="text-base font-black text-slate-800 mb-0.5">{item.remainingBalance.toLocaleString()} <span className="text-[12px] text-slate-400">฿</span></div>
-                            <div className={`text-[12px] font-bold ${remaining <= 3 && remaining > 0 ? 'text-amber-600' : 'text-slate-500'}`}>
-                              เหลือ {remaining}/{item.totalInstallments} งวด
-                            </div>
-                          </td>
-
-                          <td className="py-5 px-6 text-center">
-                            {getStatusBadge(item.status)}
-                          </td>
-
-                          <td className="py-5 px-6 text-center">
-                            <Link
-                              href={`/admin/contracts/${item.contractId}`}
-                              className="inline-flex items-center justify-center w-9 h-9 bg-white border border-slate-200 text-slate-500 hover:text-white hover:border-blue-600 hover:bg-blue-600 rounded-xl transition-all shadow-sm active:scale-95"
-                              title="จัดการ"
-                            >
-                              <ArrowUpRight size={18} />
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Card View (Hidden on desktop) */}
-              <div className="lg:hidden p-4 space-y-4 bg-slate-50/50">
-                {paginatedContracts.map((item, idx) => {
-                  const paidCount = Math.round(item.totalPaidAmount / item.installmentPerMonth);
-                  const remaining = Math.max(0, item.totalInstallments - paidCount);
-
-                  return (
-                    <Link href={`/admin/contracts/${item.contractId}`} key={idx} className="block bg-white border border-slate-200 rounded-2xl p-5 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] hover:border-blue-300 active:scale-[0.98] transition-all">
-                      <div className="flex justify-between items-start mb-4 gap-2">
-                        <div className="flex-1">
-                          <div className="font-mono text-[9px] font-bold text-slate-400 mb-1 uppercase tracking-wider">ID: {item.contractId}</div>
-                          <div className="font-black text-slate-800 text-base leading-tight">
-                            {item.items}
                           </div>
-                        </div>
-                        <div className="shrink-0">{getStatusBadge(item.status)}</div>
-                      </div>
+                        </td>
 
-                      <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50/80 rounded-xl border border-slate-100">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 text-xs shrink-0">
-                          {item.fullName.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-sm text-slate-900 truncate">{item.fullName}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">ประเภท: <span className={`font-bold ${item.loanType === 'ฉุกเฉิน' ? 'text-rose-600' : 'text-blue-600'}`}>{item.loanType}</span></div>
-                        </div>
-                      </div>
+                        <td className="py-5 px-6 text-center">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getTypeStyle(item.loanType)}`}>
+                            {item.loanType}
+                          </span>
+                        </td>
 
-                      <div className="flex justify-between items-end border-t border-slate-100 pt-3 border-dashed mt-2">
-                        <div>
-                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">ยอดคงเหลือ</div>
-                          <div className="text-lg font-black text-rose-600 leading-none">{item.remainingBalance.toLocaleString()} <span className="text-xs text-rose-300">฿</span></div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">จำนวนงวด</div>
-                          <div className={`text-sm font-black ${remaining <= 3 && remaining > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
-                            {remaining}<span className="text-[10px] text-slate-400 font-bold">/{item.totalInstallments}</span>
+                        <td className="py-5 px-6">
+                          <div className="flex items-center gap-2 font-bold text-slate-700 text-sm">
+                            <ShoppingBag size={14} className="text-blue-500 shrink-0" />
+                            <span className="truncate max-w-[150px]">{item.items}</span>
                           </div>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+                        </td>
 
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between p-4 lg:px-6 bg-white border-t border-slate-200/60 rounded-b-[2rem]">
-                  <p className="text-sm font-bold text-slate-500 hidden sm:block">
-                    แสดง {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, sortedContracts.length)} จากทั้งหมด {sortedContracts.length}
-                  </p>
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                    <button
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="p-2 sm:px-4 sm:py-2 flex items-center gap-1 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-bold text-sm"
-                    >
-                      <ChevronLeft size={18} /> <span className="hidden sm:block">ก่อนหน้า</span>
-                    </button>
+                        <td className="py-5 px-6 text-right">
+                          <div className="text-base font-black text-slate-800 mb-0.5">{item.remainingBalance.toLocaleString()} <span className="text-[12px] text-slate-400">฿</span></div>
+                          <div className={`text-[12px] font-bold ${remaining <= 3 && remaining > 0 ? 'text-amber-600' : 'text-slate-500'}`}>
+                            เหลือ {remaining}/{item.totalInstallments} งวด
+                          </div>
+                        </td>
 
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                        let pageNum = 1;
-                        if (totalPages <= 5) pageNum = i + 1;
-                        else if (currentPage <= 3) pageNum = i + 1;
-                        else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                        else pageNum = currentPage - 2 + i;
+                        <td className="py-5 px-6 text-center">
+                          {getStatusBadge(item.status)}
+                        </td>
 
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`w-9 h-9 rounded-xl text-sm font-bold transition-all ${currentPage === pageNum
-                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
-                              : 'bg-slate-50 text-slate-500 hover:bg-blue-50 hover:text-blue-600'}`}
+                        <td className="py-5 px-6 text-center">
+                          <Link
+                            href={`/admin/contracts/${item.contractId}`}
+                            className="inline-flex items-center justify-center w-9 h-9 bg-white border border-slate-200 text-slate-500 hover:text-white hover:border-blue-600 hover:bg-blue-600 rounded-xl transition-all shadow-sm active:scale-95"
+                            title="จัดการ"
                           >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
+                            <ArrowUpRight size={18} />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View (Hidden on desktop) */}
+            <div className="lg:hidden p-4 space-y-4 bg-slate-50/50">
+              {paginatedContracts.map((item, idx) => {
+                const paidCount = Math.round(item.totalPaidAmount / item.installmentPerMonth);
+                const remaining = Math.max(0, item.totalInstallments - paidCount);
+
+                return (
+                  <Link href={`/admin/contracts/${item.contractId}`} key={idx} className="block bg-white border border-slate-200 rounded-2xl p-5 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] hover:border-blue-300 active:scale-[0.98] transition-all">
+                    <div className="flex justify-between items-start mb-4 gap-2">
+                      <div className="flex-1">
+                        <div className="font-mono text-[9px] font-bold text-slate-400 mb-1 uppercase tracking-wider">ID: {item.contractId}</div>
+                        <div className="font-black text-slate-800 text-base leading-tight">
+                          {item.items}
+                        </div>
+                      </div>
+                      <div className="shrink-0">{getStatusBadge(item.status)}</div>
                     </div>
 
-                    <button
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      className="p-2 sm:px-4 sm:py-2 flex items-center gap-1 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-bold text-sm"
-                    >
-                      <span className="hidden sm:block">ถัดไป</span> <ChevronRight size={18} />
-                    </button>
-                  </div>
+                    <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 text-xs shrink-0">
+                        {item.fullName.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm text-slate-900 truncate flex items-center gap-2">
+                          {item.fullName}
+                          {!members.find(m => m.memberNo === item.memberId)?.lineId && (
+                            <span className="text-[10px] text-rose-500 font-bold">(ยังไม่ยืนยัน)</span>
+                          )}
+                        </div>
+                        <div className="text-xs mt-0.5">
+                          {members.find(m => m.memberNo === item.memberId)?.lineName ? (
+                            <span className="text-slate-500">Line: {members.find(m => m.memberNo === item.memberId)?.lineName}</span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-100">
+                              ยังไม่ได้ยืนยันตัวตน
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">ประเภท: <span className={`font-bold ${item.loanType === 'ฉุกเฉิน' ? 'text-rose-600' : 'text-blue-600'}`}>{item.loanType}</span></div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-end border-t border-slate-100 pt-3 border-dashed mt-2">
+                      <div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">ยอดคงเหลือ</div>
+                        <div className="text-lg font-black text-rose-600 leading-none">{item.remainingBalance.toLocaleString()} <span className="text-xs text-rose-300">฿</span></div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">จำนวนงวด</div>
+                        <div className={`text-sm font-black ${remaining <= 3 && remaining > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
+                          {remaining}<span className="text-[10px] text-slate-400 font-bold">/{item.totalInstallments}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between p-4 lg:px-6 bg-white border-t border-slate-200/60 rounded-b-[2rem] gap-4">
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="w-full sm:w-auto cursor-pointer bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  >
+                    <option value={10}>10 / หน้า</option>
+                    <option value={20}>20 / หน้า</option>
+                    <option value={50}>50 / หน้า</option>
+                    <option value={100}>100 / หน้า</option>
+                  </select>
+                  <p className="text-xs font-bold text-slate-400 whitespace-nowrap">
+                    แสดง {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, sortedContracts.length)} จาก {sortedContracts.length}
+                  </p>
                 </div>
-              )}
-            </>
-          )}
-        </div>
+
+                <div className="flex items-center gap-1.5 w-full sm:w-auto justify-center sm:justify-end">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 sm:px-4 sm:py-2 flex items-center gap-1 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-bold text-sm"
+                  >
+                    <ChevronLeft size={18} /> <span className="hidden sm:block">ก่อนหน้า</span>
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                      let pageNum = 1;
+                      if (totalPages <= 5) pageNum = i + 1;
+                      else if (currentPage <= 3) pageNum = i + 1;
+                      else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                      else pageNum = currentPage - 2 + i;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`w-9 h-9 rounded-xl text-sm font-bold transition-all ${currentPage === pageNum
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
+                            : 'bg-slate-50 text-slate-500 hover:bg-blue-50 hover:text-blue-600'}`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 sm:px-4 sm:py-2 flex items-center gap-1 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-bold text-sm"
+                  >
+                    <span className="hidden sm:block">ถัดไป</span> <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
-      {/* Modal ออกสินเชื่อใหม่ */}
-      {isAddingLoan && (
-        <LoanAddModal
-          onClose={(wasAdded) => {
-            setIsAddingLoan(false);
-            if (wasAdded) fetchContracts();
-          }}
-        />
-      )}
     </div>
+      {/* Modal ออกสินเชื่อใหม่ */ }
+  {
+    isAddingLoan && (
+      <LoanAddModal
+        onClose={(wasAdded) => {
+          setIsAddingLoan(false);
+          if (wasAdded) fetchContracts();
+        }}
+      />
+    )
+  }
+    </div >
   );
 }

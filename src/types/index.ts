@@ -74,4 +74,5 @@ export interface MemberLoan {
   remainingBalance: number;
   status: string;
   installmentAmount?: number;
+  itemName?: string;
 }

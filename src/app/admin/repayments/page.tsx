@@ -9,6 +9,11 @@ import Swal from "sweetalert2";
 import { formatDateTime } from "@/lib/utils";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { gasApi } from "@/services/gasApi";
+
 type RepaymentSlip = {
   id: string;
   lineId: string;
@@ -19,6 +24,10 @@ type RepaymentSlip = {
   date: string;
   status: "pending" | "approved" | "rejected";
   slipUrl: string;
+  aiData?: string;
+  actualTime?: string;
+  approvedBy?: string;
+  note?: string;
 };
 
 type Contract = {
@@ -64,6 +73,30 @@ export default function RepaymentsPage() {
 
   const [selectedContractId, setSelectedContractId] = useState("");
   const [editAmount, setEditAmount] = useState(0);
+  const [adminName, setAdminName] = useState<string>("ADMIN");
+
+  // Slip Metadata States
+  const [slipTime, setSlipTime] = useState("");
+  const [slipSender, setSlipSender] = useState("");
+  const [slipReceiver, setSlipReceiver] = useState("");
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const adminDoc = await getDoc(doc(db, "system_admins", user.uid));
+          if (adminDoc.exists() && adminDoc.data().displayName) {
+            setAdminName(adminDoc.data().displayName);
+          } else {
+            setAdminName(user.displayName || user.email?.split('@')[0] || "ADMIN");
+          }
+        } catch (e) {
+          setAdminName(user.displayName || user.email?.split('@')[0] || "ADMIN");
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const fetchRepaymentSlips = async () => {
     setLoading(true);
@@ -214,25 +247,20 @@ export default function RepaymentsPage() {
 
     setIsUpdating(true);
     try {
-      const res = await fetch("/api/member", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "admin_update_loan_repayment",
-          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
-          depositId: selectedPay.id,
-          status: "approved",
-          contractId: selectedContractId,
-          amount: editAmount
-        })
+      const res = await gasApi.call("admin_update_loan_repayment", {
+        depositId: selectedPay.id,
+        status: "approved",
+        contractId: selectedContractId,
+        amount: editAmount,
+        adminName: adminName,
+        actualTime: slipTime
       });
-      const data = await res.json();
-      if (data.success) {
+      if (res.success) {
         toast.success("อนุมัติรับชำระสำเร็จ");
         fetchRepaymentSlips();
         setIsModalOpen(false);
       } else {
-        toast.error(data.msg || "เกิดข้อผิดพลาด");
+        toast.error(res.msg || "เกิดข้อผิดพลาด");
       }
     } catch (err) {
       console.error(err);
@@ -259,23 +287,17 @@ export default function RepaymentsPage() {
 
     setIsUpdating(true);
     try {
-      const res = await fetch("/api/member", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "admin_update_loan_repayment",
-          ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
-          depositId: selectedPay.id,
-          status: "rejected"
-        })
+      const res = await gasApi.call("admin_update_loan_repayment", {
+        depositId: selectedPay.id,
+        status: "rejected",
+        adminName: adminName // ส่งชื่อแอดมินไปบันทึก Log
       });
-      const data = await res.json();
-      if (data.success) {
+      if (res.success) {
         toast.success("ปฏิเสธสลิปเรียบร้อย");
         fetchRepaymentSlips();
         setIsModalOpen(false);
       } else {
-        toast.error(data.msg || "เกิดข้อผิดพลาด");
+        toast.error(res.msg || "เกิดข้อผิดพลาด");
       }
     } catch (err) {
       console.error(err);
@@ -289,6 +311,34 @@ export default function RepaymentsPage() {
     setSelectedPay(pay);
     setEditAmount(pay.amount);
     setSelectedContractId(pay.contractId || "");
+
+    // พยายามดึงข้อมูลสลิป
+    setSlipTime(pay.actualTime || "");
+    setSlipSender("");
+    setSlipReceiver("");
+
+    if (pay.aiData) {
+      try {
+        const ai = JSON.parse(pay.aiData);
+        // ดึงจาก QR Data (แม่นยำกว่า)
+        if (ai.qr_data) {
+          if (ai.qr_data.transTime) setSlipTime(ai.qr_data.transTime);
+          if (ai.qr_data.sender && ai.qr_data.sender.name) setSlipSender(ai.qr_data.sender.name);
+          if (ai.qr_data.receiver && ai.qr_data.receiver.name) setSlipReceiver(ai.qr_data.receiver.name);
+        }
+        // ดึงจาก OCR Data (ถ้าไม่มี QR)
+        else if (ai.ocr_data) {
+          if (ai.ocr_data.time) setSlipTime(ai.ocr_data.time);
+          if (ai.ocr_data.sender) setSlipSender(ai.ocr_data.sender);
+          if (ai.ocr_data.receiver) setSlipReceiver(ai.ocr_data.receiver);
+        }
+
+        if (ai.amount && !pay.amount) setEditAmount(Number(ai.amount));
+      } catch (e) {
+        console.error("AI Data parse error", e);
+      }
+    }
+
     setIsModalOpen(true);
   };
 
@@ -454,6 +504,11 @@ export default function RepaymentsPage() {
                 <th onClick={() => handleSort('status')} className="py-4 px-6 font-semibold text-slate-600 text-sm text-center hover:bg-slate-100 transition-colors cursor-pointer">
                   สถานะ <SortIcon column="status" sortConfig={sortConfig} />
                 </th>
+                {(filterStatus === 'approved' || filterStatus === 'rejected' || filterStatus === 'all') && (
+                  <th className="py-4 px-6 font-semibold text-slate-600 text-sm">
+                    ดำเนินการโดย
+                  </th>
+                )}
                 <th className="py-4 px-6 font-semibold text-slate-600 text-sm text-center">
                   จัดการ
                 </th>
@@ -494,6 +549,11 @@ export default function RepaymentsPage() {
                         {item.status === "pending" ? "รอตรวจสลิป" : item.status === "approved" ? "รับชำระแล้ว" : "มีปัญหา"}
                       </span>
                     </td>
+                    {(filterStatus === 'approved' || filterStatus === 'rejected' || filterStatus === 'all') && (
+                      <td className="py-4 px-6 text-slate-500 text-xs font-bold italic">
+                        {item.approvedBy || (item.status !== 'pending' ? 'ADMIN' : '-')}
+                      </td>
+                    )}
                     <td className="py-4 px-6 text-center">
                       <button
                         onClick={() => openDetails(item)}
@@ -654,6 +714,30 @@ export default function RepaymentsPage() {
                 {selectedPay.status === "pending" ? (
                   <>
                     <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">ตรวจสอบข้อมูลจากสลิป (AI สแกน)</label>
+                      <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <div className="col-span-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">ชื่อผู้โอน</p>
+                          <p className="text-sm font-black text-slate-700">{slipSender || "ไม่พบข้อมูล"}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">ชื่อผู้รับ</p>
+                          <p className="text-sm font-bold text-emerald-600">{slipReceiver || "ไม่พบข้อมูล"}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">เวลาโอนจริง (ยืนยัน/แก้ไข)</label>
+                          <input
+                            type="text"
+                            value={slipTime}
+                            onChange={e => setSlipTime(e.target.value)}
+                            placeholder="24 เม.ย. 2567 - 14:30"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
                       <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">เลือกสัญญาที่ต้องการตัดยอด</label>
                       {memberActiveContracts.length > 0 ? (
                         <select
@@ -693,6 +777,22 @@ export default function RepaymentsPage() {
                   </>
                 ) : (
                   <div className="space-y-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-200/50">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">เวลาโอนจริง</p>
+                        <p className="text-sm font-bold text-slate-700">{selectedPay.actualTime || "-"}</p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">ดำเนินการโดย</p>
+                        <p className="text-sm font-black text-indigo-600 italic">{selectedPay.approvedBy || "ADMIN"}</p>
+                      </div>
+                      {selectedPay.note && (
+                        <div className="pt-2 border-t border-slate-200/50">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">หมายเหตุ</p>
+                          <p className="text-xs text-rose-600 font-medium">{selectedPay.note}</p>
+                        </div>
+                      )}
+                    </div>
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ยอดเงินชำระ</p>
                       <p className="text-3xl font-black text-indigo-600">฿{(selectedPay.amount || 0).toLocaleString()}</p>

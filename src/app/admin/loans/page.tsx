@@ -8,6 +8,11 @@ import Swal from "sweetalert2";
 import LoanDetailModal from "./LoanDetailModal";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { gasApi } from "@/services/gasApi";
+
 type FilterStatus = "รอตรวจสอบ" | "อนุมัติ" | "ไม่อนุมัติ" | "all";
 
 export interface LoanData {
@@ -38,6 +43,7 @@ export default function LoansPage() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isAddingLoan, setIsAddingLoan] = useState(false);
+	const [adminName, setAdminName] = useState<string>("ADMIN");
 
 	// Header Filters
 	const [headerFilters, setHeaderFilters] = useState({
@@ -45,6 +51,24 @@ export default function LoansPage() {
 		name: "",
 		type: ""
 	});
+
+	useEffect(() => {
+		const unsubscribe = onAuthStateChanged(auth, async (user) => {
+			if (user) {
+				try {
+					const adminDoc = await getDoc(doc(db, "system_admins", user.uid));
+					if (adminDoc.exists() && adminDoc.data().displayName) {
+						setAdminName(adminDoc.data().displayName);
+					} else {
+						setAdminName(user.displayName || user.email?.split('@')[0] || "ADMIN");
+					}
+				} catch (e) {
+					setAdminName(user.displayName || user.email?.split('@')[0] || "ADMIN");
+				}
+			}
+		});
+		return () => unsubscribe();
+	}, []);
 
 	useEffect(() => {
 		fetchLoans();
@@ -130,26 +154,19 @@ export default function LoansPage() {
 	const handleApprove = async (id: string) => {
 		setIsLoading(true);
 		try {
-			const response = await fetch("/api/member", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					action: "admin_update_loan",
-					ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
-					loanId: id,
-					status: "อนุมัติ",
-				}),
-			});
-			if (!response.ok) throw new Error("Failed to update loan status");
-
-			setLoans((prev) =>
-				prev.map((l) => (l.id === id ? { ...l, status: "อนุมัติ" } : l))
-			);
-			toast.success("อนุมัติเรียบร้อย");
-			setIsModalOpen(false);
+			const res = await gasApi.updateAdminLoanStatus(id, "อนุมัติ", adminName);
+			if (res.success) {
+				setLoans((prev) =>
+					prev.map((l) => (l.id === id ? { ...l, status: "อนุมัติ" } : l))
+				);
+				toast.success("อนุมัติเรียบร้อย");
+				setIsModalOpen(false);
+			} else {
+				toast.error(res.msg || "เกิดข้อผิดพลาดในการอนุมัติ");
+			}
 		} catch (error) {
 			console.error(error);
-			toast.error("เกิดข้อผิดพลาดในการอนุมัติ");
+			toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
 		} finally {
 			setIsLoading(false);
 		}

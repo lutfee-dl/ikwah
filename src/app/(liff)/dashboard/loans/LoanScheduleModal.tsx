@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Calendar, CheckCircle2, Circle, Clock, Wallet, ChevronRight } from "lucide-react";
+import { X, CheckCircle2, Circle, Clock, Wallet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ interface LoanScheduleModalProps {
     paidAmount: number;
     remainingBalance: number;
     installmentAmount: number;
+    itemName: string;
   };
   onClose: () => void;
 }
@@ -27,7 +28,7 @@ export default function LoanScheduleModal({ loan, onClose }: LoanScheduleModalPr
     const schedule = [];
     const startDate = new Date(loan.approvedDate);
     const totalInstallments = loan.duration;
-    
+
     // คำนวณว่าจ่ายไปแล้วกี่งวด (ปัดเศษเผื่อกรณีจ่ายขาดนิดหน่อย)
     const paidCount = Math.floor(loan.paidAmount / loan.installmentAmount);
 
@@ -36,7 +37,7 @@ export default function LoanScheduleModal({ loan, onClose }: LoanScheduleModalPr
       // ตั้งค่าเป็นวันที่ 5 ของเดือนถัดๆ ไป
       dueDate.setMonth(startDate.getMonth() + i);
       dueDate.setDate(5);
-      
+
       const isPaid = i <= paidCount;
       const isCurrent = i === paidCount + 1 && loan.remainingBalance > 0;
 
@@ -57,11 +58,11 @@ export default function LoanScheduleModal({ loan, onClose }: LoanScheduleModalPr
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-md h-[90vh] sm:h-auto sm:max-h-[85vh] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500">
-        
+
         {/* Header - Glassmorphism style */}
         <div className="relative bg-slate-900 pt-10 pb-6 px-8 text-white shrink-0">
           <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-white/20 rounded-full sm:hidden" />
-          <button 
+          <button
             onClick={onClose}
             className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
           >
@@ -71,8 +72,10 @@ export default function LoanScheduleModal({ loan, onClose }: LoanScheduleModalPr
           <div className="space-y-1">
             <p className="text-[10px] font-black text-sky-400 uppercase tracking-[0.2em]">Loan Amortization</p>
             <h2 className="text-2xl font-black tracking-tight">ตารางผ่อนชำระ</h2>
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold mt-2">
+            <div className="flex flex-wrap items-center gap-2 text-slate-400 text-xs font-bold mt-2">
               <span className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/5">ID: {loan.contractId}</span>
+              <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+              <span className="text-sky-400">{loan.itemName || "ชำระทั่วไป"}</span>
               <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
               <span>{loan.loanType}</span>
             </div>
@@ -102,15 +105,15 @@ export default function LoanScheduleModal({ loan, onClose }: LoanScheduleModalPr
             <div className="absolute left-6 top-4 bottom-4 w-0.5 bg-slate-200" />
 
             {schedule.map((item) => (
-              <div 
-                key={item.no} 
+              <div
+                key={item.no}
                 className={`relative flex items-center gap-6 pl-12 transition-all duration-300 ${item.isPaid ? 'opacity-60' : 'opacity-100'}`}
               >
                 {/* Status Icon Marker */}
                 <div className={`absolute left-3 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-all 
-                  ${item.isPaid ? 'bg-emerald-500 shadow-lg shadow-emerald-200 scale-110' 
-                    : item.isCurrent ? 'bg-blue-600 ring-4 ring-blue-100 scale-125' 
-                    : 'bg-white border-2 border-slate-300'}`}>
+                  ${item.isPaid ? 'bg-emerald-500 shadow-lg shadow-emerald-200 scale-110'
+                    : item.isCurrent ? 'bg-blue-600 ring-4 ring-blue-100 scale-125'
+                      : 'bg-white border-2 border-slate-300'}`}>
                   {item.isPaid ? (
                     <CheckCircle2 size={14} className="text-white" />
                   ) : item.isCurrent ? (
@@ -122,10 +125,10 @@ export default function LoanScheduleModal({ loan, onClose }: LoanScheduleModalPr
 
                 {/* Card */}
                 <div className={`flex-1 p-4 rounded-2xl border transition-all 
-                  ${item.isCurrent ? 'bg-white border-blue-200 shadow-xl shadow-blue-900/5 -translate-y-1' 
-                    : item.isPaid ? 'bg-slate-50 border-slate-100' 
-                    : 'bg-white border-slate-100'}`}>
-                  
+                  ${item.isCurrent ? 'bg-white border-blue-200 shadow-xl shadow-blue-900/5 -translate-y-1'
+                    : item.isPaid ? 'bg-slate-50 border-slate-100'
+                      : 'bg-white border-slate-100'}`}>
+
                   <div className="flex justify-between items-start">
                     <div>
                       <p className={`text-[10px] font-black uppercase tracking-widest mb-1 
@@ -147,7 +150,7 @@ export default function LoanScheduleModal({ loan, onClose }: LoanScheduleModalPr
                   </div>
 
                   {item.isCurrent && (
-                    <button 
+                    <button
                       onClick={() => router.push(`/dashboard/upload?category=${encodeURIComponent('ชำระยอดสินเชื่อ')}&contractId=${loan.contractId}`)}
                       className="mt-3 w-full py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-100 flex items-center justify-center gap-2 active:scale-95 transition-all"
                     >

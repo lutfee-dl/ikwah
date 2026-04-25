@@ -11,10 +11,11 @@ import { auth, db } from "@/lib/firebase";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import {
   LayoutDashboard, Users, CreditCard, LogOut, Menu, X,
-  PiggyBank, Bell, Receipt, Wallet, Briefcase,
-  TrendingUp, ShieldCheck, Settings
+  BanknoteArrowDown, Receipt, Wallet, Briefcase,
+  TrendingUp, Settings
 } from "lucide-react";
 import { ASSETS } from "@/config";
+import { gasApi } from "@/services/gasApi";
 import "@/app/globals.css";
 
 // 1. จัดโครงสร้างเมนูใหม่แบ่งเป็นหมวดหมู่ตาม Tone ที่ต้องการ
@@ -26,15 +27,15 @@ const menuGroups = [
     ],
   },
   {
-    title: "งานบริหารการเงิน",
+    title: "ตรวจสอบรายการ",
     links: [
-      { name: "ระบบบัญชีเงินฝาก", href: "/admin/deposits", icon: PiggyBank },
-      { name: "พิจารณาสินเชื่อ", href: "/admin/loans", icon: CreditCard },
-      { name: "บันทึกการชำระงวด", href: "/admin/repayments", icon: Receipt },
+      { name: "ตรวจการฝากหุ้นสะสม", href: "/admin/deposits", icon: BanknoteArrowDown },
+      { name: "ตรวจการชำระสินเชื่อ", href: "/admin/repayments", icon: Receipt },
+      { name: "ตรวจคำขอกู้เงิน", href: "/admin/loans", icon: CreditCard },
     ],
   },
   {
-    title: "ฐานข้อมูลกลาง",
+    title: "จัดการฐานข้อมูล",
     links: [
       { name: "จัดการทะเบียนสมาชิก", href: "/admin/members", icon: Users },
       { name: "ทะเบียนสัญญาซื้อขาย", href: "/admin/contracts", icon: Briefcase },
@@ -54,6 +55,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [adminData, setAdminData] = useState<{ displayName?: string } | null>(null);
+  const [pendingCounts, setPendingCounts] = useState({ loans: 0, deposits: 0, repayments: 0 });
   const pathname = usePathname();
 
   useEffect(() => {
@@ -73,8 +75,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       sessionStorage.removeItem("login_success");
     }
 
-    return () => unsubscribe();
+    fetchPendingCounts();
+    const interval = setInterval(fetchPendingCounts, 30000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
+
+  const fetchPendingCounts = async () => {
+    try {
+      const res = await gasApi.getPendingCounts();
+      if (res.success && res.counts) {
+        setPendingCounts(res.counts);
+      }
+    } catch (err) {
+      console.error("Error fetching counts:", err);
+    }
+  };
 
   const fetchAdminData = async (uid: string) => {
     try {
@@ -125,17 +144,31 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         shadow-2xl shadow-slate-200/50 md:shadow-none
       `}>
-        {/* Logo Section */}
-        <div className="h-20 flex items-center px-8 border-b border-slate-100 bg-white">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-linear-to-tr from-blue-600 to-sky-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <ShieldCheck className="text-white" size={20} />
+        <div className="h-20 flex items-center px-6 border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-10">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl p-0.5">
+              <div className="w-full h-full bg-white rounded-[10px] flex items-center justify-center overflow-hidden">
+                <Image
+                  src={ASSETS.IMAGES.LOGO}
+                  alt="logo"
+                  className="w-7 h-7 object-contain"
+                  width={35}
+                  height={35}
+                />
+              </div>
             </div>
-            <span className="text-lg font-black tracking-tight text-slate-800">
-              IKWAH <span className="font-medium text-blue-600">ADMIN</span>
-            </span>
+
+            <div className="flex flex-col justify-center">
+              <span className="text-[16px] font-black tracking-tighter text-slate-800 leading-none">
+                IKWAH <span className="text-blue-600">ADMIN</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                จัดการกองทุน
+              </span>
+            </div>
           </div>
-          <button onClick={toggleSidebar} className="md:hidden ml-auto p-2 text-slate-400 hover:bg-slate-100 rounded-lg">
+
+          <button className="md:hidden ml-auto p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600 rounded-xl transition-colors border border-transparent hover:border-slate-100">
             <X size={20} />
           </button>
         </div>
@@ -150,6 +183,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <div className="space-y-1">
                 {group.links.map(({ name, href, icon: Icon }) => {
                   const isActive = pathname === href;
+
+                  // 🔔 คำนวณตัวเลขแจ้งเตือนตามชื่อเมนู
+                  const badgeKeyMap: Record<string, keyof typeof pendingCounts> = {
+                    "ตรวจการฝากหุ้นสะสม": "deposits",
+                    "ตรวจการชำระสินเชื่อ": "repayments",
+                    "ตรวจคำขอกู้เงิน": "loans"
+                  };
+                  const badgeKey = badgeKeyMap[name];
+                  const badgeValue = badgeKey ? pendingCounts[badgeKey] : 0;
+
                   return (
                     <Link
                       key={name}
@@ -162,6 +205,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     >
                       <Icon size={19} className={isActive ? "text-white" : "text-slate-400 group-hover:text-blue-500 transition-colors"} />
                       <span className="text-[13px]">{name}</span>
+
+                      {/* 🔔 Badge ตัวเลขแจ้งเตือน - โชว์ตลอดเวลาเพื่อให้รู้ว่าเหลืองานกี่รายการ */}
+                      {badgeValue > 0 && (
+                        <div className={`ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-black rounded-full shadow-lg border-2 border-white animate-pulse transition-all duration-300 ${isActive
+                          ? "bg-white text-blue-600 shadow-blue-900/20"
+                          : "bg-rose-500 text-white shadow-rose-500/20"
+                          }`}>
+                          {badgeValue > 99 ? "99+" : badgeValue}
+                        </div>
+                      )}
+
                       {isActive && (
                         <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                       )}
@@ -209,11 +263,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            <button className="p-2.5 text-slate-400 hover:text-blue-600 relative transition-all bg-slate-50 hover:bg-blue-50 rounded-xl border border-transparent hover:border-blue-100">
-              <Bell size={18} />
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white shadow-sm"></span>
-            </button>
-            <div className="h-8 w-[1px] bg-slate-200 mx-1"></div>
             {/* Header Profile Section */}
             <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-2xl">
               <div className="hidden sm:flex flex-col items-end">

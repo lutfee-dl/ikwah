@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import Swal from "sweetalert2";
 import { useEffect, useState } from "react";
 import { gasApi } from "@/services/gasApi";
 import Link from "next/link";
@@ -128,6 +129,34 @@ export default function AdminDashboardPage() {
 
   if (!stats) return null;
 
+  const handleInitSystem = async () => {
+    const result = await Swal.fire({
+      title: '⚠️ ยืนยันการตั้งค่าโครงสร้างชีท?',
+      text: "ระบบจะสร้าง/ปรับปรุงหัวตารางในชีททั้งหมดให้เป็นเวอร์ชันล่าสุด (ไม่ลบข้อมูลเดิม แต่แนะนำให้สำรองข้อมูลไว้ก่อน)",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'ตกลง, เริ่มกระบวนการ',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#f43f5e', // rose-500
+    });
+
+    if (!result.isConfirmed) return;
+
+    const tid = toast.loading("กำลังปรับปรุงโครงสร้างชีท...");
+    try {
+      const res = await gasApi.initSystem();
+      if (res.success) {
+        toast.success("ปรับปรุงโครงสร้างชีทเรียบร้อยแล้ว!", { id: tid });
+        fetchStats();
+      } else {
+        toast.error(res.msg || "เกิดข้อผิดพลาด", { id: tid });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้", { id: tid });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-[fadeIn_0.5s]">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
@@ -138,12 +167,14 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex gap-3">
-          <Link
-            href="/admin/members"
-            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm"
+          <button
+            onClick={handleInitSystem}
+            className="px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-sm font-bold hover:bg-rose-500 hover:text-white transition-all shadow-sm flex items-center gap-2"
+            title="ปรับปรุงโครงสร้างตาราง Google Sheets"
           >
-            รายชื่อสมาชิก
-          </Link>
+            <RefreshCw size={16} />
+            ตั้งค่าโครงสร้างชีท
+          </button>
           <button
             onClick={handleSyncAll}
             disabled={isSyncing}

@@ -65,6 +65,11 @@ export default function MemberLoansPage() {
               <Calendar size={14} />
               <span className="text-xs font-medium">{isClosed ? 'ปิดยอดเมื่อ' : 'อนุมัติเมื่อ'} {formatDateTime(loan.approvedDate)}</span>
             </div>
+            {/* เพิ่มส่วนแสดงชื่อรายการ */}
+            <div className="flex items-center gap-1.5 text-blue-600 mt-1">
+              <Receipt size={14} />
+              <span className="text-xs font-black truncate max-w-[150px]">{loan.itemName || "ชำระทั่วไป"}</span>
+            </div>
           </div>
           <div className="text-right">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">ยอดเงินต้น</p>
