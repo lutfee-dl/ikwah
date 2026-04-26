@@ -8,6 +8,28 @@ import { ArrowLeft, Send, AlertCircle, CheckCircle } from "lucide-react";
 import { NumericFormat } from "react-number-format";
 import Swal from "sweetalert2";
 import { toast } from "react-hot-toast";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+const LoanSkeleton = () => (
+  <div className="animate-pulse max-w-md mx-auto space-y-6 pt-2">
+    <div className="flex items-center gap-4 px-1">
+      <Skeleton className="w-10 h-10 rounded-full bg-slate-100" />
+      <Skeleton className="h-6 w-32 bg-slate-100" />
+    </div>
+    <div className="bg-white rounded-4xl p-6 border border-slate-100 shadow-sm space-y-6">
+      <Skeleton className="h-20 w-full rounded-2xl bg-slate-50" />
+      <div className="space-y-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-4 w-24 bg-slate-100" />
+            <Skeleton className="h-12 w-full rounded-2xl bg-slate-50" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="h-14 w-full rounded-2xl bg-blue-100" />
+    </div>
+  </div>
+);
 
 export default function LoanRequestPage() {
   const router = useRouter();
@@ -144,13 +166,7 @@ export default function LoanRequestPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-      </div>
-    );
-  }
+  if (isLoading) return <LoanSkeleton />;
 
   if (successMsg) {
     return (

@@ -26,6 +26,36 @@ import Tesseract from "tesseract.js";
 import { ASSETS } from "@/config";
 import { gasApi } from "@/services/gasApi";
 import { MemberLoan } from "@/types";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+const UploadSkeleton = () => (
+  <div className="animate-pulse space-y-8 pt-2">
+    <div className="flex items-center gap-3 mb-2">
+      <Skeleton className="w-10 h-10 rounded-full bg-slate-100" />
+      <div className="space-y-2">
+        <Skeleton className="h-6 w-32 bg-slate-100 rounded-full" />
+        <Skeleton className="h-4 w-48 bg-slate-100 rounded-full" />
+      </div>
+    </div>
+    <div className="space-y-8">
+      <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 space-y-6">
+        <Skeleton className="h-4 w-32 mx-auto bg-slate-100 rounded-full" />
+        <div className="grid grid-cols-2 gap-4">
+          <Skeleton className="h-28 rounded-2xl bg-slate-50" />
+          <Skeleton className="h-28 rounded-2xl bg-slate-50" />
+        </div>
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-4 w-32 mx-auto bg-slate-100 rounded-full" />
+        <Skeleton className="h-48 w-full rounded-[2.5rem] bg-slate-900/50" />
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-4 w-32 mx-auto bg-slate-100 rounded-full" />
+        <Skeleton className="h-56 w-full rounded-[2.5rem] bg-slate-50" />
+      </div>
+    </div>
+  </div>
+);
 
 type ProfileToken = {
   lineId: string;
@@ -706,12 +736,7 @@ function UploadForm() {
 // --- Main Page Export with Suspense Wrapper ---
 export default function UploadSlipPage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <Loader2 className="animate-spin text-sky-500 w-10 h-10" />
-        <p className="text-slate-400 font-medium">กำลังเตรียมหน้าแจ้งโอน...</p>
-      </div>
-    }>
+    <Suspense fallback={<UploadSkeleton />}>
       <UploadForm />
     </Suspense>
   );

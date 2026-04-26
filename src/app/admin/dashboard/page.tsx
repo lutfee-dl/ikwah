@@ -1,18 +1,18 @@
 "use client";
 
 import {
-  CreditCard,
   Users,
-  FileText,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
-  ArrowUpRight,
   TrendingUp,
   RefreshCw,
   Zap,
   PieChart as PieChartIcon,
-  TrendingDown,
+  ShieldCheck,
+  Wallet,
+  HandCoins,
+  Activity,
+  History,
+  Building2,
+  Settings2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Swal from "sweetalert2";
@@ -35,14 +35,14 @@ import {
   Pie,
   Cell,
   Legend,
-  BarChart,
-  Bar,
 } from "recharts";
 
 type DashboardStats = {
   totalMembers: number;
-  newMembersThisMonth: number;
   activeMembers: number;
+  totalSharesBalance: number;
+  totalLoanOutstanding: number;
+  totalFundBalance: number;
   pendingLoans: number;
   totalApprovedLoanAmount: number;
   loanTypeBreakdown: Record<string, number>;
@@ -63,30 +63,19 @@ type DashboardStats = {
   }>;
 };
 
-const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6"];
+const COLORS = ["#10b981", "#0ea5e9", "#f59e0b", "#8b5cf6", "#f43f5e"];
 
 const DashboardSkeleton = () => (
-  <div className="space-y-6 animate-pulse">
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-4 w-64" />
-      </div>
-      <div className="mt-4 sm:mt-0 flex gap-3">
-        <Skeleton className="h-10 w-32 rounded-xl" />
-        <Skeleton className="h-10 w-48 rounded-xl" />
-      </div>
+  <div className="space-y-8 animate-pulse p-6">
+    <div className="h-20 bg-slate-100 rounded-3xl w-full" />
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="h-32 bg-slate-100 rounded-[2rem]" />
+      ))}
     </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-32 rounded-2xl lg:col-span-2" />
-    </div>
-
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
-      <Skeleton className="h-96 rounded-2xl lg:col-span-2" />
-      <Skeleton className="h-96 rounded-2xl" />
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="h-96 bg-slate-100 rounded-[2.5rem] lg:col-span-2" />
+      <div className="h-96 bg-slate-100 rounded-[2.5rem]" />
     </div>
   </div>
 );
@@ -96,38 +85,7 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
-
-  const handleSyncAll = async () => {
-    const result = await Swal.fire({
-      title: 'เริ่มการซิงค์ข้อมูล?',
-      text: "ระบบจะคำนวณยอดเงินคงเหลือของทุกคนใหม่เพื่อให้ตรงกับสลิปจริง (ใช้เวลาประมาณ 10-20 วินาที)",
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'เริ่มซิงค์เลย',
-      cancelButtonText: 'ยกเลิก'
-    });
-
-    if (!result.isConfirmed) return;
-
-    setIsSyncing(true);
-    toast.loading("กำลังอัปเดตข้อมูล (1/2)...", { id: "sync-stats" });
-    try {
-      const resSync = await gasApi.call("admin_sync_all_balances", {});
-      if (!resSync.success) throw new Error(resSync.msg);
-
-      toast.loading("กำลังจัดระเบียบชีทสรุป (2/2)...", { id: "sync-stats" });
-      const resRebuild = await gasApi.call("admin_rebuild_summary", {});
-      if (!resRebuild.success) throw new Error(resRebuild.msg);
-
-      toast.success("ซิงค์ข้อมูลทั้งระบบสำเร็จ!", { id: "sync-stats" });
-      await fetchStats();
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "เกิดข้อผิดพลาดในการซิงค์", { id: "sync-stats" });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
+  const [isAuditing, setIsAuditing] = useState(false);
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -150,165 +108,195 @@ export default function AdminDashboardPage() {
     fetchStats();
   }, []);
 
-  if (isLoading) return <DashboardSkeleton />;
-  if (!stats) return null;
-
-  const handleInitSystem = async () => {
+  const handleSyncAll = async () => {
     const result = await Swal.fire({
-      title: '⚠️ ตั้งค่าโครงสร้างชีท?',
-      text: "ระบบจะปรับปรุงหัวตารางให้เป็นเวอร์ชันล่าสุด แนะนำให้สำรองข้อมูลก่อนเริ่ม",
-      icon: 'warning',
+      title: 'เริ่มการซิงค์ข้อมูล?',
+      text: "ระบบจะคำนวณยอดเงินคงเหลือของทุกคนใหม่เพื่อให้ตรงกับสลิปจริง",
+      icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'เริ่มปรับปรุง',
+      confirmButtonText: 'เริ่มซิงค์เลย',
       cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#10b981',
     });
 
     if (!result.isConfirmed) return;
 
-    setIsInitializing(true);
-    toast.loading("กำลังปรับปรุงโครงสร้างชีท...", { id: "init-system" });
+    setIsSyncing(true);
+    toast.loading("กำลังอัปเดตข้อมูล...", { id: "sync-stats" });
     try {
-      const res = await gasApi.call("admin_init_system", {});
-      if (res.success) {
-        toast.success("ปรับปรุงสำเร็จ!", { id: "init-system" });
-        fetchStats();
-      } else {
-        toast.error(res.msg || "เกิดข้อผิดพลาด", { id: "init-system" });
-      }
-    } catch (error) {
-      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้", { id: "init-system" });
+      await gasApi.call("admin_sync_all_balances", {});
+      await gasApi.call("admin_rebuild_summary", {});
+      toast.success("ซิงค์ข้อมูลทั้งระบบสำเร็จ!", { id: "sync-stats" });
+      await fetchStats();
+    } catch (error: any) {
+      toast.error("เกิดข้อผิดพลาดในการซิงค์", { id: "sync-stats" });
     } finally {
-      setIsInitializing(false);
+      setIsSyncing(false);
     }
   };
 
-  // Prepare Pie Chart Data
+  const handleRunAudit = async () => {
+    setIsAuditing(true);
+    toast.loading("กำลังตรวจสอบความถูกต้อง...", { id: "audit" });
+    try {
+      const res = await gasApi.call("admin_run_integrity_check", {});
+      if (res.success) {
+        if (res.isHealthy) {
+          Swal.fire({
+            title: '✅ ข้อมูลถูกต้อง 100%',
+            html: `<div class="text-left text-sm space-y-2">
+              <p>ยอดหุ้นสะสม: ตรงกัน</p>
+              <p>ยอดหนี้สินเชื่อ: ตรงกัน</p>
+              <p class="text-emerald-600 font-bold">ระบบมีความแม่นยำสูง</p>
+            </div>`,
+            icon: 'success'
+          });
+        } else {
+          Swal.fire({
+            title: '⚠️ พบตัวเลขไม่ตรงกัน',
+            text: "แนะนำให้กดปุ่ม SYNC BALANCES เพื่อล้างยอดใหม่ครับ",
+            icon: 'warning'
+          });
+        }
+      }
+    } finally {
+      setIsAuditing(false);
+      toast.dismiss("audit");
+    }
+  };
+
+  if (isLoading) return <DashboardSkeleton />;
+  if (!stats) return null;
+
   const pieData = Object.entries(stats.loanTypeBreakdown).map(([name, value]) => ({
     name,
     value,
   }));
 
+  const totalCapital = stats.totalSharesBalance + stats.totalFundBalance;
+
   return (
-    <div className="space-y-8 animate-[fadeIn_0.5s] pb-10">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Analytics Dashboard</h1>
-          <p className="mt-1 text-slate-500 font-medium">
-            ภาพรวมสถานะการเงินและกิจกรรมของกองทุน Ikuwah
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={handleInitSystem}
-            disabled={isInitializing}
-            className="px-4 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-2xl text-xs font-black hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={isInitializing ? "animate-spin" : ""} /> 
-            {isInitializing ? "INITIALIZING..." : "SYSTEM INIT"}
-          </button>
-          <button
-            onClick={handleSyncAll}
-            disabled={isSyncing}
-            className="px-4 py-2.5 bg-indigo-600 text-white rounded-2xl text-xs font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:opacity-50"
-          >
-            {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
-            SYNC BALANCES
-          </button>
+    <div className="space-y-8 animate-[fadeIn_0.5s] pb-20 px-4 md:px-0">
+      {/* --- Premium Bank Header --- */}
+      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full -mr-20 -mt-20"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/10 blur-[80px] rounded-full -ml-20 -mb-20"></div>
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-500/20 p-2 rounded-xl backdrop-blur-md border border-emerald-500/20">
+                <Building2 size={20} className="text-emerald-400" />
+              </div>
+              <span className="text-emerald-400 font-black text-xs uppercase tracking-[0.3em]">Co-operative Intelligence</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tighter">IKWAH FUND <span className="text-emerald-400">MANAGEMENT</span></h1>
+            <p className="text-slate-400 font-medium text-sm">ระบบบริหารจัดการกองทุนอิควะห์และสินเชื่ออิสลาม</p>
+          </div>
+
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Total Fund Capital</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-emerald-400 text-sm font-bold">฿</span>
+              <span className="text-4xl font-black tracking-tighter">{(totalCapital).toLocaleString()}</span>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button onClick={handleRunAudit} className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black transition-all flex items-center gap-2">
+                <ShieldCheck size={14} className="text-emerald-400" /> AUDIT SYSTEM
+              </button>
+              <button onClick={handleSyncAll} className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-900 rounded-2xl text-[10px] font-black transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+                <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} /> RE-SYNC ALL
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Main Stats Row */}
+      {/* --- Main Dashboard Stats Grid --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          label="สมาชิกทั้งหมด"
+        <BankStatCard
+          label="สมาชิกกองทุน"
           value={stats.totalMembers}
           sub={`ปกติ ${stats.activeMembers} คน`}
           icon={<Users size={24} />}
+          color="emerald"
+        />
+        <BankStatCard
+          label="ยอดหุ้นสะสมรวม"
+          value={`฿${stats.totalSharesBalance.toLocaleString()}`}
+          sub="เงินฝากของสมาชิกทั้งหมด"
+          icon={<Wallet size={24} />}
           color="blue"
         />
-        <StatCard
-          label="รอดำเนินการ"
-          value={stats.pendingLoans + stats.pendingRepayments + stats.pendingDeposits}
-          sub={`${stats.pendingLoans} คำขอกู้ / ${stats.pendingRepayments + stats.pendingDeposits} สลิป`}
-          icon={<Clock size={24} />}
+        <BankStatCard
+          label="ลูกหนี้เงินกู้คงเหลือ"
+          value={`฿${stats.totalLoanOutstanding.toLocaleString()}`}
+          sub="ยอดหนี้ที่ยังเรียกเก็บได้"
+          icon={<HandCoins size={24} />}
           color="amber"
-          trend={stats.pendingLoans > 5 ? "up" : "down"}
         />
-        <StatCard
-          label="ยอดหนี้ที่ปล่อยกู้"
-          value={`฿${stats.totalApprovedLoanAmount.toLocaleString()}`}
-          sub="ยอดรวมสัญญาที่ยังไม่ปิด"
-          icon={<CreditCard size={24} />}
-          color="emerald"
-          isCurrency
-          className="lg:col-span-2"
+        <BankStatCard
+          label="สภาพคล่องกองทุน"
+          value={`฿${stats.totalFundBalance.toLocaleString()}`}
+          sub="เงินสดคงเหลือในบัญชี"
+          icon={<Activity size={24} />}
+          color="indigo"
         />
       </div>
 
+      {/* --- Charts Section --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Growth Chart (Area Chart) */}
-        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 lg:col-span-2 flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="bg-indigo-50 p-2.5 rounded-2xl text-indigo-600">
+        <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-10">
+            <div className="flex items-center gap-4">
+              <div className="bg-slate-100 p-3 rounded-2xl text-slate-600">
                 <TrendingUp size={20} />
               </div>
-              <h2 className="text-lg font-black text-slate-800">กราฟการเติบโตรายเดือน</h2>
-            </div>
-            <div className="flex gap-4 text-[10px] font-black uppercase tracking-widest">
-              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500"></span> หุ้นสะสม</div>
-              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> ส่งงวดหนี้</div>
+              <div>
+                <h2 className="text-lg font-black text-slate-800">Co-op Performance</h2>
+                <p className="text-xs text-slate-400 font-bold">สถิติการรับเงินและชำระหนี้ 6 เดือนย้อนหลัง</p>
+              </div>
             </div>
           </div>
 
-          <div className="h-[320px] w-full">
+          <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={stats.monthlyData}>
                 <defs>
                   <linearGradient id="colorShares" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorLoans" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="month"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
-                  dy={10}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
-                  tickFormatter={(val) => `฿${val >= 1000 ? (val / 1000) + 'k' : val}`}
-                />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }} dy={15} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }} tickFormatter={(v) => `฿${v / 1000}k`} />
                 <Tooltip
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                  formatter={(value: any) => [`฿${(Number(value) || 0).toLocaleString()}`, ""]}
+                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }}
                 />
-                <Area type="monotone" dataKey="shares" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorShares)" />
-                <Area type="monotone" dataKey="loans" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorLoans)" />
+                <Area type="monotone" dataKey="shares" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorShares)" name="รับหุ้นสะสม" />
+                <Area type="monotone" dataKey="loans" stroke="#0ea5e9" strokeWidth={4} fillOpacity={1} fill="url(#colorLoans)" name="ชำระหนี้สินเชื่อ" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Loan Distribution (Pie Chart) */}
         <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="bg-amber-50 p-2.5 rounded-2xl text-amber-600">
+          <div className="flex items-center gap-4 mb-10">
+            <div className="bg-slate-100 p-3 rounded-2xl text-slate-600">
               <PieChartIcon size={20} />
             </div>
-            <h2 className="text-lg font-black text-slate-800">สัดส่วนประเภทสินเชื่อ</h2>
+            <div>
+              <h2 className="text-lg font-black text-slate-800">Portfolio Mix</h2>
+              <p className="text-xs text-slate-400 font-bold">สัดส่วนประเภทสินเชื่อที่อนุมัติ</p>
+            </div>
           </div>
 
-          <div className="h-[280px] w-full flex items-center justify-center">
+          <div className="flex-1 min-h-[250px] flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -317,142 +305,79 @@ export default function AdminDashboardPage() {
                   cy="50%"
                   innerRadius={70}
                   outerRadius={100}
-                  paddingAngle={5}
+                  paddingAngle={8}
                   dataKey="value"
                 >
                   {pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                  formatter={(value: any) => [`฿${(Number(value) || 0).toLocaleString()}`, ""]}
-                />
-                <Legend
-                  verticalAlign="bottom"
-                  align="center"
-                  iconType="circle"
-                  wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 'bold' }}
-                />
+                <Tooltip />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '20px' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
-
-          <div className="mt-auto pt-6 border-t border-slate-50">
-            <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
-              <span>ยอดเงินกู้รวม</span>
-              <span className="text-slate-800">฿{stats.totalApprovedLoanAmount.toLocaleString()}</span>
-            </div>
-          </div>
         </div>
       </div>
 
+      {/* --- Tasks & Activity Section --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Transactions List */}
-        <div className="bg-white shadow-sm rounded-[2.5rem] border border-slate-100 lg:col-span-2 overflow-hidden flex flex-col p-2">
-          <div className="px-6 py-6 flex justify-between items-center">
-            <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
-              <FileText size={18} className="text-indigo-500" />
-              รายการขอสินเชื่อล่าสุด
+        <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-lg font-black text-slate-800 flex items-center gap-3">
+              <History size={20} className="text-emerald-500" /> รายการล่าสุด
             </h2>
-            <Link href="/admin/loans" className="text-xs font-black text-indigo-600 hover:text-indigo-700 transition uppercase tracking-widest bg-indigo-50 px-4 py-2 rounded-xl">
-              ดูทั้งหมด
-            </Link>
+            <Link href="/admin/loans" className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl hover:bg-emerald-100 transition-all">ดูทั้งหมด</Link>
           </div>
 
-          <div className="overflow-x-auto pb-4">
-            <table className="w-full text-left border-separate border-spacing-y-2 px-4">
-              <thead>
-                <tr className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                  <th className="px-4 py-2 font-black">ชื่อ-นามสกุล</th>
-                  <th className="px-4 py-2 font-black">ประเภท</th>
-                  <th className="px-4 py-2 font-black">จำนวนเงิน</th>
-                  <th className="px-4 py-2 font-black">สถานะ</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                {stats.recentRequests.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-slate-400 italic font-medium">ไม่พบรายการขอสินเชื่อในระบบ</td>
-                  </tr>
-                ) : (
-                  stats.recentRequests.map((req) => (
-                    <tr key={req.id} className="bg-slate-50/50 hover:bg-slate-100/50 transition-all rounded-2xl">
-                      <td className="px-4 py-4 rounded-l-2xl">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-800">{req.name}</span>
-                          <span className="text-slate-400 text-[10px] font-medium">{formatDateTime(req.date)}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black border ${req.type === 'ฉุกเฉิน' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                            req.type === 'ก้อดฮาซัน' ? 'bg-sky-100 text-sky-700 border-sky-200' :
-                              'bg-indigo-100 text-indigo-700 border-indigo-200'
-                          }`}>
-                          {req.type}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 font-black text-slate-700">฿{req.amount.toLocaleString()}</td>
-                      <td className="px-4 py-4 rounded-r-2xl">
-                        <div className={`flex items-center gap-1.5 font-black ${req.status === 'อนุมัติแล้ว' ? 'text-emerald-600' :
-                            req.status === 'ปฏิเสธ' ? 'text-rose-500' : 'text-amber-600'
-                          }`}>
-                          <span className={`w-2 h-2 rounded-full ${req.status === 'อนุมัติแล้ว' ? 'bg-emerald-500' :
-                              req.status === 'ปฏิเสธ' ? 'bg-rose-500' : 'bg-amber-500'
-                            }`}></span>
-                          <span className="text-[11px] uppercase tracking-wider">{req.status}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {stats.recentRequests.length === 0 ? (
+              <div className="text-center py-10 text-slate-400 font-medium">ไม่พบรายการล่าสุด</div>
+            ) : (
+              stats.recentRequests.map((req) => (
+                <div key={req.id} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-slate-50 hover:bg-slate-100 transition-all group">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm font-black text-slate-400 text-xs group-hover:scale-110 transition-transform">
+                      {req.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-black text-slate-800 text-sm">{req.name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{req.type} • {formatDateTime(req.date)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-slate-800 text-sm">฿{req.amount.toLocaleString()}</p>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${req.status === 'อนุมัติแล้ว' ? 'text-emerald-600 bg-emerald-100' :
+                      req.status === 'รอตรวจสอบ' ? 'text-amber-600 bg-amber-100' : 'text-slate-400 bg-slate-200'
+                      }`}>
+                      {req.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
-        {/* Small Progress Widget */}
-        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-slate-200 border border-slate-800 flex flex-col justify-between">
-          <div>
-            <h2 className="text-lg font-black mb-8 flex items-center">
-              <span className="bg-indigo-500/20 p-2.5 rounded-2xl mr-4 text-indigo-400 border border-indigo-500/20">
-                <PieChartIcon size={20} />
-              </span>
-              Pending Tasks
-            </h2>
+        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white">
+          <h2 className="text-lg font-black mb-8 flex items-center gap-3">
+            <Zap size={20} className="text-amber-400" /> Task Management
+          </h2>
 
-            <div className="space-y-8">
-              <ProgressItem
-                label="คำขอกู้เงินรอดำเนินการ"
-                value={stats.pendingLoans}
-                max={10}
-                color="bg-amber-400"
-                href="/admin/loans"
-              />
-              <ProgressItem
-                label="สลิปผ่อนหนี้รอตรวจ"
-                value={stats.pendingRepayments}
-                max={20}
-                color="bg-emerald-400"
-                href="/admin/repayments"
-              />
-              <ProgressItem
-                label="สลิปฝากหุ้นรอตรวจ"
-                value={stats.pendingDeposits}
-                max={20}
-                color="bg-sky-400"
-                href="/admin/deposits"
-              />
-            </div>
+          <div className="space-y-6">
+            <QuickTask label="คำขอกู้รออนุมัติ" count={stats.pendingLoans} href="/admin/loans" color="bg-amber-400" />
+            <QuickTask label="สลิปผ่อนหนี้รอตรวจ" count={stats.pendingRepayments} href="/admin/repayments" color="bg-emerald-400" />
+            <QuickTask label="สลิปฝากหุ้นรอตรวจ" count={stats.pendingDeposits} href="/admin/deposits" color="bg-sky-400" />
           </div>
 
-          <div className="mt-12">
-            <Link
-              href="/admin/fund-accounting"
-              className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-3 border border-white/10 group"
-            >
-              ดูบัญชีกองทุน <ArrowUpRight size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-            </Link>
+          <div className="mt-12 pt-8 border-t border-white/5 space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4">Quick Navigation</p>
+            <div className="grid grid-cols-2 gap-3">
+              <NavButton label="Members" icon={<Users size={16} />} href="/admin/members" />
+              <NavButton label="Shares" icon={<Wallet size={16} />} href="/admin/shares" />
+              <NavButton label="Accounting" icon={<HandCoins size={16} />} href="/admin/fund-accounting" />
+              <NavButton label="Settings" icon={<Settings2 size={16} />} href="/admin/settings" />
+            </div>
           </div>
         </div>
       </div>
@@ -460,60 +385,47 @@ export default function AdminDashboardPage() {
   );
 }
 
-// --- Sub-components for cleaner code ---
-
-function StatCard({ label, value, sub, icon, color, trend, className = "", isCurrency = false }: any) {
-  const colorMap: any = {
-    blue: "bg-blue-100 text-blue-600 bg-opacity-50",
-    amber: "bg-amber-100 text-amber-600 bg-opacity-50",
-    emerald: "bg-emerald-100 text-emerald-600 bg-opacity-50",
+function BankStatCard({ label, value, sub, icon, color }: any) {
+  const colorStyles: any = {
+    emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    blue: "bg-blue-50 text-blue-600 border-blue-100",
+    amber: "bg-amber-50 text-amber-600 border-amber-100",
+    indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
   };
 
   return (
-    <div className={`bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 group hover:shadow-xl hover:shadow-slate-200/50 transition-all relative overflow-hidden ${className}`}>
-      <div className="relative z-10 flex flex-col justify-between h-full">
-        <div className="flex justify-between items-start mb-6">
-          <div className={`w-14 h-14 rounded-2xl ${colorMap[color]} flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500`}>
-            {icon}
-          </div>
-          {trend && (
-            <div className={`flex items-center gap-1 font-black text-[10px] px-2 py-1 rounded-lg ${trend === 'up' ? 'text-rose-500 bg-rose-50' : 'text-emerald-500 bg-emerald-50'}`}>
-              {trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-              {trend === 'up' ? 'HIGH' : 'LOW'}
-            </div>
-          )}
-        </div>
-        <div className="space-y-1">
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{label}</p>
-          <div className="flex items-baseline gap-2">
-            <p className="text-3xl font-black text-slate-800 tracking-tighter">
-              {value}
-            </p>
-          </div>
-          <p className="text-xs font-bold text-slate-400 mt-1">{sub}</p>
-        </div>
+    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 border ${colorStyles[color]} group-hover:scale-110 transition-transform duration-500`}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-2xl font-black text-slate-800 tracking-tighter">{value}</p>
+        <p className="text-[10px] font-bold text-slate-400 mt-1">{sub}</p>
       </div>
     </div>
   );
 }
 
-function ProgressItem({ label, value, max, color, href }: any) {
-  const percentage = Math.min((value / max) * 100, 100);
+function QuickTask({ label, count, href, color }: any) {
   return (
-    <div>
-      <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.15em] mb-3">
-        <span className="text-slate-400">{label}</span>
-        <span className={value > 0 ? "text-white" : "text-slate-600"}>
-          {value} <span className="opacity-40">/ {max}</span>
-        </span>
+    <Link href={href} className="block group">
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 group-hover:text-white transition-colors">{label}</span>
+        <span className="text-xs font-black">{count} รายการ</span>
       </div>
-      <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
-        <div
-          className={`${color} h-2 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.1)]`}
-          style={{ width: `${percentage}%` }}
-        ></div>
+      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+        <div className={`h-full ${color} transition-all duration-1000`} style={{ width: `${Math.min((count / 10) * 100, 100)}%` }}></div>
       </div>
-      <Link href={href} className="text-[9px] font-black text-slate-500 hover:text-sky-400 mt-2 block text-right tracking-widest uppercase transition-colors">GO TO VIEW →</Link>
-    </div>
+    </Link>
+  );
+}
+
+function NavButton({ label, icon, href }: any) {
+  return (
+    <Link href={href} className="p-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl flex flex-col items-center gap-2 transition-all">
+      <div className="text-slate-400">{icon}</div>
+      <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+    </Link>
   );
 }

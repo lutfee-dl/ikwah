@@ -3,6 +3,31 @@ import React from "react";
 import { User, Phone, IdCard, ShieldCheck, IdCardLanyard } from "lucide-react";
 import { useMemberData } from "@/hooks/useMemberData";
 import Image from "next/image";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+const ProfileSkeleton = () => (
+  <div className="animate-pulse max-w-md mx-auto pb-24">
+    <div className="text-center mb-8 flex flex-col items-center">
+      <Skeleton className="w-24 h-24 rounded-full bg-slate-100" />
+      <Skeleton className="h-6 w-40 mt-4 bg-slate-100" />
+      <Skeleton className="h-6 w-24 mt-2 rounded-full bg-slate-100" />
+    </div>
+    <div className="space-y-4">
+      <Skeleton className="h-4 w-24 ml-1 bg-slate-100 rounded-full" />
+      <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="flex items-center gap-4 p-4 border-b border-slate-50">
+            <Skeleton className="w-9 h-9 rounded-xl bg-slate-100" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-16 bg-slate-100 rounded-full" />
+              <Skeleton className="h-4 w-32 bg-slate-100 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 interface InfoItemProps {
   icon: React.ReactNode;
@@ -39,16 +64,7 @@ function InfoItem({ icon, label, value, color, last = false }: InfoItemProps) {
 export default function ProfilePage() {
   const { memberData, isLoading } = useMemberData();
 
-  if (isLoading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto"></div>
-          <p className="mt-4 text-slate-500 text-sm">กำลังโหลดข้อมูลโปรไฟล์...</p>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <ProfileSkeleton />;
 
   const member = memberData || {
     memberNo: "IKW00000000",

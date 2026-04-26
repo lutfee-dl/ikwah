@@ -15,8 +15,10 @@ import {
   X,
   ChevronDown,
   SearchX,
-  Calendar
+  Calendar,
+  ChevronRight
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type Transaction = {
   type: "deposit" | "repayment";
@@ -35,6 +37,32 @@ const MONTHS = [
   "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
   "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
 ];
+
+const HistorySkeleton = () => (
+  <div className="animate-pulse space-y-4">
+    {[...Array(5)].map((_, i) => (
+      <div key={i} className="bg-white rounded-[20px] p-4 border border-slate-100 shadow-sm space-y-4">
+        <div className="flex gap-3 items-center">
+          <Skeleton className="w-11 h-11 rounded-xl bg-slate-100" />
+          <div className="flex-1 space-y-2">
+            <div className="flex justify-between">
+              <Skeleton className="h-4 w-24 bg-slate-100" />
+              <Skeleton className="h-5 w-20 bg-slate-100" />
+            </div>
+            <Skeleton className="h-3 w-32 bg-slate-100" />
+          </div>
+        </div>
+        <div className="pt-3 border-t border-slate-50 flex justify-between items-center">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-20 bg-slate-100" />
+            <Skeleton className="h-2 w-16 bg-slate-100" />
+          </div>
+          <Skeleton className="h-8 w-20 rounded-lg bg-slate-100" />
+        </div>
+      </div>
+    ))}
+  </div>
+);
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -201,10 +229,7 @@ export default function HistoryPage() {
       {/* Transaction List Area */}
       <div className="mt-2">
         {isLoading ? (
-          <div className="py-20 text-center">
-            <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-400 text-sm font-bold">กำลังโหลดข้อมูล...</p>
-          </div>
+          <HistorySkeleton />
         ) : filteredData.length === 0 ? (
           <div className="py-16 text-center bg-white rounded-2xl border border-slate-100">
             <SearchX size={40} className="mx-auto text-slate-200 mb-3" />

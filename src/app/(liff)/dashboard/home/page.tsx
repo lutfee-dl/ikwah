@@ -3,8 +3,39 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMemberData } from "@/hooks/useMemberData";
-import { BanknoteArrowDown, Eye, EyeOff, Send, Search } from "lucide-react";
+import { BanknoteArrowDown, Eye, EyeOff, Send, Search, History } from "lucide-react";
 import { ASSETS } from "@/config";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+const DashboardSkeleton = () => (
+  <div className="animate-pulse max-w-md mx-auto">
+    {/* Card Skeleton */}
+    <div className="bg-slate-100 rounded-[2rem] p-6 mb-8 h-56 flex flex-col justify-between relative overflow-hidden">
+      <div className="flex justify-between items-start">
+        <Skeleton className="h-4 w-24 bg-slate-200" />
+        <Skeleton className="h-8 w-20 rounded-full bg-slate-200" />
+      </div>
+      <div className="flex flex-col items-center gap-3 mb-4">
+        <Skeleton className="h-4 w-40 bg-slate-200" />
+        <Skeleton className="h-10 w-48 bg-slate-200" />
+        <Skeleton className="h-3 w-12 bg-slate-200" />
+      </div>
+    </div>
+
+    {/* Menu Skeleton */}
+    <div className="px-0.5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="w-1.5 h-5 rounded-full bg-slate-200" />
+        <Skeleton className="h-5 w-24 bg-slate-200" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {[...Array(4)].map((_, i) => (
+          <Skeleton key={i} className="h-32 rounded-2xl bg-slate-100" />
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -13,12 +44,14 @@ export default function DashboardPage() {
   // 3. สร้าง state สำหรับเปิด/ปิดยอดเงิน (เริ่มต้นเป็น false)
   const [isVisible, setIsVisible] = useState(false);
 
+  if (isLoading) return <DashboardSkeleton />;
+
   const numberFormat = new Intl.NumberFormat("th-TH", {
     minimumFractionDigits: 2,
   });
 
   const displayBalance = memberData?.accumulatedShares ?? 0;
-  const displayAccountName = memberData?.fullName ?? "กำลังโหลด...";
+  const displayAccountName = memberData?.fullName ?? "ไม่ได้ระบุชื่อ";
 
   return (
     <div className="animate-[fadeIn_0.3s] max-w-md mx-auto">
@@ -64,27 +97,22 @@ export default function DashboardPage() {
         </div>
 
         <div className="mb-4 text-center relative z-10">
-          {isLoading ? (
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-white border-t-transparent mx-auto my-4"></div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <div className="space-y-1">
-                <p className="text-blue-100 text-sm font-bold uppercase opacity-80">
-                  ชื่อบัญชี {displayAccountName}
-                </p>
+          <div className="flex flex-col gap-4">
+            <div className="space-y-1">
+              <p className="text-blue-100 text-sm font-bold uppercase opacity-80">
+                ชื่อบัญชี {displayAccountName}
+              </p>
 
-                {/* แสดงยอดเงินหรือจุดไข่ปลา */}
-                <h2 className="text-4xl font-black tracking-tight min-h-[48px] flex items-center justify-center">
-                  {isVisible ? numberFormat.format(displayBalance) : "••••••"}
-                </h2>
+              {/* แสดงยอดเงินหรือจุดไข่ปลา */}
+              <h2 className="text-4xl font-black tracking-tight min-h-[48px] flex items-center justify-center">
+                {isVisible ? numberFormat.format(displayBalance) : "••••••"}
+              </h2>
 
-                <p className="text-blue-100 text-xs font-medium uppercase tracking-wide opacity-60">
-                  THB
-                </p>
-              </div>
-
+              <p className="text-blue-100 text-xs font-medium uppercase tracking-wide opacity-60">
+                THB
+              </p>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
@@ -101,7 +129,6 @@ export default function DashboardPage() {
             className="cursor-pointer group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:bg-sky-50 transition-all hover:bg-gray-50"
           >
             <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
-              {/* <i className="fas fa-file-invoice-dollar text-lg"></i> */}
               <Send size={24} />
             </div>
             <p className="font-bold text-sm text-slate-700">แจ้งฝาก/ชำระเงิน</p>
@@ -122,7 +149,6 @@ export default function DashboardPage() {
             className="cursor-pointer group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:bg-violet-50 transition-all hover:bg-gray-50"
           >
             <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
-              {/* <i className="fas fa-search-dollar text-lg"></i> */}
               <Search size={24} />
             </div>
             <p className="font-bold text-sm text-slate-700">ตรวจสอบสินเชื่อ</p>
@@ -133,7 +159,7 @@ export default function DashboardPage() {
             className="cursor-pointer group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:bg-slate-50 transition-all hover:bg-gray-50"
           >
             <div className="w-10 h-10 bg-slate-50 text-slate-500 rounded-full flex items-center justify-center group-active:scale-90 transition-transform">
-              <i className="fas fa-history text-lg"></i>
+              <History size={24} />
             </div>
             <p className="font-bold text-sm text-slate-700">ประวัติธุรกรรม</p>
           </button>
