@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  Settings as SettingsIcon, 
-  Save, 
-  Database, 
-  Download, 
-  FolderOpen, 
-  ShieldCheck, 
-  RefreshCw, 
+import {
+  Settings as SettingsIcon,
+  Save,
+  Database,
+  Download,
+  FolderOpen,
+  ShieldCheck,
+  RefreshCw,
   ExternalLink,
   FileSpreadsheet,
   Users,
@@ -39,12 +39,15 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       const res = await gasApi.call("admin_get_settings", {});
-      if (res.success) {
+      if (res.success && res.settings) {
         setSettings(resultToSettings(res.settings));
-        setNewFolderId(res.settings.rootFolderId);
+        setNewFolderId(res.settings.rootFolderId || "");
+      } else {
+        toast.error(res.msg || "ไม่สามารถดึงข้อมูลการตั้งค่าได้");
       }
-    } catch (err) {
-      toast.error("ดึงข้อมูลการตั้งค่าไม่สำเร็จ");
+    } catch (err: any) {
+      console.error("Fetch Settings Error:", err);
+      toast.error("การเชื่อมต่อล้มเหลว: " + (err.message || "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -183,13 +186,13 @@ export default function SettingsPage() {
             </div>
             <h2 className="font-bold text-slate-800">โฟลเดอร์หลักบน Google Drive</h2>
           </div>
-          
+
           <div className="space-y-4 flex-1">
             <p className="text-xs text-slate-500 leading-relaxed">
-              ID ของโฟลเดอร์หลักที่ใช้เก็บสลิปและไฟล์ Backup ของระบบ <br/>
+              ID ของโฟลเดอร์หลักที่ใช้เก็บสลิปและไฟล์ Backup ของระบบ <br />
               <span className="text-rose-500 font-bold">* โปรดระมัดระวังในการแก้ไข</span>
             </p>
-            <input 
+            <input
               type="text"
               value={newFolderId}
               onChange={(e) => setNewFolderId(e.target.value)}
@@ -216,7 +219,7 @@ export default function SettingsPage() {
             </div>
             <h2 className="font-bold text-slate-800">ความปลอดภัยของข้อมูล</h2>
           </div>
-          
+
           <div className="space-y-4 flex-1">
             <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
               <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs mb-1">
@@ -247,7 +250,7 @@ export default function SettingsPage() {
         <div className="absolute top-0 right-0 p-8 opacity-5">
           <Download size={120} />
         </div>
-        
+
         <div className="flex items-center gap-3 mb-8">
           <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600">
             <FileSpreadsheet size={24} />
@@ -259,7 +262,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <button 
+          <button
             onClick={() => exportToCSV("members")}
             className="flex flex-col items-center gap-4 p-6 rounded-3xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-50 transition-all group"
           >
@@ -272,7 +275,7 @@ export default function SettingsPage() {
             </div>
           </button>
 
-          <button 
+          <button
             onClick={() => exportToCSV("shares")}
             className="flex flex-col items-center gap-4 p-6 rounded-3xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-50 transition-all group"
           >
@@ -285,7 +288,7 @@ export default function SettingsPage() {
             </div>
           </button>
 
-          <button 
+          <button
             onClick={() => exportToCSV("repayments")}
             className="flex flex-col items-center gap-4 p-6 rounded-3xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-amber-200 hover:shadow-xl hover:shadow-amber-50 transition-all group"
           >
@@ -316,9 +319,9 @@ export default function SettingsPage() {
           </div>
           <div className="flex justify-between items-center text-sm">
             <span className="text-slate-500">Google Spreadsheet URL</span>
-            <a 
-              href={settings?.spreadsheetUrl} 
-              target="_blank" 
+            <a
+              href={settings?.spreadsheetUrl}
+              target="_blank"
               className="text-indigo-600 font-bold hover:underline flex items-center gap-1"
             >
               เปิดไฟล์ชีทต้นฉบับ <ExternalLink size={12} />
