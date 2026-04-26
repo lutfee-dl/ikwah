@@ -42,8 +42,9 @@ function RootPageContent() {
                 localStorage.setItem("memberData", JSON.stringify(res.profileData));
               }
 
-              if (targetPage === "upload") {
-                router.push("/dashboard/upload");
+              const validPages = ["upload", "history", "loan", "loans", "profile"];
+              if (targetPage && validPages.includes(targetPage)) {
+                router.push(`/dashboard/${targetPage}`);
               } else {
                 router.push("/dashboard/home");
               }
