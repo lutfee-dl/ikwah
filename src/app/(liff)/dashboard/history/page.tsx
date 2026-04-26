@@ -58,7 +58,11 @@ export default function HistoryPage() {
       }
       const res = await gasApi.getHistory(token);
       if (res.success) {
-        setTransactions(res.data || []);
+        // เรียงลำดับจากใหม่ไปเก่า (Latest first) โดยไม่สนประเภท
+        const sortedData = (res.data || []).sort((a: Transaction, b: Transaction) => {
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+        setTransactions(sortedData);
       } else {
         setError(res.msg || "ไม่สามารถดึงข้อมูลได้");
       }
