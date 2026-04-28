@@ -61,6 +61,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [integrityReport, setIntegrityReport] = useState<{ isHealthy: boolean; issueCount: number; issues: any[]; contractIssues?: any[] } | null>(null);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [isAutoSyncing, setIsAutoSyncing] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
     fetchPendingCounts();
     fetchIntegrityReport();
-    
+
     const interval = setInterval(() => {
       fetchPendingCounts();
       fetchIntegrityReport();
@@ -94,23 +95,32 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (integrityReport && !integrityReport.isHealthy && integrityReport.issueCount > 0 && !isAutoSyncing) {
-      handleAutoSync();
-    }
-  }, [integrityReport]);
+  // 🛡️ ลบระบบ Auto-Sync อัตโนมัติออก เพื่อป้องกันการติดลูปหากสูตรในชีทไม่ตรงกัน
+  // ให้แอดมินเป็นคนตัดสินใจกดซิงค์เองผ่านเมนูรายละเอียด
 
   const handleAutoSync = async () => {
+    console.time("AutoSync-Total");
+    console.log("🚀 [AutoSync] Starting auto-sync process...");
     setIsAutoSyncing(true);
     try {
+      console.time("AutoSync-SyncBalances");
+      console.log("⏳ [AutoSync] Calling admin_sync_all_balances...");
       await gasApi.call("admin_sync_all_balances", {});
+      console.timeEnd("AutoSync-SyncBalances");
+
+      console.time("AutoSync-RebuildSummary");
+      console.log("⏳ [AutoSync] Calling admin_rebuild_summary...");
       await gasApi.call("admin_rebuild_summary", {});
+      console.timeEnd("AutoSync-RebuildSummary");
+
       toast.success("ปรับปรุงยอดเงินอัตโนมัติสำเร็จ");
       fetchIntegrityReport();
     } catch (err) {
-      console.error("Auto-sync failed:", err);
+      console.error("❌ [AutoSync] Auto-sync failed:", err);
     } finally {
       setIsAutoSyncing(false);
+      console.timeEnd("AutoSync-Total");
+      console.log("✅ [AutoSync] Auto-sync process finished.");
     }
   };
 
@@ -126,20 +136,26 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   const fetchIntegrityReport = async () => {
+    console.time("IntegrityCheck");
+    console.log("🔍 [Integrity] Checking system health...");
     try {
       const res = await gasApi.call("admin_run_integrity_check", {});
+      console.timeEnd("IntegrityCheck");
       if (res && res.success) {
         const reportData = res.data || res;
+        const totalIssues = (reportData.issues?.length || 0) + (reportData.contractIssues?.length || 0);
+        console.log(`📊 [Integrity] Health: ${reportData.isHealthy ? 'Healthy' : 'Issues found'}, Issues: ${totalIssues}`);
         setIntegrityReport({
           isHealthy: reportData.isHealthy,
-          issueCount: (reportData.issues?.length || 0) + (reportData.contractIssues?.length || 0),
+          issueCount: totalIssues,
           issues: reportData.issues || [],
           contractIssues: reportData.contractIssues || []
         });
         setLastChecked(new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }));
       }
     } catch (err) {
-      console.error("Error fetching integrity report:", err);
+      console.timeEnd("IntegrityCheck");
+      console.error("❌ [Integrity] Error fetching integrity report:", err);
     }
   };
 
@@ -162,7 +178,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     try {
       await gasApi.call("admin_sync_all_balances", {});
       await gasApi.call("admin_rebuild_summary", {});
-      
+
       toast.success("ซิงค์ข้อมูลสำเร็จ! ข้อมูลทุกคนได้รับการอัปเดตแล้ว", { id: tid });
       fetchIntegrityReport();
     } catch (error) {
@@ -367,21 +383,130 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <div className="bg-rose-600 text-white rounded-2xl p-4 shadow-lg shadow-rose-200 flex flex-col sm:flex-row items-center justify-between gap-4 border border-rose-500">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-md shrink-0">
-                      {isAutoSyncing ? <Loader2 size={20} className="text-rose-100 animate-spin" /> : <Zap size={20} className="text-rose-100 animate-pulse" />}
+                      {isAutoSyncing ? <Loader2 size={20} className="text-rose-100 animate-spin" /> : <AlertCircle size={20} className="text-rose-100 animate-pulse" />}
                     </div>
                     <div>
                       <p className="text-sm font-black tracking-tight leading-none uppercase">
-                        {isAutoSyncing ? "กำลังปรับปรุงข้อมูลให้ถูกต้องอัตโนมัติ..." : "System Data Inconsistency!"}
+                        {isAutoSyncing ? "กำลังปรับปรุงข้อมูล..." : "พบความไม่สอดคล้องของข้อมูล!"}
                       </p>
                       <p className="text-[11px] text-rose-100 font-bold mt-1 opacity-90">
                         พบความผิดปกติของยอดเงินสมาชิก {integrityReport?.issueCount || 0} รายการ
                       </p>
                     </div>
                   </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => setIsDetailsOpen(true)}
+                      className="flex-1 sm:flex-none px-4 py-2 bg-white text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-50 transition-all shadow-sm"
+                    >
+                      View Details
+                    </button>
+                    <button
+                      onClick={handleSyncAllBalances}
+                      disabled={isAutoSyncing}
+                      className="flex-1 sm:flex-none px-4 py-2 bg-rose-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-800 transition-all border border-rose-500 disabled:opacity-50"
+                    >
+                      {isAutoSyncing ? "Syncing..." : "Sync Now"}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
-            
+
+            {/* --- Integrity Details Modal --- */}
+            {isDetailsOpen && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-white rounded-[2.5rem] w-full max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col border border-slate-200">
+                  <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div>
+                      <h2 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                        <AlertTriangle className="text-rose-500" /> รายละเอียดความผิดปกติ
+                      </h2>
+                      <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-widest">Data Discrepancy Report</p>
+                    </div>
+                    <button onClick={() => setIsDetailsOpen(false)} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-8 no-scrollbar space-y-8">
+                    {/* Contract Issues */}
+                    {integrityReport?.contractIssues && integrityReport.contractIssues.length > 0 && (
+                      <div className="space-y-4">
+                        <h3 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] px-2">Contract Discrepancies ({integrityReport.contractIssues.length})</h3>
+                        <div className="grid gap-3">
+                          {integrityReport.contractIssues.map((c: any, idx: number) => (
+                            <div key={idx} className="bg-rose-50/50 border border-rose-100 p-4 rounded-2xl flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center font-black text-rose-600 text-xs">#{idx + 1}</div>
+                                <div>
+                                  <p className="font-black text-slate-800 text-sm">เลขที่สัญญา: {c.contractId}</p>
+                                  <p className="text-[10px] text-rose-500 font-bold uppercase tracking-wider mt-0.5">ส่วนต่างจากการคำนวณ: ฿{c.diff.toLocaleString()}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Member Issues */}
+                    {integrityReport?.issues && integrityReport.issues.length > 0 && (
+                      <div className="space-y-4">
+                        <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] px-2">Member Balance Issues ({integrityReport.issues.length})</h3>
+                        <div className="overflow-hidden border border-slate-100 rounded-3xl bg-white shadow-sm">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                <th className="px-6 py-4">สมาชิก</th>
+                                <th className="px-6 py-4">ยอดในชีท (B)</th>
+                                <th className="px-6 py-4">ยอดคำนวณ (A)</th>
+                                <th className="px-6 py-4">ยอดสูตร (C)</th>
+                                <th className="px-6 py-4 text-right">ส่วนต่างสูงสุด</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {integrityReport.issues.map((issue: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-6 py-4">
+                                    <p className="font-black text-slate-800 text-xs">{issue.fullName}</p>
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{issue.memberId}</p>
+                                  </td>
+                                  <td className="px-6 py-4 font-bold text-slate-600 text-xs">฿{issue.shares.stored.toLocaleString()}</td>
+                                  <td className="px-6 py-4 font-bold text-blue-600 text-xs">฿{issue.shares.calculated.toLocaleString()}</td>
+                                  <td className="px-6 py-4 font-bold text-emerald-600 text-xs">฿{(issue.shares.formula || 0).toLocaleString()}</td>
+                                  <td className="px-6 py-4 text-right">
+                                    <span className="bg-rose-100 text-rose-600 px-2 py-1 rounded-lg text-[10px] font-black">
+                                      ฿{issue.shares.diff.toLocaleString()}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                    <p className="text-[10px] text-slate-400 font-bold leading-relaxed max-w-md">
+                      ⚠️ ระบบใช้การเปรียบเทียบข้อมูล 3 แหล่ง (A: คำนวณดิบ, B: ยอดบันทึก, C: สูตรในชีท) หากตัวเลขไม่ตรงกัน แนะนำให้กด Sync เพื่อปรับปรุงยอด B ให้ตรงกับ A ครับ
+                    </p>
+                    <button
+                      onClick={() => {
+                        setIsDetailsOpen(false);
+                        handleSyncAllBalances();
+                      }}
+                      className="px-8 py-4 bg-blue-600 text-white text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-200"
+                    >
+                      Start Repairing Data
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="animate-in fade-in slide-in-from-top-1 duration-700 ease-out">
               {children}
             </div>
