@@ -108,32 +108,6 @@ export default function AdminDashboardPage() {
     fetchStats();
   }, []);
 
-  const handleSyncAll = async () => {
-    const result = await Swal.fire({
-      title: 'เริ่มการซิงค์ข้อมูล?',
-      text: "ระบบจะคำนวณยอดเงินคงเหลือของทุกคนใหม่เพื่อให้ตรงกับสลิปจริง",
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'เริ่มซิงค์เลย',
-      cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#10b981',
-    });
-
-    if (!result.isConfirmed) return;
-
-    setIsSyncing(true);
-    toast.loading("กำลังอัปเดตข้อมูล...", { id: "sync-stats" });
-    try {
-      await gasApi.call("admin_sync_all_balances", {});
-      await gasApi.call("admin_rebuild_summary", {});
-      toast.success("ซิงค์ข้อมูลทั้งระบบสำเร็จ!", { id: "sync-stats" });
-      await fetchStats();
-    } catch (error: any) {
-      toast.error("เกิดข้อผิดพลาดในการซิงค์", { id: "sync-stats" });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handleRunAudit = async () => {
     setIsAuditing(true);
@@ -203,9 +177,6 @@ export default function AdminDashboardPage() {
             <div className="flex gap-2 mt-4">
               <button onClick={handleRunAudit} className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black transition-all flex items-center gap-2">
                 <ShieldCheck size={14} className="text-emerald-400" /> AUDIT SYSTEM
-              </button>
-              <button onClick={handleSyncAll} className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-900 rounded-2xl text-[10px] font-black transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
-                <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} /> RE-SYNC ALL
               </button>
             </div>
           </div>

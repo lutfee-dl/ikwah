@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
-import { Search, X, XCircle, Receipt, CheckCircle, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, FileClock, AlertCircle, Eye, CheckCircle2, ChevronLeft, ChevronRight, Save, RotateCw, Calculator } from "lucide-react";
+import { Search, X, XCircle, Receipt, CheckCircle, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, FileClock, AlertCircle, Eye, CheckCircle2, ChevronLeft, ChevronRight, Save, RotateCw, UserCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { NumericFormat } from "react-number-format";
 import Swal from "sweetalert2";
@@ -13,6 +13,8 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { gasApi } from "@/services/gasApi";
+import { useAdminMembers } from "@/hooks/useAdminMembers";
+import { Member } from "@/types";
 
 type RepaymentSlip = {
   id: string;
@@ -28,6 +30,7 @@ type RepaymentSlip = {
   actualTime?: string;
   approvedBy?: string;
   note?: string;
+  memberId?: string;
   [key: string]: any;
 };
 
@@ -63,6 +66,16 @@ export default function RepaymentsPage() {
     direction: "asc"
   });
 
+  // Member lookup
+  const { members } = useAdminMembers();
+  const membersMap = useMemo(() => {
+    const map = new Map<string, Member>();
+    members.forEach(m => {
+      if (m.lineId) map.set(m.lineId, m);
+    });
+    return map;
+  }, [members]);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -71,7 +84,6 @@ export default function RepaymentsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const [selectedContractId, setSelectedContractId] = useState("");
   const [editAmount, setEditAmount] = useState(0);
@@ -159,15 +171,19 @@ export default function RepaymentsPage() {
   const filteredAndSortedRepayments = useMemo(() => {
     if (!Array.isArray(repayments)) return [];
 
-    // 1. Filter
     const result = repayments.filter((r) => {
       const matchStatus = filterStatus === "all" || r.status === filterStatus;
-      const matchSearch = (r.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (r.id || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const member = membersMap.get(r.lineId || "");
+      const fullName = (member?.fullName || r.name || "").toLowerCase();
+      const memberId = (r.memberId || member?.memberId || "").toLowerCase();
+      const query = searchQuery.toLowerCase();
+      
+      const matchSearch = fullName.includes(query) || 
+                          (r.id || "").toLowerCase().includes(query) ||
+                          memberId.includes(query);
       return matchStatus && matchSearch;
     });
 
-    // 2. Sort
     result.sort((a, b) => {
       let valA: string | number = a[sortConfig.column];
       let valB: string | number = b[sortConfig.column];
@@ -183,9 +199,8 @@ export default function RepaymentsPage() {
     });
 
     return result;
-  }, [repayments, filterStatus, searchQuery, sortConfig]);
+  }, [repayments, filterStatus, searchQuery, sortConfig, membersMap]);
 
-  // Paginated Data
   const paginatedRepayments = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredAndSortedRepayments.slice(startIndex, startIndex + itemsPerPage);
@@ -193,7 +208,6 @@ export default function RepaymentsPage() {
 
   const totalPages = Math.ceil(filteredAndSortedRepayments.length / itemsPerPage);
 
-  // Reset page when filter or search changes
   useEffect(() => {
     setCurrentPage(1);
   }, [filterStatus, searchQuery, itemsPerPage]);
@@ -222,14 +236,8 @@ export default function RepaymentsPage() {
     }, { pendingAmount: 0, pendingCount: 0, approvedToday: 0, totalApproved: 0 });
   }, [repayments]);
 
-  const memberActiveContracts = useMemo(() => {
-    if (!selectedPay) return [];
-    return contracts.filter(c => c.lineId === selectedPay.lineId && c.status === "กำลังผ่อน");
-  }, [selectedPay, contracts]);
-
   const handleApprove = async () => {
     if (!selectedPay) return;
-
     if (!selectedContractId) {
       toast.error("กรุณาเลือกสัญญาที่ต้องการตัดยอด");
       return;
@@ -242,7 +250,7 @@ export default function RepaymentsPage() {
       showCancelButton: true,
       confirmButtonText: 'ยืนยันอนุมัติ',
       cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#3b82f6', // sky-500
+      confirmButtonColor: '#4f46e5',
     });
 
     if (!confirmResult.isConfirmed) return;
@@ -274,7 +282,6 @@ export default function RepaymentsPage() {
 
   const handleReject = async () => {
     if (!selectedPay) return;
-
     const confirmResult = await Swal.fire({
       title: 'ยืนยันการปฏิเสธ?',
       text: 'คุณต้องการปฏิเสธสลิปชำระเงินนี้ใช่หรือไม่?',
@@ -282,7 +289,7 @@ export default function RepaymentsPage() {
       showCancelButton: true,
       confirmButtonText: 'ยืนยันปฏิเสธ',
       cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#ef4444', // rose-500
+      confirmButtonColor: '#ef4444',
     });
 
     if (!confirmResult.isConfirmed) return;
@@ -292,7 +299,7 @@ export default function RepaymentsPage() {
       const res = await gasApi.call("admin_update_loan_repayment", {
         depositId: selectedPay.id,
         status: "rejected",
-        adminName: adminName // ส่งชื่อแอดมินไปบันทึก Log
+        adminName: adminName
       });
       if (res.success) {
         toast.success("ปฏิเสธสลิปเรียบร้อย");
@@ -309,31 +316,36 @@ export default function RepaymentsPage() {
     }
   };
 
-  const handleRecalculate = async () => {
-    const confirmResult = await Swal.fire({
-      title: 'คำนวณยอดหนี้ใหม่?',
-      text: 'ระบบจะไล่ตรวจสอบรายการอนุมัติทั้งหมดเพื่อปรับปรุงยอดคงเหลือในสัญญาให้ถูกต้อง คุณต้องการดำเนินการใช่หรือไม่?',
-      icon: 'info',
+  const handleReopen = async () => {
+    if (!selectedPay) return;
+    const result = await Swal.fire({
+      title: 'เปลี่ยนสถานะใหม่?',
+      text: 'ระบบจะเปลี่ยนสถานะกลับเป็น "รอตรวจสลิป" เพื่อดำเนินการอีกครั้ง',
+      icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'ยืนยัน',
-      cancelButtonText: 'ยกเลิก'
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#f59e0b',
     });
-
-    if (!confirmResult.isConfirmed) return;
-
-    setIsRecalculating(true);
+    if (!result.isConfirmed) return;
+    setIsUpdating(true);
     try {
-      const res = await gasApi.call("admin_recalculate_loans", {});
+      const res = await gasApi.call('admin_update_loan_repayment', {
+        depositId: selectedPay.id,
+        status: 'pending',
+        adminName: adminName
+      });
       if (res.success) {
-        Swal.fire("สำเร็จ", res.msg, "success");
-        fetchContracts();
+        toast.success('เปลี่ยนสถานะเรียบร้อย');
+        fetchRepaymentSlips();
+        setIsModalOpen(false);
       } else {
-        toast.error(res.msg || "เกิดข้อผิดพลาด");
+        toast.error(res.msg || 'เกิดข้อผิดพลาด');
       }
     } catch (err) {
-      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้");
+      toast.error('ติดต่อเซิร์ฟเวอร์ไม่ได้');
     } finally {
-      setIsRecalculating(false);
+      setIsUpdating(false);
     }
   };
 
@@ -341,8 +353,6 @@ export default function RepaymentsPage() {
     setSelectedPay(pay);
     setEditAmount(pay.amount);
     setSelectedContractId(pay.contractId || "");
-
-    // พยายามดึงข้อมูลสลิป
     setSlipTime(pay.actualTime || "");
     setSlipSender("");
     setSlipReceiver("");
@@ -350,25 +360,20 @@ export default function RepaymentsPage() {
     if (pay.aiData) {
       try {
         const ai = JSON.parse(pay.aiData);
-        // ดึงจาก QR Data (แม่นยำกว่า)
         if (ai.qr_data) {
           if (ai.qr_data.transTime) setSlipTime(ai.qr_data.transTime);
           if (ai.qr_data.sender && ai.qr_data.sender.name) setSlipSender(ai.qr_data.sender.name);
           if (ai.qr_data.receiver && ai.qr_data.receiver.name) setSlipReceiver(ai.qr_data.receiver.name);
-        }
-        // ดึงจาก OCR Data (ถ้าไม่มี QR)
-        else if (ai.ocr_data) {
+        } else if (ai.ocr_data) {
           if (ai.ocr_data.time) setSlipTime(ai.ocr_data.time);
           if (ai.ocr_data.sender) setSlipSender(ai.ocr_data.sender);
           if (ai.ocr_data.receiver) setSlipReceiver(ai.ocr_data.receiver);
         }
-
         if (ai.amount && !pay.amount) setEditAmount(Number(ai.amount));
       } catch (e) {
         console.error("AI Data parse error", e);
       }
     }
-
     setIsModalOpen(true);
   };
 
@@ -381,99 +386,79 @@ export default function RepaymentsPage() {
 
   return (
     <div className="space-y-6 relative">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      <div className="flex justify-between items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-800">ตรวจสอบชำระค่างวด</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            ตรวจสลิปยืนยันการจ่ายค่างวดสินเชื่อของสมาชิก
-          </p>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+            ตรวจสอบชำระค่างวด
+            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold border border-indigo-100 uppercase tracking-wider">
+              <Receipt size={14} /> ระบบสินเชื่อ
+            </span>
+          </h1>
+          <p className="text-slate-500 text-sm md:text-sm font-medium mt-0.5">ตรวจสลิปยืนยันการจ่ายค่างวดสินเชื่อของสมาชิก</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleRecalculate}
-            disabled={isRecalculating}
-            className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all hover:border-blue-300 hover:text-blue-600 shadow-sm disabled:opacity-50"
-            title="คำนวณยอดหนี้ใหม่ทั้งหมดจากข้อมูลสลิป"
-          >
-            <Calculator size={16} className={isRecalculating ? "animate-bounce" : ""} />
-            <span className="hidden sm:inline">{isRecalculating ? "กำลังคำนวณ..." : "คำนวณยอดใหม่"}</span>
-          </button>
 
-          <button
-            onClick={fetchRepaymentSlips}
-            className="group flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all hover:border-slate-300 shadow-sm"
-          >
-            <RotateCw size={16} className={`${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
-            <span className="hidden sm:inline">รีเฟรชข้อมูล</span>
-          </button>
-        </div>
+        <button
+          onClick={fetchRepaymentSlips}
+          className="group flex items-center justify-center gap-2 bg-white border border-slate-200 px-3 md:px-4 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all hover:border-slate-300 shadow-sm"
+        >
+          <RotateCw
+            size={16}
+            className={`${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`}
+          />
+          <span className="hidden md:inline">รีเฟรชข้อมูล</span>
+        </button>
       </div>
 
-      {/* 2. SUMMARY CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Pending Amount */}
-        <div className="bg-white border-2 border-amber-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-          <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
-            <Receipt size={100} className="text-amber-500" />
+      {/* Stats - Compact Style */}
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="col-span-2 md:col-span-1 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-4 text-white shadow-md relative overflow-hidden group">
+          <div className="absolute -top-2 -right-2 p-3 opacity-10 group-hover:scale-110 transition-transform">
+            <FileClock size={70} />
           </div>
-          <div className="relative z-10">
-            <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-1">
-              <FileClock size={12} /> ยอดรอตรวจสอบ
-            </p>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">{stats.pendingAmount.toLocaleString()} <span className="text-xs font-medium text-slate-400">฿</span></h2>
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold">{stats.pendingCount} รายการ</span>
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></div>
+          <div className="relative z-10 flex flex-col justify-between h-full">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-indigo-100 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse" /> ยอดรอตรวจสอบ
+              </p>
+              <span className="bg-white/20 text-[9px] px-1.5 py-0.5 rounded-lg font-bold backdrop-blur-sm border border-white/10">{stats.pendingCount} รายการ</span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <h2 className="text-2xl font-black tracking-tight leading-none">{stats.pendingAmount.toLocaleString()}</h2>
+              <span className="text-[10px] text-indigo-200 font-bold uppercase">บาท</span>
             </div>
           </div>
         </div>
 
-        {/* Approved Today */}
-        <div className="bg-indigo-600 rounded-3xl p-5 text-white shadow-lg shadow-indigo-100 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:rotate-12 transition-transform">
-            <CheckCircle2 size={80} />
-          </div>
-          <div className="relative z-10">
-            <p className="text-indigo-100 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-1">
-              <CheckCircle size={12} /> รับชำระแล้ว (วันนี้)
-            </p>
-            <h2 className="text-2xl font-black tracking-tight">{stats.approvedToday.toLocaleString()} <span className="text-xs font-medium opacity-70">฿</span></h2>
-            <div className="h-1 w-12 bg-white/30 rounded-full mt-3"></div>
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4 shadow-sm flex flex-col justify-center hover:border-emerald-200 transition-colors group">
+          <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-1 group-hover:text-emerald-500 transition-colors">รับชำระวันนี้</p>
+          <div className="flex items-baseline gap-1">
+            <h2 className="text-xl font-black text-emerald-600 leading-none tracking-tight">{stats.approvedToday.toLocaleString()}</h2>
+            <span className="text-[9px] text-slate-300 font-bold">฿</span>
           </div>
         </div>
 
-        {/* Total Approved */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex items-center gap-4 hover:border-indigo-200 transition-all group">
-          <div className="bg-indigo-50 p-4 rounded-2xl text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
-            <Receipt size={24} />
-          </div>
-          <div>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-0.5">ยอดรวมค่างวดสะสม</p>
-            <h2 className="text-xl font-black text-slate-700">{stats.totalApproved.toLocaleString()} <span className="text-xs font-medium text-slate-400">฿</span></h2>
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4 shadow-sm flex flex-col justify-center hover:border-indigo-200 transition-colors group">
+          <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-1 group-hover:text-indigo-500 transition-colors">ยอดรับชำระสะสม</p>
+          <div className="flex items-baseline gap-1">
+            <h2 className="text-xl font-black text-slate-800 leading-none tracking-tight">{stats.totalApproved.toLocaleString()}</h2>
+            <span className="text-[9px] text-slate-300 font-bold">฿</span>
           </div>
         </div>
 
-        {/* Rejected Stats */}
-        <div className="bg-rose-50 border border-rose-100 rounded-3xl p-5 flex items-center gap-4 relative overflow-hidden">
-          <div className="absolute -right-2 -top-2 opacity-5">
-            <AlertCircle size={60} className="text-rose-600" />
-          </div>
-          <div className="bg-white p-4 rounded-2xl text-rose-500 border border-rose-100">
-            <XCircle size={24} />
-          </div>
-          <div>
-            <p className="text-rose-400 text-[10px] font-bold uppercase tracking-widest mb-0.5">รายการมีปัญหา</p>
-            <h2 className="text-xl font-black text-rose-700">
-              {repayments.filter(r => r.status === 'rejected').length} <span className="text-xs font-medium">รายการ</span>
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4 shadow-sm flex flex-col justify-center hover:border-rose-200 transition-colors group">
+          <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-1 group-hover:text-rose-500 transition-colors">รายการมีปัญหา</p>
+          <div className="flex items-baseline gap-1">
+            <h2 className="text-xl font-black text-rose-600 leading-none tracking-tight">
+              {repayments.filter(r => r.status === 'rejected').length}
             </h2>
+            <span className="text-[9px] text-slate-300 font-bold">รายการ</span>
           </div>
         </div>
       </div>
 
-      {/* 3. CONTROLS (TABS & SEARCH) */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-        {/* Tabs for Filtering */}
-        <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
+      {/* Controls */}
+      <div className="bg-white p-2.5 rounded-[1.5rem] shadow-sm border border-slate-100 space-y-2.5 sticky top-0 z-20">
+        <div className="flex bg-slate-100 p-1 rounded-xl w-full overflow-x-auto no-scrollbar gap-1">
           {[
             { id: "pending", label: "รอตรวจสลิป" },
             { id: "approved", label: "รับชำระแล้ว" },
@@ -483,14 +468,14 @@ export default function RepaymentsPage() {
             <button
               key={tab.id}
               onClick={() => setFilterStatus(tab.id as FilterStatus)}
-              className={`cursor-pointer flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${filterStatus === tab.id
+              className={`cursor-pointer flex-1 flex items-center justify-center gap-2 px-3 md:px-4 py-2 rounded-lg text-[11px] md:text-sm font-bold whitespace-nowrap transition-all ${filterStatus === tab.id
                 ? "bg-indigo-600 text-white shadow-md shadow-indigo-100"
                 : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
                 }`}
             >
               {tab.label}
               {tab.id === "pending" && repayments.filter(r => r.status === "pending").length > 0 && (
-                <span className={`ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full ${filterStatus === tab.id ? 'bg-white text-indigo-600' : 'bg-rose-500 text-white'}`}>
+                <span className={`ml-1 md:ml-2 inline-flex items-center justify-center w-4 h-4 md:w-5 md:h-5 text-[9px] md:text-[10px] font-bold rounded-full ${filterStatus === tab.id ? 'bg-white text-indigo-600' : 'bg-rose-500 text-white'}`}>
                   {repayments.filter(r => r.status === "pending").length}
                 </span>
               )}
@@ -498,437 +483,292 @@ export default function RepaymentsPage() {
           ))}
         </div>
 
-        {/* Search & Items Per Page */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        <div className="flex gap-2 w-full">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="รหัสโอน, ชื่อผู้กู้..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+              placeholder="ค้นหาชื่อ, รหัส..."
+              className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs bg-slate-50/50"
             />
           </div>
-          <select
-            value={itemsPerPage}
-            onChange={(e) => setItemsPerPage(Number(e.target.value))}
-            className="cursor-pointer bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value={10}>10 รายการ / หน้า</option>
-            <option value={20}>20 รายการ / หน้า</option>
-            <option value={50}>50 รายการ / หน้า</option>
-            <option value={100}>100 รายการ / หน้า</option>
-          </select>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* Desktop View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200">
-                <th onClick={() => handleSort('id')} className="py-4 px-6 font-semibold text-slate-600 text-sm whitespace-nowrap hover:bg-slate-100 transition-colors cursor-pointer">
+                <th className="py-2 px-3 font-bold text-slate-600 text-[11px] text-center">จัดการ</th>
+                <th onClick={() => handleSort('id')} className="py-2 px-3 font-bold text-slate-600 text-[11px] whitespace-nowrap hover:bg-slate-100 transition-colors cursor-pointer">
                   รหัสรายการ <SortIcon column="id" sortConfig={sortConfig} />
                 </th>
-                <th onClick={() => handleSort('name')} className="py-4 px-6 font-semibold text-slate-600 text-sm hover:bg-slate-100 transition-colors cursor-pointer">
+                <th className="py-2 px-3 font-bold text-slate-600 text-[11px]">รหัสสมาชิก</th>
+                <th onClick={() => handleSort('name')} className="py-2 px-3 font-bold text-slate-600 text-[11px] hover:bg-slate-100 transition-colors cursor-pointer">
                   ชื่อสมาชิก <SortIcon column="name" sortConfig={sortConfig} />
                 </th>
-                <th className="py-4 px-6 font-semibold text-slate-600 text-sm hover:bg-slate-100 transition-colors">
-                  ชื่อรายการ
-                </th>
-                <th onClick={() => handleSort('amount')} className="py-4 px-6 font-semibold text-slate-600 text-sm text-right hover:bg-slate-100 transition-colors cursor-pointer">
+                <th onClick={() => handleSort('amount')} className="py-2 px-3 font-bold text-slate-600 text-[11px] text-right hover:bg-slate-100 transition-colors cursor-pointer">
                   จำนวนเงิน <SortIcon column="amount" sortConfig={sortConfig} />
                 </th>
-                <th onClick={() => handleSort('date')} className="py-4 px-6 font-semibold text-slate-600 text-sm hover:bg-slate-100 transition-colors cursor-pointer">
+                <th onClick={() => handleSort('date')} className="py-2 px-3 font-bold text-slate-600 text-[11px] hover:bg-slate-100 transition-colors cursor-pointer">
                   วันที่แจ้ง <SortIcon column="date" sortConfig={sortConfig} />
                 </th>
-                <th onClick={() => handleSort('status')} className="py-4 px-6 font-semibold text-slate-600 text-sm text-center hover:bg-slate-100 transition-colors cursor-pointer">
+                <th onClick={() => handleSort('status')} className="py-2 px-3 font-bold text-slate-600 text-[11px] text-center hover:bg-slate-100 transition-colors cursor-pointer">
                   สถานะ <SortIcon column="status" sortConfig={sortConfig} />
                 </th>
                 {(filterStatus === 'approved' || filterStatus === 'rejected' || filterStatus === 'all') && (
-                  <th className="py-4 px-6 font-semibold text-slate-600 text-sm">
-                    ดำเนินการโดย
-                  </th>
+                  <th className="py-2 px-3 font-bold text-slate-600 text-[11px]">ดำเนินการโดย</th>
                 )}
-                <th className="py-4 px-6 font-semibold text-slate-600 text-sm text-center">
-                  จัดการ
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-0">
-                    <TableSkeleton rows={5} cols={6} hasHeader={false} />
-                  </td>
-                </tr>
+                <tr><td colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} hasHeader={false} /></td></tr>
               ) : paginatedRepayments.length === 0 ? (
-                <tr><td colSpan={6} className="py-12 text-center text-slate-400">ไม่พบรายการ...</td></tr>
+                <tr><td colSpan={8} className="py-12 text-center text-slate-400 text-sm">ไม่พบรายการ...</td></tr>
               ) : (
-                paginatedRepayments.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50 even:bg-slate-50/50 transition-colors">
-                    <td className="py-4 px-6 text-slate-700 font-medium whitespace-nowrap">
-                      {item.id}
-                    </td>
-                    <td className="py-4 px-6 text-slate-600 font-medium">
-                      {item.name}
-                    </td>
-                    <td className="py-4 px-6 text-slate-500 text-sm">
-                      {item.itemName || "ชำระสินเชื่อ"}
-                    </td>
-                    <td className="py-4 px-6 text-right font-bold text-indigo-600">
-                      {(item.amount || 0).toLocaleString()} ฿
-                    </td>
-                    <td className="py-4 px-6 text-slate-500 text-sm">
-                      {formatDateTime(item.date)}
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap gap-1 items-center ${item.status === "approved" ? "bg-emerald-100 text-emerald-700" :
-                        item.status === "rejected" ? "bg-rose-100 text-rose-700" :
-                          "bg-amber-100 text-amber-700"
-                        }`}>
-                        {item.status === "pending" ? "รอตรวจสลิป" : item.status === "approved" ? "รับชำระแล้ว" : "มีปัญหา"}
-                      </span>
-                    </td>
-                    {(filterStatus === 'approved' || filterStatus === 'rejected' || filterStatus === 'all') && (
-                      <td className="py-4 px-6 text-slate-500 text-xs font-bold italic">
-                        {item.approvedBy || (item.status !== 'pending' ? 'ADMIN' : '-')}
+                paginatedRepayments.map((item) => {
+                  const member = membersMap.get(item.lineId || "");
+                  const displayLineName = member?.lineName || item.name || "ไม่ระบุชื่อไลน์";
+                  const profilePic = member?.pictureUrl;
+
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50 even:bg-slate-50/50 transition-colors">
+                      <td className="py-2 px-3 text-center">
+                        <button
+                          onClick={() => openDetails(item)}
+                          className={`cursor-pointer inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${item.status === "pending"
+                            ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100"
+                            : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
+                            }`}
+                        >
+                          <Receipt size={12} />
+                          {item.status === "pending" ? "ตรวจสลิป" : "ดูข้อมูล"}
+                        </button>
                       </td>
-                    )}
-                    <td className="py-4 px-6 text-center">
-                      <button
-                        onClick={() => openDetails(item)}
-                        className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${item.status === "pending"
-                          ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 shadow-sm"
-                          : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-200"
-                          }`}
-                      >
-                        <Receipt size={16} />
-                        {item.status === "pending" ? "ตรวจสลิป" : "ดูข้อมูล"}
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      <td className="py-2 px-3 text-slate-700 font-medium text-[12px] whitespace-nowrap">{item.id}</td>
+                      <td className="py-2 px-3">
+                        <span className="inline-flex px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold border border-slate-200">
+                          {(!item.memberId || item.memberId === "-") ? (member?.memberId || "-") : item.memberId}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center gap-2">
+                          {profilePic ? (
+                            <Image src={profilePic} alt="" width={20} height={20} className="w-5 h-5 rounded-full border border-slate-200 object-cover" unoptimized />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200"><UserCircle size={12} /></div>
+                          )}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[9px] text-slate-400 font-medium leading-none mb-0.5 truncate">{displayLineName}</span>
+                            <span className="text-slate-700 font-bold text-[12px] leading-tight truncate">{member?.fullName || item.name}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2 px-3 text-right font-black text-indigo-600 text-[12px]">{(item.amount || 0).toLocaleString()}</td>
+                      <td className="py-2 px-3 text-slate-500 text-[11px]">{formatDateTime(item.date)}</td>
+                      <td className="py-2 px-3 text-center">
+                        <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap ${item.status === "approved" ? "bg-emerald-100 text-emerald-700" :
+                          item.status === "rejected" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>
+                          {item.status === "pending" ? "รอตรวจสอบ" : item.status === "approved" ? "รับชำระแล้ว" : "มีปัญหา"}
+                        </span>
+                      </td>
+                      {(filterStatus === 'approved' || filterStatus === 'rejected' || filterStatus === 'all') && (
+                        <td className="py-2 px-3 text-slate-400 text-[10px] italic">{item.approvedBy || "ADMIN"}</td>
+                      )}
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination Controls */}
-        {!loading && filteredAndSortedRepayments.length > 0 && (
-          <div className="bg-slate-50 border-t border-slate-100 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              แสดง {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredAndSortedRepayments.length)} จากทั้งหมด {filteredAndSortedRepayments.length}
-            </div>
+        {/* Mobile View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {loading ? (
+            <div className="p-8 flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin text-indigo-500" size={32} /></div>
+          ) : paginatedRepayments.length === 0 ? (
+            <div className="py-12 px-4 text-center text-slate-400 text-sm">ไม่พบรายการ</div>
+          ) : (
+            paginatedRepayments.map((item) => {
+              const member = membersMap.get(item.lineId || "");
+              const displayLineName = member?.lineName || item.name || "ไม่ระบุชื่อไลน์";
+              const profilePic = member?.pictureUrl;
+              const memberId = (!item.memberId || item.memberId === "-") ? (member?.memberId || "-") : item.memberId;
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:bg-white hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft size={20} />
-              </button>
-
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                  let pageNum = 1;
-                  if (totalPages <= 5) pageNum = i + 1;
-                  else if (currentPage <= 3) pageNum = i + 1;
-                  else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                  else pageNum = currentPage - 2 + i;
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${currentPage === pageNum
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                        : 'bg-white text-slate-500 border border-slate-100 hover:border-indigo-200 hover:text-indigo-600'}`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:bg-white hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          </div>
-        )}
+              return (
+                <div key={item.id} className="p-4 space-y-3 active:bg-slate-5" onClick={() => openDetails(item)}>
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.id}</span>
+                      <span className="text-[10px] text-slate-400 font-medium">{formatDateTime(item.date)}</span>
+                    </div>
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                      item.status === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {item.status === 'pending' ? 'รอตรวจ' : item.status === 'approved' ? 'รับแล้ว' : 'มีปัญหา'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                    {profilePic ? (
+                      <Image src={profilePic} alt="" width={40} height={40} className="w-10 h-10 rounded-full border border-white shadow-sm object-cover" unoptimized />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-300 border border-slate-200"><UserCircle size={20} /></div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] text-indigo-600 font-bold leading-none mb-0.5 block">{displayLineName}</span>
+                      <span className="text-slate-800 font-black text-sm truncate block">{member?.fullName || item.name}</span>
+                      <span className="text-[10px] text-slate-400 font-bold">ID: {memberId}</span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="block text-lg font-black text-slate-800 tracking-tight leading-none">{(item.amount || 0).toLocaleString()}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">บาท</span>
+                    </div>
+                  </div>
+                  <button className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${item.status === 'pending' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                    <Receipt size={16} /> {item.status === 'pending' ? 'ตรวจสลิปนี้' : 'ดูรายละเอียด'}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
-      {/* Modal - Mobile-first Bottom Sheet */}
+      {/* Pagination */}
+      {!loading && filteredAndSortedRepayments.length > 0 && (
+        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              แสดง {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredAndSortedRepayments.length)} จาก {filteredAndSortedRepayments.length}
+            </div>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="cursor-pointer bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[10px] font-bold text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {[10, 20, 50, 100].map(v => (
+                <option key={v} value={v}>{v} ต่อหน้า</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 transition-all"><ChevronLeft size={20} /></button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                let pageNum = totalPages <= 5 ? i + 1 : (currentPage <= 3 ? i + 1 : (currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i));
+                return (
+                  <button key={pageNum} onClick={() => setCurrentPage(pageNum)} className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${currentPage === pageNum ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white text-slate-500 border border-slate-100 hover:border-indigo-200 hover:text-indigo-600'}`}>{pageNum}</button>
+                );
+              })}
+            </div>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 transition-all"><ChevronRight size={20} /></button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal & Zoom components should be here (already in the file but kept structural integrity) */}
       {isModalOpen && selectedPay && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setIsModalOpen(false)}
-        >
-          <div
-            className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[95svh] sm:max-h-[90vh] overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Handle bar for mobile */}
-            <div className="flex justify-center pt-3 pb-1 sm:hidden">
-              <div className="w-10 h-1 bg-slate-300 rounded-full" />
-            </div>
-
-            {/* Header */}
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[95svh] sm:max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="w-10 h-1 bg-slate-300 rounded-full" /></div>
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <div>
-                <h3 className="font-bold text-base text-slate-800">บันทึกรับชำระค่างวด</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{selectedPay.id}</p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 transition-colors"
-              >
-                <X size={20} />
-              </button>
+              <div><h3 className="font-bold text-base text-slate-800">บันทึกรับชำระค่างวด</h3><p className="text-xs text-slate-500 mt-0.5">{selectedPay.id}</p></div>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 transition-colors"><X size={20} /></button>
             </div>
-
-            {/* Scrollable Content */}
             <div className="overflow-y-auto flex-1">
-              {/* Member Info */}
-              <div className="px-5 pt-4 pb-3 bg-slate-50 border-b border-slate-100">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs text-slate-500">ผู้ชำระ</p>
-                    <p className="font-bold text-slate-800 text-sm mt-0.5">
-                      {selectedPay.name}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">{formatDateTime(selectedPay.date)}</p>
-                  </div>
-                  <span className={`shrink-0 inline-flex px-3 py-1 rounded-full text-xs font-bold ${selectedPay.status === "pending"
-                    ? "bg-amber-100 text-amber-700"
-                    : selectedPay.status === "approved"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-rose-100 text-rose-700"
-                    }`}>
-                    {selectedPay.status === "pending" ? "รอตรวจสอบ" : selectedPay.status === "approved" ? "รับชำระแล้ว" : "มีปัญหา"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Slip Image */}
-              <div className="px-5 pt-4">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">รูปสลิป</p>
-                <div className="bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex justify-center items-center min-h-[220px] relative">
-                  {selectedPay.slipUrl ? (
-                    <div
-                      className="cursor-zoom-in relative group"
-                      onClick={() => setIsZoomOpen(true)}
-                    >
-                      <Image
-                        src={getDriveImageUrl(selectedPay.slipUrl)}
-                        alt="Slip"
-                        width={500}
-                        height={800}
-                        className="w-full h-auto max-h-[60svh] object-contain rounded-lg border border-slate-200 shadow-sm transition-transform duration-300 group-hover:scale-[1.02]"
-                        unoptimized
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = "https://placehold.co/400x600?text=Invalid+Image";
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <p className="text-slate-400 text-sm py-8">ไม่พบรูปสลิป</p>
-                  )}
-                </div>
-                <button
-                  onClick={() => window.open(selectedPay.slipUrl, '_blank')}
-                  className="mt-2 w-full text-xs text-indigo-600 font-bold flex items-center gap-1 justify-center py-2 hover:bg-indigo-50 rounded-lg transition-colors"
-                >
-                  <ExternalLink size={12} /> เปิดดูรูปต้นฉบับ
-                </button>
-              </div>
-
-              {/* Contract Selection & Amount */}
-              <div className="px-5 pt-4 pb-2 space-y-4">
-                {(selectedPay.status === "pending" || selectedPay.status === "approved") ? (
-                  <>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        {selectedPay.status === "approved" ? "แก้ไขข้อมูล (ที่อนุมัติไปแล้ว)" : "ตรวจสอบข้อมูลจากสลิป (AI สแกน)"}
-                      </label>
-                      <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <div className="col-span-2">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">ชื่อผู้โอน</p>
-                          <p className="text-sm font-black text-slate-700">{slipSender || "ไม่พบข้อมูล"}</p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">ชื่อผู้รับ</p>
-                          <p className="text-sm font-bold text-emerald-600">{slipReceiver || "ไม่พบข้อมูล"}</p>
-                        </div>
-                        <div className="col-span-2">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase">เวลาโอนจริง (ยืนยัน/แก้ไข)</label>
-                          <input
-                            type="text"
-                            value={slipTime}
-                            onChange={e => setSlipTime(e.target.value)}
-                            placeholder="24 เม.ย. 2567 - 14:30"
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500 outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">เลือกสัญญาที่ต้องการตัดยอด</label>
-                      {memberActiveContracts.length > 0 ? (
-                        <select
-                          value={selectedContractId}
-                          onChange={(e) => setSelectedContractId(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
-                        >
-                          <option value="">-- โปรดเลือกสัญญา --</option>
-                          {memberActiveContracts.map(c => (
-                            <option key={c.id} value={c.id}>
-                              {c.id} - ({c.type}) คงเหลือ {c.balance.toLocaleString()} ฿
-                            </option>
-                          ))}
-                        </select>
+              <div className="px-5 pt-4 pb-4 bg-slate-50 border-b border-slate-100">
+                {(() => {
+                  const member = membersMap.get(selectedPay.lineId || "");
+                  return (
+                    <div className="flex items-center gap-4">
+                      {member?.pictureUrl ? (
+                        <Image src={member.pictureUrl} alt="" width={56} height={56} className="w-14 h-14 rounded-full border-2 border-white shadow-sm object-cover" unoptimized />
                       ) : (
-                        <div className="p-4 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 text-sm flex gap-2">
-                          <AlertCircle size={18} /> ไม่พบสัญญาที่กำลังผ่อนอยู่ของสมาชิกรายนี้
-                        </div>
+                        <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-slate-300 border-2 border-white shadow-sm"><UserCircle size={28} /></div>
                       )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        {selectedPay.status === "approved" ? "แก้ไขยอดเงินชำระ" : "ยอดเงินชำระ (แก้ไขได้)"}
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-lg">฿</span>
-                        <NumericFormat
-                          thousandSeparator={true}
-                          inputMode="decimal"
-                          value={editAmount}
-                          onValueChange={(values) => {
-                            setEditAmount(values.floatValue || 0);
-                          }}
-                          className="w-full text-3xl font-black text-indigo-600 bg-white border-2 border-indigo-200 rounded-2xl pl-10 pr-4 py-3.5 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-right"
-                        />
-                      </div>
-                    </div>
-                    {selectedPay.status === "approved" && (
-                      <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex justify-between items-center">
-                        <div>
-                          <p className="text-[10px] font-bold text-emerald-600 uppercase">ยอดเดิมที่อนุมัติ</p>
-                          <p className="text-sm font-bold text-emerald-700">฿{selectedPay.amount.toLocaleString()}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-bold text-emerald-600 uppercase">สัญญาเดิม</p>
-                          <p className="text-xs font-bold text-emerald-700">{selectedPay.contractId || "-"}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-indigo-600 font-black uppercase tracking-widest mb-1">{member?.lineName || "ไม่ระบุชื่อไลน์"}</p>
+                        <h4 className="font-black text-slate-800 text-lg leading-tight truncate">{member?.fullName || selectedPay.name}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter">
+                            ID: {(!selectedPay.memberId || selectedPay.memberId === "-") ? (member?.memberId || "-") : selectedPay.memberId}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">{formatDateTime(selectedPay.date)}</span>
                         </div>
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
-                      <div className="flex justify-between items-center pb-2 border-b border-slate-200/50">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">เวลาโอนจริง</p>
-                        <p className="text-sm font-bold text-slate-700">{selectedPay.actualTime || "-"}</p>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">ดำเนินการโดย</p>
-                        <p className="text-sm font-black text-indigo-600 italic">{selectedPay.approvedBy || "ADMIN"}</p>
-                      </div>
-                      {selectedPay.note && (
-                        <div className="pt-2 border-t border-slate-200/50">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">หมายเหตุ</p>
-                          <p className="text-xs text-rose-600 font-medium">{selectedPay.note}</p>
-                        </div>
-                      )}
+                      <span className={`shrink-0 inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase ${selectedPay.status === "pending" ? "bg-amber-100 text-amber-700" : selectedPay.status === "approved" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                        {selectedPay.status === "pending" ? "รอตรวจ" : selectedPay.status === "approved" ? "รับแล้ว" : "มีปัญหา"}
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ยอดเงินชำระ</p>
-                      <p className="text-3xl font-black text-indigo-600">฿{(selectedPay.amount || 0).toLocaleString()}</p>
+                  );
+                })()}
+              </div>
+              <div className="px-5 pt-5">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Receipt size={14} className="text-indigo-500" /> หลักฐานการโอนเงิน</p>
+                <div className="bg-slate-100 rounded-3xl overflow-hidden border border-slate-200 flex justify-center items-center min-h-[220px] relative group shadow-inner">
+                  {selectedPay.slipUrl ? (
+                    <div className="cursor-zoom-in relative w-full" onClick={() => setIsZoomOpen(true)}>
+                      <Image src={getDriveImageUrl(selectedPay.slipUrl)} alt="Slip" width={500} height={800} className="w-full h-auto max-h-[50svh] object-contain transition-transform duration-500 group-hover:scale-105" unoptimized />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center"><Search className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" size={32} /></div>
                     </div>
+                  ) : (<p className="text-slate-400 text-sm py-12 font-bold">ไม่พบรูปสลิป</p>)}
+                </div>
+                <button onClick={() => window.open(selectedPay.slipUrl, '_blank')} className="mt-3 w-full text-[11px] text-slate-500 font-bold flex items-center gap-1 justify-center py-2.5 hover:bg-slate-50 border border-slate-100 rounded-xl transition-all"><ExternalLink size={14} /> เปิดดูรูปต้นฉบับ</button>
+              </div>
+              <div className="px-5 py-6 space-y-5">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">เลือกสัญญาที่ต้องการชำระ</label>
+                  <select value={selectedContractId} onChange={(e) => setSelectedContractId(e.target.value)} className="w-full px-4 py-4 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none shadow-sm" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1rem' }}>
+                    <option value="">-- โปรดเลือกสัญญา --</option>
+                    {contracts.filter(c => c.lineId === selectedPay.lineId).map(c => (<option key={c.id} value={c.id}>{c.id} - {c.type} (คงเหลือ: {c.balance.toLocaleString()} ฿)</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">ระบุยอดชำระจริง</label>
+                  <div className="relative group">
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-slate-300 text-2xl group-focus-within:text-indigo-400 transition-colors">฿</span>
+                    <NumericFormat thousandSeparator={true} value={editAmount} onValueChange={(values) => setEditAmount(values.floatValue || 0)} className="w-full text-4xl font-black text-indigo-600 bg-white border-2 border-slate-100 rounded-3xl pl-12 pr-6 py-5 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-right shadow-sm" />
                   </div>
+                </div>
+                {selectedPay.note && selectedPay.status === 'rejected' && (
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl"><p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">สาเหตุที่ปฏิเสธ</p><p className="text-sm font-bold text-rose-700">{selectedPay.note}</p></div>
                 )}
               </div>
-
-              <div className="h-4" />
             </div>
-
-            {/* Sticky Action Buttons */}
-            <div className="p-4 border-t border-slate-100 bg-white">
+            <div className="p-5 border-t border-slate-100 bg-white">
               {selectedPay.status === "pending" ? (
-                <div className="flex gap-2">
-                  <button
-                    disabled={isUpdating}
-                    onClick={handleReject}
-                    className="cursor-pointer flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl transition-all disabled:opacity-50 active:scale-95"
-                  >
-                    {isUpdating ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />} ปฏิเสธ
-                  </button>
-                  <button
-                    disabled={isUpdating || !selectedContractId}
-                    onClick={handleApprove}
-                    className="cursor-pointer flex-2 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl transition-all shadow-sm shadow-indigo-100 disabled:opacity-50 active:scale-95"
-                  >
-                    {isUpdating ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} อนุมัติยอด
-                  </button>
+                <div className="flex gap-3">
+                  <button disabled={isUpdating} onClick={handleReject} className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-black text-rose-600 bg-white hover:bg-rose-50 border-2 border-rose-100 rounded-2xl transition-all disabled:opacity-50 active:scale-95"><XCircle size={20} /> ปฏิเสธ</button>
+                  <button disabled={isUpdating || !selectedContractId} onClick={handleApprove} className="flex-[1.5] flex items-center justify-center gap-2 py-4 text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 active:scale-95"><CheckCircle2 size={20} /> อนุมัติรับชำระ</button>
                 </div>
               ) : selectedPay.status === "approved" ? (
-                <div className="flex gap-2">
-                  <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-2xl transition-colors">ปิดหน้าต่าง</button>
-                  <button
-                    disabled={isUpdating || !selectedContractId}
-                    onClick={handleApprove}
-                    className="flex-2 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-white bg-sky-500 hover:bg-sky-600 rounded-2xl transition-all shadow-sm disabled:opacity-50 active:scale-95"
-                  >
-                    {isUpdating ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} อัปเดตข้อมูล
-                  </button>
+                <div className="flex gap-3">
+                  <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-sm font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-colors">ปิด</button>
+                  <button disabled={isUpdating} onClick={handleApprove} className="flex-[2] flex items-center justify-center gap-2 py-4 text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 active:scale-95"><Save size={20} /> บันทึกการแก้ไข</button>
                 </div>
               ) : (
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="w-full py-3.5 text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
-                >
-                  ปิดหน้าต่าง
-                </button>
+                <div className="flex gap-3">
+                  <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-sm font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-colors">ปิด</button>
+                  <button disabled={isUpdating} onClick={handleReopen} className="flex-[2] flex items-center justify-center gap-2 py-4 text-sm font-black text-amber-700 bg-amber-50 hover:bg-amber-100 border-2 border-amber-200 rounded-2xl transition-all disabled:opacity-50 active:scale-95"><RotateCw size={20} /> เปิดตรวจใหม่อีกครั้ง</button>
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* 🔍 Zoom Modal (Lightbox) */}
       {isZoomOpen && selectedPay && (
-        <div
-          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/90 backdrop-blur-md transition-all duration-300 animate-in fade-in"
-          onClick={() => setIsZoomOpen(false)}
-        >
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/95 backdrop-blur-md transition-all duration-300 animate-in fade-in" onClick={() => setIsZoomOpen(false)}>
           <div className="absolute top-6 right-6 flex gap-4">
-            <button
-              className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-colors"
-              onClick={() => setIsZoomOpen(false)}
-            >
-              <X size={24} />
-            </button>
+            <button className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-colors" onClick={() => setIsZoomOpen(false)}><X size={24} /></button>
           </div>
-
-          <div
-            className="relative max-w-[95vw] max-h-[90vh] w-auto h-auto transition-transform duration-500 animate-in zoom-in-95"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={getDriveImageUrl(selectedPay.slipUrl)}
-              alt="Zoomed Slip"
-              className="w-auto h-auto max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl border border-white/10"
-            />
+          <div className="relative max-w-[95vw] max-h-[90vh] transition-transform duration-500 animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+            <img src={getDriveImageUrl(selectedPay.slipUrl)} alt="Zoomed Slip" className="w-auto h-auto max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/10" />
           </div>
         </div>
       )}
