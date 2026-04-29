@@ -3,7 +3,7 @@
 import { useState, ReactNode, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Toaster, toast } from "react-hot-toast";
 import Cookies from "js-cookie";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -63,6 +63,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isAutoSyncing, setIsAutoSyncing] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     // 🛡️ ติดตามสถานะการล็อกอินจริงจาก Firebase
@@ -73,6 +74,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         fetchAdminData(currentUser.uid);
       } else {
         setAdminData(null);
+        // 🛡️ หากไม่ได้ล็อกอิน และไม่ได้อยู่ที่หน้า login ให้ดีดกลับไปหน้า login
+        if (pathname !== "/admin/login") {
+          router.push("/admin/login");
+        }
       }
     });
 
@@ -82,11 +87,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
 
     fetchPendingCounts();
-    fetchIntegrityReport();
 
     const interval = setInterval(() => {
       fetchPendingCounts();
-      fetchIntegrityReport();
     }, 60000);
 
     return () => {

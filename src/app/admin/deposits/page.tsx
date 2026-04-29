@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2, FileClock, AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Save, UserCircle, RefreshCw, Zap } from "lucide-react";
+import { RotateCw, Search, Eye, X, CheckCircle2, XCircle, ArrowUpDown, ArrowUp, ArrowDown, Loader2, FileClock, AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Save, UserCircle, RefreshCw, Zap } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import { NumericFormat } from "react-number-format";
@@ -207,7 +207,8 @@ export default function DepositsPage() {
     if (!result.isConfirmed) return;
 
     setIsSyncing(true);
-    const tid = toast.loading("กำลังซิงค์ข้อมูลทั้งระบบ...");
+    const tid = "sync-balances";
+    toast.loading("กำลังซิงค์ข้อมูลทั้งระบบ...", { id: tid });
     try {
       const res = await fetch(API_URL, {
         method: "POST",
@@ -259,7 +260,8 @@ export default function DepositsPage() {
 
     if (!result.isConfirmed) return;
 
-    const toastId = toast.loading("กำลังดำเนินการ...");
+    const toastId = "deposit-action";
+    toast.loading("กำลังดำเนินการ...", { id: toastId });
     setIsUpdating(true);
     try {
       const res = await fetch(API_URL, {
@@ -313,7 +315,8 @@ export default function DepositsPage() {
 
     if (!note) return;
 
-    const toastId = toast.loading("กำลังดำเนินการ...");
+    const toastId = "deposit-action";
+    toast.loading("กำลังดำเนินการ...", { id: toastId });
     setIsUpdating(true);
     try {
       const res = await fetch(API_URL, {
@@ -923,7 +926,8 @@ export default function DepositsPage() {
               ) : selectedDeposit.status === "approved" ? (
                 <div className="flex gap-3">
                   <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-sm font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-colors">ปิด</button>
-                  <button disabled={isUpdating} onClick={() => handleApprove(selectedDeposit.id)} className="flex-[2] flex items-center justify-center gap-2 py-4 text-sm font-black text-white bg-sky-600 hover:bg-sky-700 rounded-2xl transition-all shadow-lg shadow-sky-100 disabled:opacity-50 active:scale-95"><Save size={20} /> บันทึกการแก้ไข</button>
+                  <button disabled={isUpdating} onClick={() => handleReopen(selectedDeposit.id)} className="flex-[1.5] flex items-center justify-center gap-2 py-4 text-sm font-black text-amber-700 bg-amber-50 hover:bg-amber-100 border-2 border-amber-200 rounded-2xl transition-all disabled:opacity-50 active:scale-95"><RotateCw size={20} /> ดึงกลับมาตรวจสอบ</button>
+                  <button disabled={isUpdating} onClick={() => handleApprove(selectedDeposit.id)} className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-black text-white bg-sky-600 hover:bg-sky-700 rounded-2xl transition-all shadow-lg shadow-sky-100 disabled:opacity-50 active:scale-95"><Save size={20} /> บันทึกแก้ไข</button>
                 </div>
               ) : (
                 <div className="flex gap-3">

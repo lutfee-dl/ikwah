@@ -256,6 +256,8 @@ export default function RepaymentsPage() {
     if (!confirmResult.isConfirmed) return;
 
     setIsUpdating(true);
+    const tid = "repayment-action";
+    toast.loading("กำลังดำเนินการ...", { id: tid });
     try {
       const res = await gasApi.call("admin_update_loan_repayment", {
         depositId: selectedPay.id,
@@ -266,15 +268,15 @@ export default function RepaymentsPage() {
         actualTime: slipTime
       });
       if (res.success) {
-        toast.success("อนุมัติรับชำระสำเร็จ");
+        toast.success("อนุมัติรับชำระสำเร็จ", { id: tid });
         fetchRepaymentSlips();
         setIsModalOpen(false);
       } else {
-        toast.error(res.msg || "เกิดข้อผิดพลาด");
+        toast.error(res.msg || "เกิดข้อผิดพลาด", { id: tid });
       }
     } catch (err) {
       console.error(err);
-      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้");
+      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้", { id: tid });
     } finally {
       setIsUpdating(false);
     }
@@ -295,6 +297,8 @@ export default function RepaymentsPage() {
     if (!confirmResult.isConfirmed) return;
 
     setIsUpdating(true);
+    const tid = "repayment-action";
+    toast.loading("กำลังดำเนินการ...", { id: tid });
     try {
       const res = await gasApi.call("admin_update_loan_repayment", {
         depositId: selectedPay.id,
@@ -302,15 +306,15 @@ export default function RepaymentsPage() {
         adminName: adminName
       });
       if (res.success) {
-        toast.success("ปฏิเสธสลิปเรียบร้อย");
+        toast.success("ปฏิเสธสลิปเรียบร้อย", { id: tid });
         fetchRepaymentSlips();
         setIsModalOpen(false);
       } else {
-        toast.error(res.msg || "เกิดข้อผิดพลาด");
+        toast.error(res.msg || "เกิดข้อผิดพลาด", { id: tid });
       }
     } catch (err) {
       console.error(err);
-      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้");
+      toast.error("ติดต่อเซิร์ฟเวอร์ไม่ได้", { id: tid });
     } finally {
       setIsUpdating(false);
     }
@@ -328,7 +332,10 @@ export default function RepaymentsPage() {
       confirmButtonColor: '#f59e0b',
     });
     if (!result.isConfirmed) return;
+
     setIsUpdating(true);
+    const tid = "repayment-action";
+    toast.loading("กำลังดำเนินการ...", { id: tid });
     try {
       const res = await gasApi.call('admin_update_loan_repayment', {
         depositId: selectedPay.id,
@@ -336,14 +343,14 @@ export default function RepaymentsPage() {
         adminName: adminName
       });
       if (res.success) {
-        toast.success('เปลี่ยนสถานะเรียบร้อย');
+        toast.success('เปลี่ยนสถานะเรียบร้อย', { id: tid });
         fetchRepaymentSlips();
         setIsModalOpen(false);
       } else {
-        toast.error(res.msg || 'เกิดข้อผิดพลาด');
+        toast.error(res.msg || 'เกิดข้อผิดพลาด', { id: tid });
       }
     } catch (err) {
-      toast.error('ติดต่อเซิร์ฟเวอร์ไม่ได้');
+      toast.error('ติดต่อเซิร์ฟเวอร์ไม่ได้', { id: tid });
     } finally {
       setIsUpdating(false);
     }
@@ -749,7 +756,8 @@ export default function RepaymentsPage() {
               ) : selectedPay.status === "approved" ? (
                 <div className="flex gap-3">
                   <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-sm font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-colors">ปิด</button>
-                  <button disabled={isUpdating} onClick={handleApprove} className="flex-[2] flex items-center justify-center gap-2 py-4 text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 active:scale-95"><Save size={20} /> บันทึกการแก้ไข</button>
+                  <button disabled={isUpdating} onClick={handleReopen} className="flex-[1.5] flex items-center justify-center gap-2 py-4 text-sm font-black text-amber-700 bg-amber-50 hover:bg-amber-100 border-2 border-amber-200 rounded-2xl transition-all disabled:opacity-50 active:scale-95"><RotateCw size={20} /> ดึงกลับมาตรวจสอบ</button>
+                  <button disabled={isUpdating} onClick={handleApprove} className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 active:scale-95"><Save size={20} /> บันทึกแก้ไข</button>
                 </div>
               ) : (
                 <div className="flex gap-3">

@@ -12,6 +12,8 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { gasApi } from "@/services/gasApi";
+import { useAdminMembers } from "@/hooks/useAdminMembers";
+import { Member } from "@/types";
 
 type FilterStatus = "รอตรวจสอบ" | "อนุมัติ" | "ไม่อนุมัติ" | "all";
 
@@ -44,6 +46,26 @@ export default function LoansPage() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [isAddingLoan, setIsAddingLoan] = useState(false);
 	const [adminName, setAdminName] = useState<string>("ADMIN");
+
+	// ใช้ Hook มาตรฐานเหมือนหน้า Deposits
+	const { members: memberList, loading: isMembersLoading } = useAdminMembers();
+
+	// สร้าง Map เพื่อการค้นหาที่รวดเร็ว (แบบหน้า Deposits)
+	const membersByLineMap = useMemo(() => {
+		const map = new Map<string, Member>();
+		memberList.forEach(m => {
+			if (m.lineId) map.set(m.lineId.trim(), m);
+		});
+		return map;
+	}, [memberList]);
+
+	const membersByNameMap = useMemo(() => {
+		const map = new Map<string, Member>();
+		memberList.forEach(m => {
+			if (m.fullName) map.set(m.fullName.trim(), m);
+		});
+		return map;
+	}, [memberList]);
 
 	// Header Filters
 	const [headerFilters, setHeaderFilters] = useState({
@@ -86,36 +108,27 @@ export default function LoansPage() {
 				}),
 			});
 			const result = await res.json();
+
 			if ((result.status === "success" || result.success === true) && Array.isArray(result.data)) {
-				// Map backend data...
-				const mappedLoans = result.data.map((row: Record<string, string | number> | string[], index: number) => {
-					const isArray = Array.isArray(row);
-					const reqId = isArray ? String(row[0] || "") : String(row.id || row.loanId || `REQ-${index}`);
-					const lineIdStr = isArray ? String(row[2] || "") : String(row.lineId || row.lineUserId || "-");
+				const mappedLoans = result.data.map((row: any[], index: number) => {
 					return {
-						id: reqId,
-						date: isArray ? String(row[1] || "") : String(row.date || row.createdAt || "-"),
-						lineId: lineIdStr,
-						lineName: isArray ? "" : String(row.lineName || "-"),
-						name: isArray ? String(row[3] || "-") : String(row.name || row.fullName || "-"),
-						phone: isArray ? String(row[4] || "-") : String(row.phone || "-"),
-						type: isArray ? String(row[7] || "-") : String(row.type || row.loanType || "-"),
-						amount: Number(isArray ? row[5] : row.amount || 0),
-						duration: Number(isArray ? row[8] : row.duration || 0),
-						itemName: isArray ? String(row[6] || "-") : String(row.reason || row.itemName || "-"),
-						status: isArray ? String(row[9] || "รอตรวจสอบ") : String(row.status || "รอตรวจสอบ"),
+						id: String(row[0] || ""),
+						date: String(row[1] || ""),
+						lineId: String(row[2] || "").trim(),
+						lineName: "-", // จะไปแมปจริงใน useMemo
+						name: String(row[3] || "").trim(),
+						phone: String(row[4] || "-"),
+						type: String(row[7] || "-"),
+						amount: Number(row[5] || 0),
+						duration: Number(row[8] || 0),
+						itemName: String(row[6] || "-"),
+						status: String(row[9] || "รอตรวจสอบ"),
 					};
 				});
 				setLoans(mappedLoans);
 			} else {
 				console.error("Failed to load loans:", result);
-				// If error but it returned successfully from API, assume no data
-				if (Object.keys(result).length === 0) {
-					setLoans([]);
-					toast.error("ได้รับข้อมูลว่างเปล่า (กรุณา Deploy GAS เป็นเวอร์ชันใหม่)");
-				} else {
-					toast.error(`ไม่สามารถโหลดข้อมูลได้: ${result.msg || "เกิดข้อผิดพลาดที่เซิร์ฟเวอร์"}`);
-				}
+				setLoans([]);
 			}
 		} catch (error) {
 			console.error("Fetch loans error:", error);
@@ -126,9 +139,12 @@ export default function LoansPage() {
 	};
 
 	const filteredLoans = useMemo(() => {
-		return loans.filter((l) => {
-			const matchStatus =
-				filterStatus === "all" || l.status === filterStatus;
+		return loans.map(l => {
+			// ดึงข้อมูลสมาชิกจาก Map (เทคนิคหน้า Deposits)
+			const member = membersByLineMap.get(l.lineId) || membersByNameMap.get(l.name);
+			return { ...l, lineName: member?.lineName || "-" };
+		}).filter((l) => {
+			const matchStatus = filterStatus === "all" || l.status === filterStatus;
 
 			const matchHeader =
 				l.id.toLowerCase().includes(headerFilters.id.toLowerCase()) &&
@@ -138,11 +154,12 @@ export default function LoansPage() {
 			const matchSearch =
 				l.name.includes(searchQuery) ||
 				l.id.includes(searchQuery) ||
-				l.type.includes(searchQuery);
+				l.type.includes(searchQuery) ||
+				l.lineName.includes(searchQuery);
 
 			return matchStatus && matchHeader && matchSearch;
 		});
-	}, [loans, filterStatus, searchQuery, headerFilters]);
+	}, [loans, filterStatus, searchQuery, headerFilters, membersByLineMap, membersByNameMap]);
 
 	const totalPages = Math.ceil(filteredLoans.length / itemsPerPage);
 
@@ -222,6 +239,51 @@ export default function LoansPage() {
 		} catch (error) {
 			console.error(error);
 			toast.error("เกิดข้อผิดพลาดในการปฏิเสธ", { id: toastId });
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const handleReopen = async (id: string) => {
+		const result = await Swal.fire({
+			title: 'ดึงกลับมาตรวจสอบใหม่?',
+			text: "ระบบจะเปลี่ยนสถานะกลับเป็น 'รอตรวจสอบ' และจะทำการลบสัญญาที่สร้างไว้ (ถ้ามี) ทิ้งทันที",
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'ยืนยันดึงกลับ',
+			cancelButtonText: 'ยกเลิก',
+			confirmButtonColor: '#f59e0b', // amber-500
+		});
+
+		if (!result.isConfirmed) return;
+
+		setIsLoading(true);
+		const toastId = toast.loading("กำลังดึงข้อมูลกลับ...");
+		try {
+			const res = await fetch("/api/member", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					action: "admin_update_loan",
+					ADMIN_SECRET: process.env.NEXT_PUBLIC_ADMIN_SECRET,
+					loanId: id,
+					status: "รอตรวจสอบ",
+					adminName: adminName
+				}),
+			});
+			const resData = await res.json();
+			if (resData.success) {
+				setLoans((prev) =>
+					prev.map((l) => (l.id === id ? { ...l, status: "รอตรวจสอบ" } : l))
+				);
+				toast.success("ดึงข้อมูลกลับเรียบร้อยแล้ว ✅", { id: toastId });
+				setIsModalOpen(false);
+			} else {
+				toast.error(resData.msg || "เกิดข้อผิดพลาด", { id: toastId });
+			}
+		} catch (error) {
+			console.error(error);
+			toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ", { id: toastId });
 		} finally {
 			setIsLoading(false);
 		}
@@ -493,6 +555,7 @@ export default function LoansPage() {
 					isLoading={isLoading}
 					onApprove={handleApprove}
 					onReject={handleReject}
+					onReopen={handleReopen}
 					onClose={() => setIsModalOpen(false)}
 				/>
 			)}
