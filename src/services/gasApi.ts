@@ -35,6 +35,21 @@ export const gasApi = {
     }
   },
 
+  // ++ 1.1 ดึงข้อมูลรวม Profile + Loans (Turbo Mode)
+  getMemberBundle: async (idToken: string) => {
+    try {
+      const res = await fetch("/api/member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get_member_bundle", idToken }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("Get Member Bundle error", error);
+      return { success: false, msg: "ติดต่อเซิร์ฟเวอร์ไม่ได้" };
+    }
+  },
+
   // 2. ตรวจสอบชื่อนามสกุล ว่ามีในฐานข้อมูลหรือไม่
   verifyName: async (fullName: string, idToken: string) => {
     try {
