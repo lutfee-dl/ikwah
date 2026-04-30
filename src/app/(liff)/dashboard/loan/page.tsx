@@ -64,11 +64,12 @@ export default function LoanRequestPage() {
       toast.error("สินเชื่อฉุกเฉิน ระบุได้ไม่เกิน 10,000 บาท");
       return;
     }
-    if (
-      (loanType === "ก้อดฮาซัน" || loanType === "ซื้อขาย") &&
-      amountNum > 200000
-    ) {
-      toast.error(`สินเชื่อ${loanType} ระบุได้ไม่เกิน 200,000 บาท`);
+    if (loanType === "ก้อดฮาซัน" && amountNum > 100000) {
+      toast.error("สินเชื่อก้อดฮาซัน ระบุได้ไม่เกิน 100,000 บาท");
+      return;
+    }
+    if (loanType === "ซื้อขาย" && amountNum > 200000) {
+      toast.error("สินเชื่อซื้อขาย ระบุได้ไม่เกิน 200,000 บาท");
       return;
     }
 
@@ -248,7 +249,7 @@ export default function LoanRequestPage() {
                 -- กรุณาเลือกประเภทสินเชื่อ --
               </option>
               <option value="ฉุกเฉิน">ฉุกเฉิน (ไม่เกิน 10,000 บาท)</option>
-              <option value="ก้อดฮาซัน">ก้อดฮาซัน (ไม่เกิน 200,000 บาท)</option>
+              <option value="ก้อดฮาซัน">ก้อดฮาซัน (ไม่เกิน 100,000 บาท)</option>
               <option value="ซื้อขาย">ซื้อขาย (ไม่เกิน 200,000 บาท)</option>
             </select>
             {loanType === "ฉุกเฉิน" && (
@@ -282,13 +283,10 @@ export default function LoanRequestPage() {
                   const number = parseInt(num);
                   if (loanType === "ฉุกเฉิน" && number > 10000) {
                     setErrorMsg("สินเชื่อฉุกเฉิน ระบุได้ไม่เกิน 10,000 บาท");
-                  } else if (
-                    (loanType === "ก้อดฮาซัน" || loanType === "ซื้อขาย") &&
-                    number > 200000
-                  ) {
-                    setErrorMsg(
-                      `สินเชื่อ${loanType} ระบุได้ไม่เกิน 200,000 บาท`,
-                    );
+                  } else if (loanType === "ก้อดฮาซัน" && number > 100000) {
+                    setErrorMsg("สินเชื่อก้อดฮาซัน ระบุได้ไม่เกิน 100,000 บาท");
+                  } else if (loanType === "ซื้อขาย" && number > 200000) {
+                    setErrorMsg("สินเชื่อซื้อขาย ระบุได้ไม่เกิน 200,000 บาท");
                   } else {
                     setErrorMsg("");
                   }

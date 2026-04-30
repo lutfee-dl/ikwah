@@ -126,7 +126,7 @@ function UploadForm() {
         if (token) {
           const res = await gasApi.getMemberLoans(token);
           if (res.success) {
-            const activeLoans = res.data.filter((l: any) => l.status === "กำลังผ่อน");
+            const activeLoans = res.data.filter((l: any) => l.status !== "ปิดยอดแล้ว");
             setLoans(activeLoans);
             // If we have loans but no pre-selected contract, select the first one
             if (activeLoans.length > 0 && !searchContractId) {
