@@ -107,9 +107,30 @@ export default function MemberLoansPage() {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">ยอดเงินต้น</p>
-            <p className="text-lg font-black text-slate-800">฿{loan.amount.toLocaleString()}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">ยอดกู้สุทธิ</p>
+            <p className="text-lg font-black text-slate-800">฿{loan.totalPayable.toLocaleString()}</p>
           </div>
+        </div>
+
+        {/* Breakdown: Principal & Profit */}
+        <div className="px-5 pt-2 flex justify-between items-center text-[10px] font-bold">
+           <div className="flex gap-4">
+              <div className="flex flex-col">
+                <span className="text-slate-400 uppercase">เงินต้น</span>
+                <span className="text-slate-600">฿{loan.amount.toLocaleString()}</span>
+              </div>
+              {loan.interest > 0 && (
+                <div className="flex flex-col">
+                  <span className="text-slate-400 uppercase">{loan.loanType === 'ฉุกเฉิน' ? 'ค่าบริการ' : 'กำไร'}</span>
+                  <span className="text-amber-600">฿{loan.interest.toLocaleString()}</span>
+                </div>
+              )}
+           </div>
+           <div className="h-4 w-[1px] bg-slate-100" />
+           <div className="text-right">
+              <span className="text-slate-400 uppercase">ยอดผ่อนต่อเดือน</span>
+              <p className="text-slate-800">฿{(loan.installmentAmount || 0).toLocaleString()}</p>
+           </div>
         </div>
 
         {/* Card Middle: Installment & Progress */}

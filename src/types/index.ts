@@ -68,6 +68,7 @@ export interface MemberLoan {
   approvedDate: string;
   loanType: string;
   amount: number;
+  interest: number;
   totalPayable: number;
   duration: number;
   paidAmount: number;
