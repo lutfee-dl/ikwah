@@ -30,9 +30,12 @@ export default function LoanDetailModal({
 	onClose,
 }: LoanDetailModalProps) {
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-			<div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-				<div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50">
+		<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm" onClick={onClose}>
+			<div 
+				className="bg-white sm:rounded-2xl rounded-t-3xl w-full sm:max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[95svh] sm:max-h-[90vh] flex flex-col"
+				onClick={(e) => e.stopPropagation()}
+			>
+				<div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50 shrink-0">
 					<h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
 						<CreditCard className="text-sky-500" size={20} />
 						ตรวจสอบคำขอกู้เงิน
@@ -45,7 +48,7 @@ export default function LoanDetailModal({
 					</button>
 				</div>
 
-				<div className="p-6 space-y-6">
+				<div className="p-6 space-y-6 overflow-y-auto flex-1 no-scrollbar">
 					{/* Request ID & Date */}
 					<div className="flex justify-between pb-4 border-b border-dashed border-slate-200">
 						<div>
@@ -136,7 +139,7 @@ export default function LoanDetailModal({
 				</div>
 
 				{/* Actions */}
-				<div className="p-5 border-t border-slate-100 bg-white">
+				<div className="p-5 border-t border-slate-100 bg-white shrink-0">
 					{loan.status === "รอตรวจสอบ" ? (
 						<div className="grid grid-cols-2 gap-4">
 							<button
