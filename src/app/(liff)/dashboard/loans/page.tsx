@@ -73,8 +73,9 @@ export default function MemberLoansPage() {
     fetchLoans();
   }, []);
 
-  const activeLoans = loans.filter(l => l.status === "กำลังผ่อน");
+  const activeLoans = loans.filter(l => l.status === "กำลังผ่อน" || l.status === "ปกติ" || l.status === "อนุมัติแล้ว");
   const closedLoans = loans.filter(l => l.status === "ปิดยอดแล้ว");
+  const pendingLoans = loans.filter(l => l.status === "รอตรวจสอบ" || l.status === "รอพิจารณา");
 
   const LoanCard = ({ loan }: { loan: MemberLoan }) => {
     const progress = loan.totalPayable > 0 ? (loan.paidAmount / loan.totalPayable) * 100 : 0;
@@ -229,6 +230,37 @@ export default function MemberLoansPage() {
         <LoansSkeleton />
       ) : (
         <div className="space-y-10">
+          {/* Pending Requests */}
+          {pendingLoans.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between px-2">
+                <h2 className="font-black text-slate-800 flex items-center gap-2">
+                  <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
+                  คำขอกู้ที่รอตรวจสอบ
+                </h2>
+                <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
+                  {pendingLoans.length} รายการ
+                </span>
+              </div>
+              <div className="space-y-4">
+                {pendingLoans.map(loan => (
+                  <div key={loan.contractId} className="relative">
+                    <div className="absolute inset-0 bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200" />
+                    <div className="relative opacity-70 grayscale-[0.5]">
+                       <LoanCard loan={loan} />
+                    </div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
+                       <div className="bg-amber-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-200 flex items-center gap-2 border-2 border-white">
+                         <Clock size={12} />
+                         Waiting for Review
+                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Active Loans */}
           <section className="space-y-4">
             <div className="flex items-center justify-between px-2">
